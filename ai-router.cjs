@@ -1,5 +1,5 @@
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
-const WORKER_URL = (process.env.AI_PROXY_URL || 'https://steady-ground-ai-proxy.mnijhara.workers.dev/').replace(/\/$/, '');
+const WORKER_URL = (process.env.AI_PROXY_URL || 'https://getjobready-ai-proxy.mnijhara.workers.dev').replace(/\/$/, '');
 
 // Gemini keys live in the Cloudflare Worker. GetJobReady never receives or stores them.
 let workerFailures = 0;
@@ -54,8 +54,6 @@ async function generate(prompt, options = {}) {
     maxOutputTokens: options.maxOutputTokens || 6000,
   };
 
-  // Send both the native Gemini shape and a simple prompt field so the Worker can
-  // remain a thin proxy without exposing the Gemini credentials to GetJobReady.
   const body = {
     prompt,
     model,
