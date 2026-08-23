@@ -1,0 +1,1 @@
+Adaptive voice interview layer: browser speech synthesis reads interviewer questions and SpeechRecognition captures candidate answers. The existing interview submit flow remains authoritative, so adaptive follow-up behavior can be added server-side without changing the scoring pipeline.
