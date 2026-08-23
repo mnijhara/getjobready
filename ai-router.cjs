@@ -32,9 +32,10 @@ async function generate(prompt, options = {}) {
     try {
       const parts = options.parts || [{ text: prompt }];
       const model = options.model || DEFAULT_MODEL;
+      const generationConfig = { responseMimeType: options.responseMimeType || 'application/json', maxOutputTokens: options.maxOutputTokens || 6000 };
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(slot.key)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: options.temperature ?? 0.25, responseMimeType: options.responseMimeType || 'application/json', maxOutputTokens: options.maxOutputTokens || 6000 } }),
+        body: JSON.stringify({ contents: [{ parts }], generationConfig }),
       });
       if (!response.ok) { const body = await response.text().catch(() => ''); markFailure(slot, response.status); lastError = new Error(`Gemini ${response.status}: ${body.slice(0, 300)}`); continue; }
       const data = await response.json();
