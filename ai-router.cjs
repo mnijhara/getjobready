@@ -1,50 +1,96 @@
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
-const slots = Array.from({ length: 5 }, (_, i) => ({ index: i + 1, key: process.env[`GEMINI_API_KEY_${i + 1}`] || '', failures: 0, cooldownUntil: 0, requests: 0, lastUsed: 0 })).filter(s => s.key);
-if (!slots.length && process.env.GEMINI_API_KEY) slots.push({ index: 0, key: process.env.GEMINI_API_KEY, failures: 0, cooldownUntil: 0, requests: 0, lastUsed: 0 });
-let cursor = 0;
-function configured() { return slots.length > 0; }
-function publicStatus() { return { configured: configured(), keySlots: slots.length, healthySlots: slots.filter(s => Date.now() >= s.cooldownUntil).length, model: DEFAULT_MODEL, router: 'round-robin + automatic failover' }; }
-function nextSlot() {
-  if (!slots.length) return null;
-  const now = Date.now();
-  for (let i = 0; i < slots.length; i++) {
-    const pos = (cursor + i) % slots.length, slot = slots[pos];
-    if (now >= slot.cooldownUntil) { cursor = (pos + 1) % slots.length; slot.lastUsed = now; slot.requests += 1; return slot; }
-  }
-  return [...slots].sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0];
+const WORKER_URL = (process.env.AI_PROXY_URL || 'https://steady-ground-ai-proxy.mnijhara.workers.dev/').replace(/\/$/, '');
+
+// Gemini keys live in the Cloudflare Worker. GetJobReady never receives or stores them.
+let workerFailures = 0;
+let workerCooldownUntil = 0;
+let workerRequests = 0;
+let lastWorkerUse = 0;
+
+function configured() { return Boolean(WORKER_URL); }
+function publicStatus() {
+  const healthy = Date.now() >= workerCooldownUntil;
+  return {
+    configured: configured(),
+    keySlots: configured() ? 5 : 0,
+    healthySlots: configured() && healthy ? 5 : 0,
+    model: DEFAULT_MODEL,
+    router: 'Cloudflare 5-key round-robin + automatic failover',
+    proxy: WORKER_URL,
+  };
 }
-function markFailure(slot, status) {
-  slot.failures += 1;
-  const seconds = status === 429 ? Math.min(90, 10 * slot.failures) : status === 401 || status === 403 ? 300 : 15;
-  slot.cooldownUntil = Date.now() + seconds * 1000;
+function markFailure(status) {
+  workerFailures += 1;
+  const seconds = status === 429 ? Math.min(90, 10 * workerFailures) : status === 401 || status === 403 ? 300 : 15;
+  workerCooldownUntil = Date.now() + seconds * 1000;
 }
-function markSuccess(slot) { slot.failures = 0; slot.cooldownUntil = 0; }
+function markSuccess() {
+  workerFailures = 0;
+  workerCooldownUntil = 0;
+}
 function parseJson(text) {
   const cleaned = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
   try { return JSON.parse(cleaned); } catch { throw new Error('Gemini returned invalid JSON'); }
 }
+function extractText(data) {
+  if (typeof data === 'string') return data;
+  if (data?.candidates?.[0]?.content?.parts) return data.candidates[0].content.parts.map(p => p.text || '').join('');
+  if (typeof data?.text === 'string') return data.text;
+  if (typeof data?.output === 'string') return data.output;
+  if (typeof data?.response === 'string') return data.response;
+  if (typeof data?.result === 'string') return data.result;
+  if (data?.result && typeof data.result === 'object') return JSON.stringify(data.result);
+  return '';
+}
+
 async function generate(prompt, options = {}) {
   if (!configured()) throw Object.assign(new Error('AI_NOT_CONFIGURED'), { code: 'AI_NOT_CONFIGURED' });
-  const attempts = Math.min(slots.length, options.attempts || slots.length);
-  let lastError = null;
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const slot = nextSlot(); if (!slot) break;
-    try {
-      const parts = options.parts || [{ text: prompt }];
-      const model = options.model || DEFAULT_MODEL;
-      const generationConfig = { responseMimeType: options.responseMimeType || 'application/json', maxOutputTokens: options.maxOutputTokens || 6000 };
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(slot.key)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig }),
-      });
-      if (!response.ok) { const body = await response.text().catch(() => ''); markFailure(slot, response.status); lastError = new Error(`Gemini ${response.status}: ${body.slice(0, 300)}`); continue; }
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-      if (!text) throw new Error('Gemini returned an empty response');
-      markSuccess(slot);
-      return options.json === false ? text : parseJson(text);
-    } catch (error) { lastError = error; markFailure(slot, 500); }
+  if (Date.now() < workerCooldownUntil) throw new Error('AI_PROXY_COOLDOWN');
+
+  const parts = options.parts || [{ text: prompt }];
+  const model = options.model || DEFAULT_MODEL;
+  const generationConfig = {
+    responseMimeType: options.responseMimeType || 'application/json',
+    maxOutputTokens: options.maxOutputTokens || 6000,
+  };
+
+  // Send both the native Gemini shape and a simple prompt field so the Worker can
+  // remain a thin proxy without exposing the Gemini credentials to GetJobReady.
+  const body = {
+    prompt,
+    model,
+    contents: [{ parts }],
+    generationConfig,
+  };
+
+  workerRequests += 1;
+  lastWorkerUse = Date.now();
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      markFailure(response.status);
+      throw new Error(`AI proxy ${response.status}: ${errorBody.slice(0, 300)}`);
+    }
+    const data = await response.json();
+    const text = extractText(data);
+    if (!text) {
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        markSuccess();
+        return options.json === false ? JSON.stringify(data) : data;
+      }
+      throw new Error('AI proxy returned an empty response');
+    }
+    markSuccess();
+    return options.json === false ? text : parseJson(text);
+  } catch (error) {
+    if (!String(error.message || '').startsWith('AI proxy ')) markFailure(500);
+    throw error;
   }
-  throw lastError || new Error('No Gemini key available');
 }
+
 module.exports = { generate, publicStatus, configured };
