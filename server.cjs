@@ -39,6 +39,23 @@ app.post('/api/interview-feedback', async (req, res) => {
   catch (error) { const words = answers.reduce((n, a) => n + String(a.answer || '').trim().split(/\s+/).filter(Boolean).length, 0); return res.json({ score: Math.min(94, Math.max(62, 68 + Math.min(18, Math.floor(words / 35)))), strengths: ['You completed the full interview', 'Your answers show preparation and intent', 'You demonstrated willingness to reflect'], improvements: ['Use Situation → Action → Result', 'Add numbers, scope or concrete evidence', 'Lead with the outcome and keep context concise'], nextAction: 'Repeat the interview and make every example end with a clear result and learning.' }); }
 });
 
+app.post('/api/interview-turn', async (req, res) => {
+  const { jd = '', career = 'job', question = '', answer = '', history = [], turn = 1, maxTurns = 7 } = req.body || {};
+  if (!question.trim() || !answer.trim()) return res.status(400).json({ error: 'Question and answer are required.' });
+  const prompt = `You are conducting a realistic campus-to-corporate voice interview for a ${career === 'internship' ? 'summer internship' : 'full-time role'}. This is a live conversation, not a questionnaire. Evaluate the candidate's latest spoken answer, decide whether to probe deeper or move to a new competency, and ask exactly ONE concise next question when continuing. Be natural, specific to the JD, and progressively harder. Do not repeat questions. If the candidate gives a vague claim, ask for evidence; if they give a strong example, probe impact or learning. After ${maxTurns} turns, end the interview. Return ONLY JSON with exactly: done (boolean), nextQuestion (string), evaluation (object with score 0-100, strengths array max 2, improvement string), finalFeedback (object or null). If done=true, nextQuestion must be empty and finalFeedback must contain score (0-100), strengths (max 4), improvements (max 4), nextAction. If done=false, finalFeedback must be null.\n\nTARGET JD:\n${jd}\n\nTURN ${turn} OF ${maxTurns}\nCURRENT QUESTION:\n${question}\n\nCANDIDATE ANSWER:\n${answer}\n\nPREVIOUS TURNS:\n${JSON.stringify(history).slice(0, 12000)}`;
+  try {
+    const data = await generate(prompt, { maxOutputTokens: 2500 });
+    if (!data || typeof data !== 'object') throw new Error('Invalid interview turn');
+    if (turn >= maxTurns) data.done = true;
+    return res.json(data);
+  } catch (error) {
+    console.error('interview-turn:', error.message);
+    const fallbackQuestions = ['Tell me about a project where you had to influence someone without authority.', 'What would you do if your manager gave you two urgent priorities at the same time?', 'Tell me about a failure or setback and what changed afterwards.', 'Why should we choose you over another candidate with similar academic credentials?'];
+    const next = fallbackQuestions[Math.min(turn - 1, fallbackQuestions.length - 1)];
+    return res.json(turn >= maxTurns ? { done: true, nextQuestion: '', evaluation: { score: 70, strengths: ['You communicated your thinking', 'You stayed engaged with the question'], improvement: 'Add sharper evidence and measurable outcomes.' }, finalFeedback: { score: 70, strengths: ['Completed a realistic interview conversation', 'Showed willingness to reflect'], improvements: ['Use specific examples and outcomes', 'Keep answers structured and concise'], nextAction: 'Repeat the interview and strengthen the evidence in every answer.' } } : { done: false, nextQuestion: next, evaluation: { score: 70, strengths: ['You addressed the question'], improvement: 'Add a concrete example or measurable result.' }, finalFeedback: null });
+  }
+});
+
 app.post('/api/coach', async (req, res) => {
   const { module = 'corporate', context = '', career = 'job' } = req.body || {};
   const prompt = module === 'ai' ? `Create a practical AI-at-work learning sprint for a student entering a ${career === 'internship' ? 'summer internship' : 'corporate role'}. Focus on research, writing, analysis, meetings, automation, verification and responsible use. Return ONLY JSON with diagnosis, workflows (5), promptExamples (5), guardrails (5), sevenDayPlan (7). Context: ${context}` : `Create a practical corporate-readiness micro-plan for a student entering a ${career === 'internship' ? 'summer internship' : 'first full-time role'}. Focus on resilience, stress management, feedback, communication, priorities, boundaries and asking for help. Return ONLY JSON with score, diagnosis, actions (5), weeklyHabit, reflectionQuestion. Student context: ${context}`;
