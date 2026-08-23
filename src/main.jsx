@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BarChart3,BriefcaseBusiness,ChevronRight,RefreshCw,Code2,MessageSquareText,X,Volume2,Square,Headphones} from 'lucide-react';
 import './styles.css';
+import './voice.css';
 
 const modules=[
 {id:'resume',icon:FileText,title:'CV → Job Match',text:'Upload your CV and target JD. Get a tailored CV strategy, match score and preparation plan.',tag:'Start here'},
