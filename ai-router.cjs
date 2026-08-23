@@ -1,5 +1,6 @@
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
 const WORKER_URL = (process.env.AI_PROXY_URL || 'https://getjobready-ai-proxy.mnijhara.workers.dev').replace(/\/$/, '');
+const GENERATE_URL = `${WORKER_URL}/generate`;
 
 // Gemini keys live in the Cloudflare Worker. GetJobReady never receives or stores them.
 let workerFailures = 0;
@@ -17,6 +18,8 @@ function publicStatus() {
     model: DEFAULT_MODEL,
     router: 'Cloudflare 5-key round-robin + automatic failover',
     proxy: WORKER_URL,
+    requests: workerRequests,
+    lastRequestAt: lastWorkerUse || null,
   };
 }
 function markFailure(status) {
@@ -59,12 +62,13 @@ async function generate(prompt, options = {}) {
     model,
     contents: [{ parts }],
     generationConfig,
+    json: options.json !== false,
   };
 
   workerRequests += 1;
   lastWorkerUse = Date.now();
   try {
-    const response = await fetch(WORKER_URL, {
+    const response = await fetch(GENERATE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
