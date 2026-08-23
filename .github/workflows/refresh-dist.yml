@@ -1,0 +1,54 @@
+name: Refresh tracked production artifacts
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-production-artifacts
+  cancel-in-progress: true
+
+jobs:
+  build-artifacts:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Check production server
+        run: node --check server.cjs
+      - name: Build frontend
+        run: npm run build
+      - name: Build production server
+        run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
+      - name: Verify production artifacts
+        run: |
+          test -f dist/index.html
+          test -f server.js
+          test -f server.cjs
+          node --check server.js
+          PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in {1..30}; do if curl -fsS http://127.0.0.1:4173/api/health > /tmp/health.json; then break; fi; sleep 1; done
+          grep -q '"ok":true' /tmp/health.json
+          curl -fsS http://127.0.0.1:4173/ | grep -q 'GetJobReady'
+      - name: Commit refreshed production artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist server.js
+          if git diff --cached --quiet; then echo "production artifacts are already current"; exit 0; fi
+          git commit -m "build: refresh tracked production artifacts"
+          git push origin HEAD:main
