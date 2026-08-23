@@ -1,0 +1,49 @@
+name: Build and verify GetJobReady
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Check production server
+        run: node --check server.cjs
+      - name: Build Vite frontend
+        run: npm run build
+      - name: Bundle production server
+        run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
+      - name: Verify production artifact
+        run: |
+          test -f dist/index.html
+          test -f server.js
+          node --check server.js
+          echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
+      - name: Smoke test
+        run: |
+          PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:4173/api/health && break || sleep 1; done
+          curl -fsS http://127.0.0.1:4173/ | grep -q "GetJobReady"
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: getjobready-production-${{ github.sha }}
+          path: |
+            dist
+            server.js
+            server.cjs
+            package.json
+          retention-days: 14
