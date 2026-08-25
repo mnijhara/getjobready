@@ -23,6 +23,8 @@ expect(modules.includes('Selected drill:'), 'AI roadmap requests preserve the se
 expect(modules.includes('gjr-module-company'), 'demo module accepts a target company');
 expect(modules.includes("'/api/demo'"), 'demo module uses the product demo API');
 expect(modules.includes("'/api/coach'"), 'roadmap coaching modules use the AI coach API');
+expect(modules.includes("'\"':'&quot;'"), 'generated demo HTML is safely escaped for iframe embedding');
+expect(modules.includes('maxlength="6000"'), 'student module responses have a bounded input size');
 expect(session.includes("sessionStorage.setItem(key,activeCareer())"), 'career selection persists across sessions');
 expect(session.includes("body.career=read()"), 'analysis requests use the persisted career selection');
 expect(server.includes("mode === 'general'"), 'server has separate general-CV AI interview logic');
