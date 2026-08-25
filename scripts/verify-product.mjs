@@ -33,6 +33,11 @@ expect(session.includes("body.career=read()"), 'analysis requests use the persis
 expect(server.includes("mode === 'general'"), 'server has separate general-CV AI interview logic');
 expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW'), 'server has explicit CV + JD interview logic');
 expect(server.includes('X-Content-Type-Options'), 'security headers are enabled');
+expect(server.includes('Permissions-Policy'), 'microphone permissions are explicitly scoped');
+expect(server.includes('allowedOrigin ? allowedOrigin'), 'API CORS policy recognizes the configured public origin');
+expect(server.includes('origin === allowedOrigin'), 'API CORS rejects unexpected configured cross-origin requests');
+expect(server.includes('RATE_MAX_BUCKETS = 5_000'), 'rate limiter has a bounded memory footprint');
+expect(server.includes('cleanupRateBuckets'), 'rate limiter periodically removes stale buckets');
 expect(server.includes('Too many requests'), 'API rate limiting is enabled');
 expect(server.includes('app.listen(PORT'), 'production server starts successfully');
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'), 'AI router uses the server-side Cloudflare AI proxy');
