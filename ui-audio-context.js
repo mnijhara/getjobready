@@ -3,6 +3,14 @@
   const context=()=>({cv:sessionStorage.getItem('gjr_cv_text')||'',cvData:sessionStorage.getItem('gjr_cv_data')||'',cvMime:sessionStorage.getItem('gjr_cv_mime')||'',jd:sessionStorage.getItem('gjr_jd_text')||''});
   let prepared=null, preparing=null, fetchPatched=false;
   const nativeFetch=window.fetch.bind(window);
+  function remember(body){
+    try{
+      if(body.cv)sessionStorage.setItem('gjr_cv_text',body.cv);
+      if(body.jd&&!String(body.jd).startsWith('GENERAL CV REVIEW'))sessionStorage.setItem('gjr_jd_text',body.jd);
+      if(body.data){sessionStorage.setItem('gjr_cv_data',body.data);sessionStorage.setItem('gjr_cv_mime',body.mime||'application/pdf');}
+      sessionStorage.setItem('gjr_cv_mode',body.mode||mode());
+    }catch{}
+  }
   async function prepare(){
     if(prepared?.mode===mode()&&prepared.questions?.length)return prepared;
     if(preparing)return preparing;
@@ -24,21 +32,32 @@
   function patchFetch(){
     if(fetchPatched)return;
     fetchPatched=true;
-    const previous=window.fetch.bind(window);
     window.fetch=async(input,init={})=>{
       const url=typeof input==='string'?input:(input?.url||'');
-      if(url.includes('/api/interview-turn')&&init.method==='POST'&&prepared?.questions?.length){
+      if(init.method==='POST'&&typeof init.body==='string'&&url.includes('/api/')){
         try{
-          const body=typeof init.body==='string'?JSON.parse(init.body):{...init.body};
-          const turn=Number(body.turn)||1;
-          if(turn===1)body.question=prepared.questions[0];
-          body.mode=mode();
-          body.cv=body.cv||context().cv;
-          body.jd=body.jd||context().jd;
-          init={...init,body:JSON.stringify(body)};
+          const body=JSON.parse(init.body);
+          if(url.includes('/api/analyze-upload')||url.includes('/api/analyze')){
+            const m=mode();
+            remember({...body,mode:m});
+            if(m==='general'){
+              body.jd='';
+              body.mode='general';
+            }else body.mode='specific';
+            init={...init,body:JSON.stringify(body)};
+          }
+          if(url.includes('/api/interview-turn')){
+            const turn=Number(body.turn)||1;
+            if(prepared?.questions?.length&&turn===1)body.question=prepared.questions[0];
+            const c=context();
+            body.mode=mode();
+            body.cv=body.cv||c.cv;
+            body.jd=body.jd||c.jd;
+            init={...init,body:JSON.stringify(body)};
+          }
         }catch{}
       }
-      return previous(input,init);
+      return nativeFetch(input,init);
     };
   }
   function armVoiceButton(){
@@ -69,8 +88,7 @@
     }
   }
   function updateLabel(){
-    const h=document.querySelector('.voice-stage');
-    if(!h)return;
+    if(!document.querySelector('.voice-stage'))return;
     const head=document.querySelector('.workspace-head h1');
     const p=document.querySelector('.workspace-head p');
     if(head)head.textContent='AI Audio Interview';
