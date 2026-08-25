@@ -42,8 +42,10 @@ jobs:
           test -f server.cjs
           node --check server.js
           grep -R -q "GetJobReady" dist
-          grep -R -q "YOUR CAREER FEED" dist
-          grep -R -q "Talk to your AI interviewer" dist
+          grep -R -q "AI Audio Interview" dist
+          grep -R -q "General CV" dist
+          grep -R -q "CV + specific JD" dist
+          grep -R -q "Start live audio interview" dist
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
@@ -56,5 +58,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add server.cjs dist server.js
           if git diff --cached --quiet; then echo "production artifacts are already current"; exit 0; fi
-          git commit -m "build: repair server entrypoint and refresh artifacts"
+          git commit -m "build: refresh production artifacts"
           git push origin HEAD:main
