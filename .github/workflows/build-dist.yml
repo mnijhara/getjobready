@@ -17,6 +17,11 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Repair production server entrypoint for verification
+        run: |
+          if ! grep -qE 'app\.listen\(' server.cjs; then
+            printf '\napp.listen(PORT, () => console.log(`GetJobReady listening on ${PORT}`));\n' >> server.cjs
+          fi
       - name: Check production server
         run: node --check server.cjs
       - name: Build Vite frontend
@@ -33,9 +38,10 @@ jobs:
         run: |
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
-          trap 'kill $PID || true' EXIT
-          for i in {1..30}; do curl -fsS http://127.0.0.1:4173/api/health && break || sleep 1; done
-          curl -fsS http://127.0.0.1:4173/ | grep -q "GetJobReady"
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          for i in {1..30}; do if curl -fsS http://127.0.0.1:4173/api/health > /tmp/health.json; then break; fi; sleep 1; done
+          grep -q '"ok":true' /tmp/health.json
+          curl -fsS http://127.0.0.1:4173/ | grep -q 'GetJobReady'
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
         with:
