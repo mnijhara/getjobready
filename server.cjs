@@ -51,7 +51,9 @@ app.post('/api/analyze-upload', async (req, res) => {
 app.post('/api/interview-feedback', async (req, res) => {
   const { jd = '', answers = [], mode = 'specific', cv = '' } = req.body || {};
   const safeAnswers = Array.isArray(answers) ? answers.slice(-10).map(a=>({question:String(a.question||'').slice(0,1000),answer:String(a.answer||'').slice(0,5000)})) : [];
-  const context = mode === 'general' ? `GENERAL CV INTERVIEW. Use the candidate CV as the preparation context:\n${String(cv).slice(0,40000)}` : `TARGET JD:\n${String(jd).slice(0,30000)}`;
+  const context = mode === 'general'
+    ? `GENERAL CV INTERVIEW. Use the candidate CV as the preparation context:\n${String(cv).slice(0,40000)}`
+    : `ROLE-SPECIFIC CV + JD INTERVIEW. Use BOTH sources when evaluating evidence, relevance and fit.\n\nCANDIDATE CV:\n${String(cv).slice(0,40000)}\n\nTARGET JD:\n${String(jd).slice(0,30000)}`;
   try { return res.json(await generate(`You are a demanding but supportive campus interviewer. Evaluate these interview answers. Return ONLY valid JSON with exactly: score (0-100), strengths (max 4), improvements (max 4), nextAction. Assess clarity, structure, evidence, ownership, relevance, communication, confidence and business thinking.\n\n${context}\n\nANSWERS:\n${JSON.stringify(safeAnswers)}`)); }
   catch (error) { const words = safeAnswers.reduce((n, a) => n + a.answer.trim().split(/\s+/).filter(Boolean).length, 0); return res.json({ score: Math.min(94, Math.max(62, 68 + Math.min(18, Math.floor(words / 35)))), strengths: ['You completed the full interview', 'Your answers show preparation and intent', 'You demonstrated willingness to reflect'], improvements: ['Use Situation → Action → Result', 'Add numbers, scope or concrete evidence', 'Lead with the outcome and keep context concise'], nextAction: 'Repeat the interview and make every example end with a clear result and learning.' }); }
 });
