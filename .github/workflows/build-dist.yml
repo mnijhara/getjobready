@@ -17,6 +17,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Product regression verification
+        run: npm run verify
       - name: Repair production server entrypoint for verification
         run: |
           if ! grep -qE 'app\.listen\(' server.cjs; then
@@ -33,6 +35,11 @@ jobs:
           test -f dist/index.html
           test -f server.js
           node --check server.js
+          grep -R -q "GetJobReady" dist
+          grep -R -q "AI Audio Interview" dist
+          grep -R -q "General CV" dist
+          grep -R -q "CV + specific JD" dist
+          grep -R -q "SpeechRecognition" dist
           echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
       - name: Smoke test
         run: |
