@@ -38,6 +38,9 @@ jobs:
           test -f server.js
           test -f server.cjs
           node --check server.js
+          grep -R -q "GetJobReady" dist
+          grep -R -q "YOUR CAREER FEED" dist
+          grep -R -q "Talk to your AI interviewer" dist
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
           trap 'kill $PID || true' EXIT
