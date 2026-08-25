@@ -32,6 +32,8 @@ expect(session.includes("sessionStorage.setItem(key,activeCareer())"), 'career s
 expect(session.includes("body.career=read()"), 'analysis requests use the persisted career selection');
 expect(server.includes("mode === 'general'"), 'server has separate general-CV AI interview logic');
 expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW'), 'server has explicit CV + JD interview logic');
+expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW. Use BOTH sources'), 'post-interview feedback evaluates both CV and JD');
+expect(server.includes('CANDIDATE CV:\\n${String(cv).slice(0,40000)}\\n\\nTARGET JD:'), 'role-specific feedback prompt includes candidate CV and target JD');
 expect(server.includes('X-Content-Type-Options'), 'security headers are enabled');
 expect(server.includes('Permissions-Policy'), 'microphone permissions are explicitly scoped');
 expect(server.includes('allowedOrigin ? allowedOrigin'), 'API CORS policy recognizes the configured public origin');
