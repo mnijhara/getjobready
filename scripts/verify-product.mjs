@@ -32,8 +32,10 @@ expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW'), 'server has explicit 
 expect(server.includes('X-Content-Type-Options'), 'security headers are enabled');
 expect(server.includes('Too many requests'), 'API rate limiting is enabled');
 expect(server.includes('app.listen(PORT'), 'production server starts successfully');
-expect(router.includes('GEMINI_API_KEY_1') || router.includes('GEMINI_API_KEY_2'), 'AI router uses server-side Gemini key slots');
-expect(!/(AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,})/.test(`${entry}\n${app}\n${modules}\n${session}\n${server}\n${router}`), 'no obvious provider API key is committed to product source');
+expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'), 'AI router uses the server-side Cloudflare AI proxy');
+expect(router.includes('keySlots: configured() ? 5 : 0'), 'AI router exposes the configured five-key proxy capacity without storing keys');
+expect(router.includes('Cloudflare 5-key round-robin + automatic failover'), 'AI router documents five-key proxy failover');
+expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${modules}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
 
 execFileSync(process.execPath, ['--check', 'server.cjs'], { stdio: 'inherit' });
 console.log('PASS: server.cjs syntax check');
