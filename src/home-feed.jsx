@@ -44,7 +44,10 @@ function installCareerFeed(){
     <button data-feed-nav="progress"><strong>✦</strong><span>Progress</span></button>
   </nav>`;
   home.replaceWith(feed);
-  grid.remove();
+  // Keep the original React module grid mounted (but hidden) so its delegated
+  // click handlers remain alive. The feed shortcuts can safely activate those
+  // real product flows instead of clicking detached React nodes.
+  grid.style.display='none';
   root.querySelector('.roadmap')?.remove();
   root.querySelector('footer')?.remove();
   const clickModule=i=>moduleButtons[i]?.click();
