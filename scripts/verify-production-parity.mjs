@@ -16,7 +16,7 @@ expect(entry.includes('/src/audio-auto.js'), 'source entry loads the hands-free 
 expect(cvFlow.includes('/api/improve-cv'), 'CV improvement flow owns the improvement API bridge');
 expect(cvFlow.includes("url==='/api/interview-turn'||url==='/api/interview-feedback'"), 'saved CV flow intercepts interview and feedback requests');
 expect(/body\.cv=improved/.test(cvFlow), 'saved improved CV replaces the original interview CV text');
-expect(cvFlow.includes("body.cvData='';body.cvMime=''"), 'original uploaded CV bytes are not sent after the improved CV is saved');
+expect(/body\.cvData\s*=\s*['"]{2}/.test(cvFlow) && /body\.cvMime\s*=\s*['"]{2}/.test(cvFlow), 'original uploaded CV bytes are not sent after the improved CV is saved');
 expect(cvFlow.includes("sessionStorage.setItem('gjr_cv_ready','1')"), 'final CV save creates an interview-ready state');
 expect(cvFlow.includes("sessionStorage.removeItem('gjr_cv_ready')"), 'editing the final CV invalidates the saved state');
 expect(cvFlow.includes('Make your CV stronger first.'), 'CV improvement studio is present');
