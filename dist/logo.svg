@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="GetJobReady logo">
+<defs><linearGradient id="g" x1="70" y1="430" x2="450" y2="70" gradientUnits="userSpaceOnUse"><stop stop-color="#6C4FF6"/><stop offset=".55" stop-color="#8B5CF6"/><stop offset="1" stop-color="#EC4899"/></linearGradient></defs>
+<rect width="512" height="512" rx="120" fill="#10172A"/>
+<path d="M355 111c-58-43-139-34-185 21-47 55-45 139 4 191 51 55 137 63 198 17" fill="none" stroke="url(#g)" stroke-width="58" stroke-linecap="round"/>
+<path d="M334 241h92v112" fill="none" stroke="url(#g)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M294 177v190" stroke="#fff" stroke-width="50" stroke-linecap="round"/>
+<circle cx="294" cy="113" r="26" fill="#F9A8D4"/>
+</svg>
