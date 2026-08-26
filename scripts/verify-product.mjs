@@ -29,7 +29,7 @@ expect(homeFeed.includes('gjr-interview'), 'student feed exposes audio interview
 expect(homeFeed.includes('gjr-readiness'), 'student feed exposes Corporate Ready shortcut');
 expect(homeFeed.includes('gjr-ai'), 'student feed exposes AI at Work shortcut');
 expect(homeFeed.includes('gjr-demo'), 'student feed exposes Impress the Interviewer shortcut');
-expect(homeFeed.includes('clickModule(4)'), 'Impress the Interviewer shortcut routes to the shipped demo module');
+expect(homeFeed.includes("markAndOpen('demo',4)"), 'Impress the Interviewer shortcut routes to the fifth shipped module');
 expect(homeFeed.includes('data-feed-career'), 'student feed exposes internship/full-time career switch');
 expect(homeFeed.includes('setCareer=(value)'), 'career feed has a single state-sync handler');
 expect(homeFeed.includes("classList.toggle('active',x.dataset.feedCareer===value)"), 'career feed toggle updates its active visual state immediately');
