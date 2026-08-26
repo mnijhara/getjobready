@@ -27,7 +27,7 @@ function installCareerFeedV2(){
     {label:'General CV interview',text:'Questions based only on your CV.',onClick:()=>openWorkspace('general')},
     {label:'CV + JD interview',text:'Questions based on your CV and the target role.',onClick:()=>openWorkspace('specific')}
   ])};
-  const openModule=(key,index,title,text)=>{writeProgress(key,'started');if(index<2){moduleButtons[index]?.click();return;}dialog(title,text,[{label:'Back to preparation',text:'Continue your core CV and interview journey.'}])};
+  const openModule=(key,index,title,text)=>{writeProgress(key,'started');if(index<2){moduleButtons[index]?.click();return;}if(typeof window.gjrOpenModule==='function'){window.gjrOpenModule(title);return;}dialog(title,text,[{label:'Back to preparation',text:'Continue your core CV and interview journey.'}])};
   const feed=document.createElement('main');feed.className='feed gjr-career-feed';
   feed.innerHTML=`<section class="stories" aria-label="Career shortcuts">
     <button type="button" class="story add gjr-start"><b>+</b><span>Start</span></button>
