@@ -8,8 +8,8 @@ function installCareerFeed(){
   const careerButtons=[...home.querySelectorAll('.career-toggle button')];
   const activeCareer=careerButtons.find(b=>b.classList.contains('active'))?.textContent?.includes('Internship')?'internship':'job';
   const progressKey='gjr_progress_v1';
-  const readProgress=()=>{try{return JSON.parse(sessionStorage.getItem(progressKey)||'{}')}catch{return {}}};
-  const writeProgress=(key)=>{const p=readProgress();p[key]=true;sessionStorage.setItem(progressKey,JSON.stringify(p));};
+  const readProgress=()=>{try{const p=JSON.parse(sessionStorage.getItem(progressKey)||'{}');return p&&typeof p==='object'?p:{}}catch{return {}}};
+  const writeProgress=(key,status='started')=>{const p=readProgress();if(!p[key]||status==='completed')p[key]=status;sessionStorage.setItem(progressKey,JSON.stringify(p));};
   const feed=document.createElement('main');
   feed.className='feed gjr-career-feed';
   feed.innerHTML=`<style>
@@ -48,7 +48,7 @@ function installCareerFeed(){
     <button class="feed-card white gjr-ai"><div class="feed-icon">✨</div><div><span class="feed-tag">AI SKILL</span><h3>Learn AI that actually helps</h3><p>Research, writing, analysis and automation workflows.</p></div><b>→</b></button>
     <button class="feed-card demo gjr-demo"><div class="feed-icon">🚀</div><div><span class="feed-tag">STAND OUT</span><h3>Impress the interviewer</h3><p>Turn a real company problem into a polished product concept and demo.</p></div><b>→</b></button>
   </div>
-  <section class="progress-panel" hidden aria-live="polite"><div class="progress-head"><div><span class="eyebrow">YOUR PROGRESS</span><h3>Build evidence, not just confidence.</h3><p>Tracks show what you've started. Complete the activity to turn progress into evidence.</p></div><strong class="progress-score">0%</strong></div><div class="progress-track"><div class="progress-fill"></div></div><div class="progress-items"></div></section>
+  <section class="progress-panel" hidden aria-live="polite"><div class="progress-head"><div><span class="eyebrow">YOUR PROGRESS</span><h3>Build evidence, not just confidence.</h3><p>Started tracks are shown separately from completed activities.</p></div><strong class="progress-score">0%</strong></div><div class="progress-track"><div class="progress-fill"></div></div><div class="progress-items"></div></section>
   <section class="daily-card"><div><span class="eyebrow">TODAY'S MISSION</span><h3>Give me your 90-second answer.</h3><p>Practice your introduction before your next interview.</p></div><button class="round-btn gjr-interview">▶</button></section>
   <nav class="feed-nav" aria-label="Student navigation">
     <button class="active" data-feed-nav="home"><strong>⌂</strong><span>Home</span></button>
@@ -60,7 +60,7 @@ function installCareerFeed(){
   grid.style.display='none';
   root.querySelector('.roadmap')?.remove();
   const clickModule=i=>moduleButtons[i]?.click();
-  const markAndOpen=(key,index)=>{writeProgress(key);clickModule(index)};
+  const markAndOpen=(key,index)=>{writeProgress(key,'started');clickModule(index)};
   feed.querySelectorAll('.gjr-start,.gjr-resume').forEach(b=>b.addEventListener('click',()=>markAndOpen('cv',0)));
   feed.querySelectorAll('.gjr-interview').forEach(b=>b.addEventListener('click',()=>markAndOpen('interview',1)));
   feed.querySelectorAll('.gjr-readiness').forEach(b=>b.addEventListener('click',()=>markAndOpen('corporate',2)));
@@ -74,13 +74,16 @@ function installCareerFeed(){
   feed.querySelectorAll('[data-feed-career]').forEach(b=>b.addEventListener('click',()=>setCareer(b.dataset.feedCareer)));
   const renderProgress=()=>{
     const p=readProgress();
-    const items=[['cv','CV preparation started'],['interview','AI interview started'],['corporate','Corporate readiness started'],['ai','AI at Work started'],['demo','Stand-out demo started']];
-    const done=items.filter(([key])=>p[key]).length;
+    const items=[['cv','CV preparation'],['interview','AI interview'],['corporate','Corporate readiness'],['ai','AI at Work'],['demo','Stand-out demo']];
+    const completed=items.filter(([key])=>p[key]==='completed').length;
+    const started=items.filter(([key])=>p[key]&&p[key]!=='completed').length;
     const panel=feed.querySelector('.progress-panel');
-    panel.querySelector('.progress-score').textContent=`${Math.round(done/items.length*100)}%`;
-    panel.querySelector('.progress-fill').style.width=`${done/items.length*100}%`;
-    panel.querySelector('.progress-items').innerHTML=items.map(([key,label])=>`<div class="progress-item"><span>${p[key]?'✓':'○'}</span><span>${label}</span><b>${p[key]?'Started':'Next'}</b></div>`).join('');
+    panel.querySelector('.progress-score').textContent=`${Math.round(completed/items.length*100)}%`;
+    panel.querySelector('.progress-fill').style.width=`${completed/items.length*100}%`;
+    panel.querySelector('.progress-items').innerHTML=items.map(([key,label])=>{const status=p[key]==='completed'?'Done':p[key]?'Started':'Next';return `<div class="progress-item"><span>${status==='Done'?'✓':status==='Started'?'•':'○'}</span><span>${label}</span><b>${status}</b></div>`}).join('');
+    panel.querySelector('.progress-head p').textContent=`${completed} of ${items.length} activities completed${started?` · ${started} started`:''}.`;
   };
+  window.addEventListener('gjr-progress',e=>{const key=e.detail?.key,status=e.detail?.status;if(key&&status)writeProgress(key,status);renderProgress();},{passive:true});
   feed.querySelectorAll('[data-feed-nav]').forEach(b=>b.addEventListener('click',()=>{
     feed.querySelectorAll('[data-feed-nav]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
     const target=b.dataset.feedNav;
