@@ -5,14 +5,14 @@ const read = (file) => fs.readFileSync(file, 'utf8');
 const fail = (message) => { console.error(`FAIL: ${message}`); process.exit(1); };
 const expect = (condition, message) => { if (!condition) fail(message); console.log(`PASS: ${message}`); };
 
-const entry = read('index.html');
+const entry = read('index.src.html');
 const app = read('src/main-v2.jsx');
 const modules = read('src/roadmap-modules.js');
 const session = read('src/session-context.js');
 const server = read('server.cjs');
 const router = read('ai-router.cjs');
 
-expect(entry.includes('/src/main-v2.jsx'), 'production entrypoint uses the React student UI');
+expect(entry.includes('/src/main-v2.jsx'), 'source production entrypoint uses the React student UI');
 expect(app.includes('AI Audio Interview'), 'audio interview is present in the student UI');
 expect(app.includes("prep==='general'"), 'general CV preparation mode exists');
 expect(app.includes("prep==='specific'"), 'CV + JD preparation mode exists');
