@@ -42,6 +42,14 @@ jobs:
           node --check server.cjs
       - name: Build frontend
         run: npm run build
+      - name: Normalize Vite production entrypoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/index.src.html
+          cp dist/index.src.html dist/index.html
+          rm dist/index.src.html
+          test -f dist/index.html
       - name: Mirror Vite build to deployment root
         shell: bash
         run: |
