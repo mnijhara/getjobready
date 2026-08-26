@@ -36,7 +36,7 @@ expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW. Use BOTH sources'), 'po
 expect(server.includes('CANDIDATE CV:\\n${String(cv).slice(0,40000)}\\n\\nTARGET JD:'), 'role-specific feedback prompt includes candidate CV and target JD');
 expect(server.includes('X-Content-Type-Options'), 'security headers are enabled');
 expect(server.includes('Permissions-Policy'), 'microphone permissions are explicitly scoped');
-expect(server.includes('allowedOrigin ? allowedOrigin'), 'API CORS policy recognizes the configured public origin');
+expect(server.includes('const allowedOrigin ='), 'API CORS policy defines the configured public origin');
 expect(server.includes('origin === allowedOrigin'), 'API CORS rejects unexpected configured cross-origin requests');
 expect(server.includes('RATE_MAX_BUCKETS = 5_000'), 'rate limiter has a bounded memory footprint');
 expect(server.includes('cleanupRateBuckets'), 'rate limiter periodically removes stale buckets');
