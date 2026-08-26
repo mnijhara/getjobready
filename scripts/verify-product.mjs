@@ -7,6 +7,7 @@ const expect = (condition, message) => { if (!condition) fail(message); console.
 
 const entry = read('index.src.html');
 const app = read('src/main-v2.jsx');
+const progressBridge = read('src/progress-bridge.js');
 const homeFeed = read('src/home-feed.jsx');
 const roadmap = read('src/roadmap-modules.js');
 const howItWorks = read('src/how-it-works.js');
@@ -15,6 +16,7 @@ const server = read('server.cjs');
 const router = read('ai-router.cjs');
 
 expect(entry.includes('/src/main-v2.jsx'), 'source production entrypoint uses the React student UI');
+expect(entry.includes('/src/progress-bridge.js'), 'completed CV and interview progress bridge is loaded');
 expect(app.includes('AI Audio Interview'), 'audio interview is present in the student UI');
 expect(app.includes("prep==='general'"), 'general CV preparation mode exists');
 expect(app.includes("prep==='specific'"), 'CV + JD preparation mode exists');
@@ -24,6 +26,10 @@ expect(app.includes('speechSynthesis'), 'live interview speaks questions aloud')
 expect(app.includes('.docx'), 'CV upload accepts DOCX files supported by the backend');
 expect(app.includes("sessionStorage.getItem('gjr_career')"), 'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',value)"), 'career selection writes to session state');
+expect(progressBridge.includes("url.endsWith('/api/analyze')||url.endsWith('/api/analyze-upload')"), 'successful CV analysis can complete the CV progress track');
+expect(progressBridge.includes("url.endsWith('/api/interview-turn')"), 'adaptive interview responses are observed for completion');
+expect(progressBridge.includes('body?.done===true'), 'interview progress completes only after the final turn');
+expect(progressBridge.includes("mark('cv')")&&progressBridge.includes("mark('interview')"), 'CV and interview completion emit progress events');
 expect(homeFeed.includes('gjr-resume'), 'student feed exposes CV preparation shortcut');
 expect(homeFeed.includes('gjr-interview'), 'student feed exposes audio interview shortcut');
 expect(homeFeed.includes('gjr-readiness'), 'student feed exposes Corporate Ready shortcut');
@@ -71,7 +77,7 @@ expect(server.includes("const parts = cvData && cvMime ? [{ text: prompt }, { in
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'), 'AI router uses the server-side Cloudflare AI proxy');
 expect(router.includes('keySlots: configured() ? 5 : 0'), 'AI router exposes the configured five-key proxy capacity without storing keys');
 expect(router.includes('Cloudflare 5-key round-robin + automatic failover'), 'AI router documents five-key proxy failover');
-expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${homeFeed}\n${roadmap}\n${howItWorks}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
+expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${progressBridge}\n${homeFeed}\n${roadmap}\n${howItWorks}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
 
 execFileSync(process.execPath, ['--check', 'server.cjs'], { stdio: 'inherit' });
 console.log('PASS: server.cjs syntax check');
