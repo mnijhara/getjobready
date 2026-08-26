@@ -42,6 +42,7 @@ expect(server.includes('RATE_MAX_BUCKETS = 5_000'), 'rate limiter has a bounded 
 expect(server.includes('cleanupRateBuckets'), 'rate limiter periodically removes stale buckets');
 expect(server.includes('Too many requests'), 'API rate limiting is enabled');
 expect(server.includes('app.listen(PORT'), 'production server starts successfully');
+expect(server.includes("const parts = cvData && cvMime ? [{ text: prompt }, { inlineData: { mimeType: cvMime, data: cvData } }] : [{ text: prompt }];"), 'interview turns send the prompt once and attach uploaded CV context separately');
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'), 'AI router uses the server-side Cloudflare AI proxy');
 expect(router.includes('keySlots: configured() ? 5 : 0'), 'AI router exposes the configured five-key proxy capacity without storing keys');
 expect(router.includes('Cloudflare 5-key round-robin + automatic failover'), 'AI router documents five-key proxy failover');
