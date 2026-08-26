@@ -14,6 +14,11 @@ const distBundle = fs.readdirSync('dist/assets').filter((name) => name.endsWith(
 expect(entry.includes('/src/cv-improvement-flow.js'), 'source entry loads the CV improvement flow');
 expect(entry.includes('/src/audio-auto.js'), 'source entry loads the hands-free audio bridge');
 expect(cvFlow.includes('/api/improve-cv'), 'CV improvement flow owns the improvement API bridge');
+expect(cvFlow.includes("url==='/api/interview-turn'||url==='/api/interview-feedback'"), 'saved CV flow intercepts interview and feedback requests');
+expect(cvFlow.includes("body.cv=improved"), 'saved improved CV replaces the original interview CV text');
+expect(cvFlow.includes("body.cvData='';body.cvMime=''"), 'original uploaded CV bytes are not sent after the improved CV is saved');
+expect(cvFlow.includes("sessionStorage.setItem('gjr_cv_ready','1')"), 'final CV save creates an interview-ready state');
+expect(cvFlow.includes("sessionStorage.removeItem('gjr_cv_ready')"), 'editing the final CV invalidates the saved state');
 expect(cvFlow.includes('Make your CV stronger first.'), 'CV improvement studio is present');
 expect(cvFlow.includes('Continue to live audio interview'), 'interview remains gated behind saved CV edits');
 expect(audioAuto.includes('Hands-free interview:'), 'hands-free audio guidance is present');
@@ -26,6 +31,7 @@ expect(distHtml.includes('cv-improvement-flow') || distBundle.includes('Make you
 expect(distHtml.includes('audio-auto') || distBundle.includes('Hands-free interview:'), 'production bundle contains the hands-free audio bridge');
 expect(distBundle.includes('Live transcript') || distBundle.includes('data-gjr-transcript'), 'production bundle contains live transcript behavior');
 expect(distBundle.includes('Continue to live audio interview'), 'production bundle contains the CV-to-interview gate');
+expect(distBundle.includes('body.cv=improved'), 'production bundle passes the saved improved CV into interview requests');
 expect(distBundle.includes('YOUR CAREER FEED'), 'production bundle contains the current student career feed');
 expect(distBundle.includes('feed-nav'), 'production bundle contains persistent student navigation');
 expect(distBundle.includes('Impress the Interviewer'), 'production bundle contains the shipped demo module');
