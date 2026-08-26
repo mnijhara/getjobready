@@ -29,11 +29,11 @@ expect(app.includes('.docx'), 'CV upload accepts DOCX files supported by the bac
 expect(app.includes("sessionStorage.getItem('gjr_career')"), 'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',value)"), 'career selection writes to session state');
 expect(audioAuto.includes('Hands-free interview:'), 'audio bridge explains hands-free behavior to the student');
-expect(audioAuto.includes('setTimeout(()=>finishAnswer(s),1800)'), 'audio bridge auto-submits after a short silence');
+expect(audioAuto.includes('silenceTimer=setTimeout(()=>finishAnswer(s),1800)'), 'audio bridge auto-ends an answer after a short silence');
 expect(audioAuto.includes("/answer with your voice|speak answer|speak now/i"), 'audio bridge automatically starts each spoken answer');
 expect(audioAuto.includes("/done speaking|stop|end answer/i"), 'audio bridge automatically ends each spoken answer');
-expect(audioAuto.includes("b.style.display='none'"), 'audio controls are hidden during hands-free conversation');
-expect(audioAuto.includes('data-gjr-transcript'), 'audio bridge keeps the live transcript visible');
+expect(audioAuto.includes("b.style.display=feedback&&b===feedback?'':'none'"), 'audio controls are hidden during hands-free conversation');
+expect(audioAuto.includes("s.querySelector('.transcript p')"), 'audio bridge reads the React live transcript');
 expect(progressBridge.includes("url.endsWith('/api/analyze')||url.endsWith('/api/analyze-upload')"), 'successful CV analysis can complete the CV progress track');
 expect(progressBridge.includes("url.endsWith('/api/interview-turn')"), 'adaptive interview responses are observed for completion');
 expect(progressBridge.includes('body?.done===true'), 'interview progress completes only after the final turn');
