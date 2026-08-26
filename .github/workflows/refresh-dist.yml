@@ -59,6 +59,8 @@ jobs:
           test -f index.html
           test -d assets
           grep -q '/assets/' index.html
+      - name: Verify source to production parity
+        run: node scripts/verify-production-parity.mjs
       - name: Build production server
         run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
       - name: Verify production artifacts
