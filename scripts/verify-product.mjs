@@ -35,6 +35,10 @@ expect(homeFeed.includes('setCareer=(value)'), 'career feed has a single state-s
 expect(homeFeed.includes("classList.toggle('active',x.dataset.feedCareer===value)"), 'career feed toggle updates its active visual state immediately');
 expect(homeFeed.includes('feed-nav'), 'student feed has persistent mobile navigation');
 expect(homeFeed.includes('data-feed-nav'), 'student navigation routes Home, Prepare, Interview and Progress');
+expect(homeFeed.includes('gjr_progress_v1'), 'student progress state has a dedicated session key');
+expect(homeFeed.includes('writeProgress'), 'student progress is updated when a preparation track is opened');
+expect(homeFeed.includes('renderProgress'), 'Progress navigation renders a real progress view');
+expect(homeFeed.includes('progress-fill'), 'Progress navigation includes a completion indicator');
 expect(roadmap.includes("document.addEventListener('click'"), 'roadmap modules intercept feed card clicks');
 expect(roadmap.includes("if(DATA[title])"), 'roadmap module routing opens shipped modules instead of dead roadmap alerts');
 expect(roadmap.includes("'/api/demo'"), 'demo module uses the product demo API');
