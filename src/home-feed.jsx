@@ -16,6 +16,8 @@ function installCareerFeed(){
     .gjr-career-feed .feed-nav button strong{font-size:18px;line-height:1}
     .gjr-career-feed .feed-nav button.active{color:#171e31;background:#f1f3f8}
     @media (min-width:760px){.gjr-career-feed .feed-nav{position:sticky;bottom:16px;margin:24px auto 0;transform:none;left:auto}}
+    .gjr-career-feed .feed-card.demo{background:#171e31;color:#fff}
+    .gjr-career-feed .feed-card.demo p,.gjr-career-feed .feed-card.demo .feed-tag{color:rgba(255,255,255,.72)}
   </style>
   <section class="stories" aria-label="Career shortcuts">
     <button class="story add gjr-start"><b>+</b><span>Start</span></button>
@@ -32,6 +34,7 @@ function installCareerFeed(){
     <button class="feed-card dark gjr-interview"><div class="feed-icon">🎙️</div><div><span class="feed-tag">MOST POPULAR</span><h3>Talk to your AI interviewer</h3><p>It asks. You answer. It probes. No typing.</p></div><b>→</b></button>
     <button class="feed-card white gjr-readiness"><div class="feed-icon">🧠</div><div><span class="feed-tag">WORKPLACE</span><h3>Become corporate-ready</h3><p>Communication, feedback, priorities and confidence.</p></div><b>→</b></button>
     <button class="feed-card white gjr-ai"><div class="feed-icon">✨</div><div><span class="feed-tag">AI SKILL</span><h3>Learn AI that actually helps</h3><p>Research, writing, analysis and automation workflows.</p></div><b>→</b></button>
+    <button class="feed-card demo gjr-demo"><div class="feed-icon">🚀</div><div><span class="feed-tag">STAND OUT</span><h3>Impress the interviewer</h3><p>Turn a real company problem into a polished product concept and demo.</p></div><b>→</b></button>
   </div>
   <section class="daily-card"><div><span class="eyebrow">TODAY'S MISSION</span><h3>Give me your 90-second answer.</h3><p>Practice your introduction before your next interview.</p></div><button class="round-btn gjr-interview">▶</button></section>
   <nav class="feed-nav" aria-label="Student navigation">
@@ -49,6 +52,7 @@ function installCareerFeed(){
   feed.querySelectorAll('.gjr-interview').forEach(b=>b.addEventListener('click',()=>clickModule(1)));
   feed.querySelectorAll('.gjr-readiness').forEach(b=>b.addEventListener('click',()=>clickModule(2)));
   feed.querySelectorAll('.gjr-ai').forEach(b=>b.addEventListener('click',()=>clickModule(3)));
+  feed.querySelectorAll('.gjr-demo').forEach(b=>b.addEventListener('click',()=>clickModule(4)));
   feed.querySelectorAll('[data-feed-career]').forEach(b=>b.addEventListener('click',()=>careerButtons.find(x=>x.textContent.includes(b.dataset.feedCareer==='internship'?'Summer Internship':'Full-time'))?.click()));
   feed.querySelectorAll('[data-feed-nav]').forEach(b=>b.addEventListener('click',()=>{
     feed.querySelectorAll('[data-feed-nav]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
