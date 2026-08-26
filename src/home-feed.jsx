@@ -44,9 +44,6 @@ function installCareerFeed(){
     <button data-feed-nav="progress"><strong>✦</strong><span>Progress</span></button>
   </nav>`;
   home.replaceWith(feed);
-  // Keep the original React module grid mounted (but hidden) so its delegated
-  // click handlers remain alive. The feed shortcuts can safely activate those
-  // real product flows instead of clicking detached React nodes.
   grid.style.display='none';
   root.querySelector('.roadmap')?.remove();
   root.querySelector('footer')?.remove();
@@ -56,7 +53,12 @@ function installCareerFeed(){
   feed.querySelectorAll('.gjr-readiness').forEach(b=>b.addEventListener('click',()=>clickModule(2)));
   feed.querySelectorAll('.gjr-ai').forEach(b=>b.addEventListener('click',()=>clickModule(3)));
   feed.querySelectorAll('.gjr-demo').forEach(b=>b.addEventListener('click',()=>clickModule(4)));
-  feed.querySelectorAll('[data-feed-career]').forEach(b=>b.addEventListener('click',()=>careerButtons.find(x=>x.textContent.includes(b.dataset.feedCareer==='internship'?'Summer Internship':'Full-time'))?.click()));
+  const setCareer=(value)=>{
+    feed.querySelectorAll('[data-feed-career]').forEach(x=>x.classList.toggle('active',x.dataset.feedCareer===value));
+    const target=careerButtons.find(x=>x.textContent.includes(value==='internship'?'Summer Internship':'Full-time'));
+    target?.click();
+  };
+  feed.querySelectorAll('[data-feed-career]').forEach(b=>b.addEventListener('click',()=>setCareer(b.dataset.feedCareer)));
   feed.querySelectorAll('[data-feed-nav]').forEach(b=>b.addEventListener('click',()=>{
     feed.querySelectorAll('[data-feed-nav]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
     const target=b.dataset.feedNav;
