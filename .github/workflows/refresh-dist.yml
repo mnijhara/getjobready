@@ -42,6 +42,15 @@ jobs:
           node --check server.cjs
       - name: Build frontend
         run: npm run build
+      - name: Mirror Vite build to deployment root
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf assets
+          cp -R dist/. .
+          test -f index.html
+          test -d assets
+          grep -q '/assets/' index.html
       - name: Build production server
         run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
       - name: Verify production artifacts
@@ -49,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/index.html
+          test -f index.html
           test -f server.js
           test -f server.cjs
           node --check server.js
@@ -58,6 +68,7 @@ jobs:
           grep -R -q "CV + specific JD" dist
           grep -R -q "Start live audio interview" dist
           grep -R -q "SpeechRecognition" dist
+          grep -q '/assets/' index.html
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
@@ -73,7 +84,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.cjs dist server.js
+          git add index.html assets dist server.cjs server.js
           if git diff --cached --quiet; then echo "production artifacts are already current"; exit 0; fi
           git commit -m "build: refresh production artifacts"
           git push origin HEAD:main
