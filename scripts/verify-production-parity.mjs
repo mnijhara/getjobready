@@ -1,0 +1,33 @@
+import fs from 'node:fs';
+
+const read = (file) => fs.readFileSync(file, 'utf8');
+const fail = (message) => { console.error(`FAIL: ${message}`); process.exit(1); };
+const expect = (condition, message) => { if (!condition) fail(message); console.log(`PASS: ${message}`); };
+
+const entry = read('index.src.html');
+const app = read('src/main-v2.jsx');
+const cvFlow = read('src/cv-improvement-flow.js');
+const audioAuto = read('src/audio-auto.js');
+const distHtml = read('dist/index.html');
+const distBundle = fs.readdirSync('dist/assets').filter((name) => name.endsWith('.js')).map((name) => read(`dist/assets/${name}`)).join('\n');
+
+expect(entry.includes('/src/cv-improvement-flow.js'), 'source entry loads the CV improvement flow');
+expect(entry.includes('/src/audio-auto.js'), 'source entry loads the hands-free audio bridge');
+expect(cvFlow.includes('/api/improve-cv'), 'CV improvement flow owns the improvement API bridge');
+expect(cvFlow.includes('Make your CV stronger first.'), 'CV improvement studio is present');
+expect(cvFlow.includes('Continue to live audio interview'), 'interview remains gated behind saved CV edits');
+expect(audioAuto.includes('Hands-free interview:'), 'hands-free audio guidance is present');
+expect(audioAuto.includes('data-gjr-transcript'), 'live transcript is implemented');
+expect(audioAuto.includes("b.style.display='none'"), 'audio controls are hidden during the conversation');
+expect(app.includes('AI Audio Interview'), 'React interview screen is present');
+expect(app.includes('SpeechRecognition'), 'browser speech recognition is present');
+
+expect(distHtml.includes('cv-improvement-flow') || distBundle.includes('Make your CV stronger first.'), 'production bundle contains the CV improvement flow');
+expect(distHtml.includes('audio-auto') || distBundle.includes('Hands-free interview:'), 'production bundle contains the hands-free audio bridge');
+expect(distBundle.includes('Live transcript') || distBundle.includes('data-gjr-transcript'), 'production bundle contains live transcript behavior');
+expect(distBundle.includes('Continue to live audio interview'), 'production bundle contains the CV-to-interview gate');
+expect(distBundle.includes('YOUR CAREER FEED'), 'production bundle contains the current student career feed');
+expect(distBundle.includes('feed-nav'), 'production bundle contains persistent student navigation');
+expect(distBundle.includes('Impress the Interviewer'), 'production bundle contains the shipped demo module');
+
+console.log('GetJobReady production/source parity verification passed.');
