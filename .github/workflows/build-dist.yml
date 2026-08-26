@@ -19,11 +19,6 @@ jobs:
         run: npm install
       - name: Product regression verification
         run: npm run verify
-      - name: Repair production server entrypoint for verification
-        run: |
-          if ! grep -qE 'app\.listen\(' server.cjs; then
-            printf '\napp.listen(PORT, () => console.log(`GetJobReady listening on ${PORT}`));\n' >> server.cjs
-          fi
       - name: Check production server
         run: node --check server.cjs
       - name: Build Vite frontend
@@ -46,6 +41,9 @@ jobs:
           grep -R -q "General CV" dist
           grep -R -q "CV + specific JD" dist
           grep -R -q "SpeechRecognition" dist
+          grep -R -q "YOUR CAREER FEED" dist
+          grep -R -q "feed-nav" dist
+          grep -R -q "Impress the interviewer" dist
           echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
       - name: Smoke test
         run: |
@@ -71,15 +69,26 @@ jobs:
           set -euo pipefail
           url="https://getjobready.online/"
           echo "Checking live deployment at ${url}"
-          live=""
           for i in {1..12}; do
-            live="$(curl -fsSL --max-time 20 -A 'GetJobReady-CI/1.0' "$url" || true)"
-            if grep -q 'GetJobReady' <<<"$live" && grep -q 'YOUR CAREER FEED' <<<"$live" && grep -q 'feed-nav' <<<"$live" && grep -q 'Impress the interviewer' <<<"$live"; then
-              echo "Live deployment exposes the current GetJobReady career feed and navigation."
+            html="$(curl -fsSL --max-time 20 -A 'GetJobReady-CI/1.0' "$url" || true)"
+            if ! grep -q 'GetJobReady' <<<"$html"; then
+              echo "Live site unavailable or not GetJobReady (attempt $i/12); waiting 15s..."
+              sleep 15
+              continue
+            fi
+            mapfile -t assets < <(grep -oE '(src|href)="/[^"]+\.(js|css)(\?[^\"]*)?"' <<<"$html" | sed -E 's/^(src|href)="//; s/"$//' | sort -u)
+            live_bundle=""
+            for asset in "${assets[@]}"; do
+              case "$asset" in
+                *.js*) live_bundle+="$(curl -fsSL --max-time 20 -A 'GetJobReady-CI/1.0' "https://getjobready.online${asset}" || true)"$'\n' ;;
+              esac
+            done
+            if grep -q 'YOUR CAREER FEED' <<<"$live_bundle" && grep -q 'feed-nav' <<<"$live_bundle" && grep -q 'Impress the interviewer' <<<"$live_bundle" && grep -q 'gjr-demo' <<<"$live_bundle"; then
+              echo "Live deployment exposes the current career feed, navigation and demo module bundle."
               exit 0
             fi
-            echo "Live deployment has not updated to the current feed yet (attempt $i/12); waiting 15s..."
+            echo "Live deployment has not updated to the current feed bundle yet (attempt $i/12); waiting 15s..."
             sleep 15
           done
-          echo "Live deployment verification failed: the public site did not expose the current career-feed/navigation markers within 3 minutes."
+          echo "Live deployment verification failed: public site assets did not expose the current career-feed/navigation markers within 3 minutes."
           exit 1
