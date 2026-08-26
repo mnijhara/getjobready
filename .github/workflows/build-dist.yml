@@ -65,3 +65,21 @@ jobs:
             server.cjs
             package.json
           retention-days: 14
+      - name: Verify live deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://getjobready.online/"
+          echo "Checking live deployment at ${url}"
+          live=""
+          for i in {1..12}; do
+            live="$(curl -fsSL --max-time 20 -A 'GetJobReady-CI/1.0' "$url" || true)"
+            if grep -q 'GetJobReady' <<<"$live" && grep -q 'YOUR CAREER FEED' <<<"$live"; then
+              echo "Live deployment exposes the current GetJobReady career feed."
+              exit 0
+            fi
+            echo "Live deployment has not updated yet (attempt $i/12); waiting 15s..."
+            sleep 15
+          done
+          echo "Live deployment verification failed: the public site did not expose the current career-feed markers within 3 minutes."
+          exit 1
