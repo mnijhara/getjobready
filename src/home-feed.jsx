@@ -9,7 +9,15 @@ function installCareerFeed(){
   const activeCareer=careerButtons.find(b=>b.classList.contains('active'))?.textContent?.includes('Internship')?'internship':'job';
   const feed=document.createElement('main');
   feed.className='feed gjr-career-feed';
-  feed.innerHTML=`<section class="stories" aria-label="Career shortcuts">
+  feed.innerHTML=`<style>
+    .gjr-career-feed{padding-bottom:92px}
+    .gjr-career-feed .feed-nav{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:30;width:min(92vw,430px);display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;border:1px solid rgba(23,30,49,.10);border-radius:22px;background:rgba(255,255,255,.92);box-shadow:0 14px 36px rgba(23,30,49,.16);backdrop-filter:blur(18px)}
+    .gjr-career-feed .feed-nav button{border:0;background:transparent;border-radius:15px;padding:8px 5px;color:#667085;font:600 11px/1.1 system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
+    .gjr-career-feed .feed-nav button strong{font-size:18px;line-height:1}
+    .gjr-career-feed .feed-nav button.active{color:#171e31;background:#f1f3f8}
+    @media (min-width:760px){.gjr-career-feed .feed-nav{position:sticky;bottom:16px;margin:24px auto 0;transform:none;left:auto}}
+  </style>
+  <section class="stories" aria-label="Career shortcuts">
     <button class="story add gjr-start"><b>+</b><span>Start</span></button>
     <div class="story"><i>🔥</i><span>7 day streak</span></div>
     <button class="story gjr-resume"><i>🎯</i><span>Match CV</span></button>
@@ -25,7 +33,13 @@ function installCareerFeed(){
     <button class="feed-card white gjr-readiness"><div class="feed-icon">🧠</div><div><span class="feed-tag">WORKPLACE</span><h3>Become corporate-ready</h3><p>Communication, feedback, priorities and confidence.</p></div><b>→</b></button>
     <button class="feed-card white gjr-ai"><div class="feed-icon">✨</div><div><span class="feed-tag">AI SKILL</span><h3>Learn AI that actually helps</h3><p>Research, writing, analysis and automation workflows.</p></div><b>→</b></button>
   </div>
-  <section class="daily-card"><div><span class="eyebrow">TODAY'S MISSION</span><h3>Give me your 90-second answer.</h3><p>Practice your introduction before your next interview.</p></div><button class="round-btn gjr-interview">▶</button></section>`;
+  <section class="daily-card"><div><span class="eyebrow">TODAY'S MISSION</span><h3>Give me your 90-second answer.</h3><p>Practice your introduction before your next interview.</p></div><button class="round-btn gjr-interview">▶</button></section>
+  <nav class="feed-nav" aria-label="Student navigation">
+    <button class="active" data-feed-nav="home"><strong>⌂</strong><span>Home</span></button>
+    <button data-feed-nav="prepare"><strong>▣</strong><span>Prepare</span></button>
+    <button data-feed-nav="interview"><strong>◉</strong><span>Interview</span></button>
+    <button data-feed-nav="progress"><strong>✦</strong><span>Progress</span></button>
+  </nav>`;
   home.replaceWith(feed);
   grid.remove();
   root.querySelector('.roadmap')?.remove();
@@ -36,6 +50,14 @@ function installCareerFeed(){
   feed.querySelectorAll('.gjr-readiness').forEach(b=>b.addEventListener('click',()=>clickModule(2)));
   feed.querySelectorAll('.gjr-ai').forEach(b=>b.addEventListener('click',()=>clickModule(3)));
   feed.querySelectorAll('[data-feed-career]').forEach(b=>b.addEventListener('click',()=>careerButtons.find(x=>x.textContent.includes(b.dataset.feedCareer==='internship'?'Summer Internship':'Full-time'))?.click()));
+  feed.querySelectorAll('[data-feed-nav]').forEach(b=>b.addEventListener('click',()=>{
+    feed.querySelectorAll('[data-feed-nav]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    const target=b.dataset.feedNav;
+    if(target==='home')feed.scrollTo({top:0,behavior:'smooth'});
+    if(target==='prepare')clickModule(0);
+    if(target==='interview')clickModule(1);
+    if(target==='progress')clickModule(2);
+  }));
 }
 const observer=new MutationObserver(()=>installCareerFeed());
 observer.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
