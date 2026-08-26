@@ -74,12 +74,12 @@ jobs:
           live=""
           for i in {1..12}; do
             live="$(curl -fsSL --max-time 20 -A 'GetJobReady-CI/1.0' "$url" || true)"
-            if grep -q 'GetJobReady' <<<"$live" && grep -q 'YOUR CAREER FEED' <<<"$live"; then
-              echo "Live deployment exposes the current GetJobReady career feed."
+            if grep -q 'GetJobReady' <<<"$live" && grep -q 'YOUR CAREER FEED' <<<"$live" && grep -q 'feed-nav' <<<"$live" && grep -q 'Impress the interviewer' <<<"$live"; then
+              echo "Live deployment exposes the current GetJobReady career feed and navigation."
               exit 0
             fi
-            echo "Live deployment has not updated yet (attempt $i/12); waiting 15s..."
+            echo "Live deployment has not updated to the current feed yet (attempt $i/12); waiting 15s..."
             sleep 15
           done
-          echo "Live deployment verification failed: the public site did not expose the current career-feed markers within 3 minutes."
+          echo "Live deployment verification failed: the public site did not expose the current career-feed/navigation markers within 3 minutes."
           exit 1
