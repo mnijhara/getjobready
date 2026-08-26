@@ -120,7 +120,10 @@ var PORT = process.env.PORT || 4173;
 var root = __dirname;
 var allowedOrigin = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
 app.disable("x-powered-by");
-app.use(cors({ origin: allowedOrigin ? [allowedOrigin] : true, methods: ["GET", "POST", "OPTIONS"], credentials: false }));
+app.use(cors({ origin: (origin, callback) => {
+  if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true);
+  return callback(null, false);
+}, methods: ["GET", "POST", "OPTIONS"], credentials: false }));
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
@@ -130,18 +133,29 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: "8mb" }));
 var rateBuckets = /* @__PURE__ */ new Map();
+var RATE_WINDOW_MS = 6e4;
+var RATE_LIMIT = 45;
+var RATE_MAX_BUCKETS = 5e3;
+var cleanupRateBuckets = (now) => {
+  if (rateBuckets.size <= RATE_MAX_BUCKETS) return;
+  for (const [key, bucket] of rateBuckets) {
+    if (now - bucket.start > RATE_WINDOW_MS) rateBuckets.delete(key);
+    if (rateBuckets.size <= RATE_MAX_BUCKETS) break;
+  }
+};
 app.use("/api", (req, res, next) => {
   if (req.path === "/health" || req.path === "/ai-status") return next();
   const now = Date.now();
   const key = req.ip || req.socket.remoteAddress || "unknown";
   const bucket = rateBuckets.get(key) || { start: now, count: 0 };
-  if (now - bucket.start > 6e4) {
+  if (now - bucket.start > RATE_WINDOW_MS) {
     bucket.start = now;
     bucket.count = 0;
   }
   bucket.count += 1;
   rateBuckets.set(key, bucket);
-  if (bucket.count > 45) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
+  cleanupRateBuckets(now);
+  if (bucket.count > RATE_LIMIT) return res.status(429).json({ error: "Too many requests. Please try again shortly." });
   next();
 });
 var fallback = { score: 58, headline: "You have a base \u2014 now make it role-specific.", summary: "Use the role requirements to sharpen your story, evidence and interview practice.", highlights: ["Your profile has transferable strengths", "Academic and project work can become strong evidence", "Focused practice will improve interview confidence"], gaps: ["Add measurable outcomes to important CV bullets", "Prepare STAR stories mapped to the role", "Research the company and role before interviewing"], cvImprovements: ["Lead bullets with action + outcome", "Quantify scope, impact or scale wherever possible", "Move the most relevant skills and projects higher"], rewrittenBullets: ["Led a project that improved a measurable business outcome by using a structured approach.", "Collaborated with a cross-functional team to deliver a project within the agreed timeline."], plan: ["Rewrite your top 3 CV bullets around outcomes", "Prepare a 90-second introduction", "Build 3 STAR stories from projects or internships", "Research the company and role", "Practise 5 role-specific questions", "Complete a timed mock interview", "Review feedback and repeat"], interviewQuestions: ["Tell me about yourself and why this role?", "Walk me through a project where you solved a difficult problem.", "What is your strongest evidence that you can succeed in this role?", "Tell me about a time you received difficult feedback.", "What would you do in your first 30 days?"] };
@@ -186,7 +200,12 @@ app.post("/api/interview-feedback", async (req, res) => {
   const { jd = "", answers = [], mode = "specific", cv = "" } = req.body || {};
   const safeAnswers = Array.isArray(answers) ? answers.slice(-10).map((a) => ({ question: String(a.question || "").slice(0, 1e3), answer: String(a.answer || "").slice(0, 5e3) })) : [];
   const context = mode === "general" ? `GENERAL CV INTERVIEW. Use the candidate CV as the preparation context:
-${String(cv).slice(0, 4e4)}` : `TARGET JD:
+${String(cv).slice(0, 4e4)}` : `ROLE-SPECIFIC CV + JD INTERVIEW. Use BOTH sources when evaluating evidence, relevance and fit.
+
+CANDIDATE CV:
+${String(cv).slice(0, 4e4)}
+
+TARGET JD:
 ${String(jd).slice(0, 3e4)}`;
   try {
     return res.json(await generate(`You are a demanding but supportive campus interviewer. Evaluate these interview answers. Return ONLY valid JSON with exactly: score (0-100), strengths (max 4), improvements (max 4), nextAction. Assess clarity, structure, evidence, ownership, relevance, communication, confidence and business thinking.
