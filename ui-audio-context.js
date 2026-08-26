@@ -1,6 +1,6 @@
 (()=>{
   const mode=()=>sessionStorage.getItem('gjr_cv_mode')||localStorage.getItem('gjr_cv_mode')||'specific';
-  const context=()=>({cv:sessionStorage.getItem('gjr_cv_text')||'',cvData:sessionStorage.getItem('gjr_cv_data')||'',cvMime:sessionStorage.getItem('gjr_cv_mime')||'',jd:sessionStorage.getItem('gjr_jd_text')||''});
+  const context=()=>({cv:sessionStorage.getItem('gjr_cv_text')||'',cvData:sessionStorage.getItem('gjr_cv_data')||'',cvMime:sessionStorage.getItem('gjr_cv_mime')||'',jd:sessionStorage.getItem('gjr_jd_text')||'',career:sessionStorage.getItem('gjr_career')||localStorage.getItem('gjr_career')||'job'});
   let prepared=null, preparing=null, fetchPatched=false;
   const nativeFetch=window.fetch.bind(window);
   function remember(body){
@@ -8,6 +8,7 @@
       if(body.cv)sessionStorage.setItem('gjr_cv_text',body.cv);
       if(body.jd&&!String(body.jd).startsWith('GENERAL CV REVIEW'))sessionStorage.setItem('gjr_jd_text',body.jd);
       if(body.data){sessionStorage.setItem('gjr_cv_data',body.data);sessionStorage.setItem('gjr_cv_mime',body.mime||'application/pdf');}
+      if(body.career)sessionStorage.setItem('gjr_career',body.career);
       sessionStorage.setItem('gjr_cv_mode',body.mode||mode());
     }catch{}
   }
@@ -19,9 +20,9 @@
       if(!c.cv&&!c.cvData)return null;
       let d;
       if(c.cvData){
-        d=await nativeFetch('/api/analyze-upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:c.cvData,mime:c.cvMime||'application/pdf',name:'CV',jd:m==='general'?'':c.jd,career:'job',mode:m})}).then(r=>r.json());
+        d=await nativeFetch('/api/analyze-upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:c.cvData,mime:c.cvMime||'application/pdf',name:'CV',jd:m==='general'?'':c.jd,career:c.career,mode:m})}).then(r=>r.json());
       }else{
-        d=await nativeFetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cv:c.cv,jd:m==='general'?'':c.jd,career:'job',mode:m})}).then(r=>r.json());
+        d=await nativeFetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cv:c.cv,jd:m==='general'?'':c.jd,career:c.career,mode:m})}).then(r=>r.json());
       }
       const questions=Array.isArray(d?.interviewQuestions)?d.interviewQuestions.filter(Boolean).slice(0,5):[];
       prepared={mode:m,questions};
@@ -51,8 +52,11 @@
             if(prepared?.questions?.length&&turn===1)body.question=prepared.questions[0];
             const c=context();
             body.mode=mode();
+            body.career=body.career||c.career;
             body.cv=body.cv||c.cv;
             body.jd=body.jd||c.jd;
+            body.cvData=body.cvData||c.cvData;
+            body.cvMime=body.cvMime||c.cvMime;
             init={...init,body:JSON.stringify(body)};
           }
         }catch{}
