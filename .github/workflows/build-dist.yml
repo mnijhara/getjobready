@@ -28,6 +28,12 @@ jobs:
         run: node --check server.cjs
       - name: Build Vite frontend
         run: npm run build
+      - name: Normalize Vite production entrypoint
+        run: |
+          test -f dist/index.src.html
+          cp dist/index.src.html dist/index.html
+          rm dist/index.src.html
+          test -f dist/index.html
       - name: Bundle production server
         run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
       - name: Verify production artifact
