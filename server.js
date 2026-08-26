@@ -243,7 +243,8 @@ ${String(answer).slice(0, 7e3)}
 PREVIOUS TURNS:
 ${JSON.stringify(Array.isArray(history) ? history.slice(-8) : []).slice(0, 12e3)}`;
   try {
-    const data = cvData && cvMime ? await generate(prompt, { parts: [{ text: prompt }, { inlineData: { mimeType: cvMime, data: cvData } }], maxOutputTokens: 2500 }) : await generate(prompt, { maxOutputTokens: 2500 });
+    const parts = cvData && cvMime ? [{ text: prompt }, { inlineData: { mimeType: cvMime, data: cvData } }] : [{ text: prompt }];
+    const data = await generate(prompt, { parts, maxOutputTokens: 2500 });
     if (!data || typeof data !== "object") throw new Error("Invalid interview turn");
     if (safeTurn >= safeMax) data.done = true;
     return res.json(data);
@@ -269,12 +270,12 @@ app.post("/api/demo", async (req, res) => {
   try {
     return res.json(await generate(`You are a product strategist helping a student impress a corporate interviewer. Analyse the company problem and create a credible product concept. Return ONLY valid JSON with: title, tagline, users, impact, pitch (array of 4 bullets), html. The html must be a complete self-contained polished HTML document, inline CSS only, responsive, no external assets. Company: ${String(company).slice(0, 500)}. Problem: ${String(problem).slice(0, 12e3)}. Candidate idea: ${String(idea).slice(0, 5e3)}`));
   } catch {
-    return res.json({ title: `${company} \u2014 ${idea || "A focused solution"}`, tagline: "A candidate-built prototype around a real business problem.", users: "Customers, frontline teams and business owners", impact: "Reduce friction, improve visibility and create a measurable workflow.", pitch: ["Clear problem-to-solution narrative", "Designed around a specific user", "Focused on measurable business impact", "Ready to discuss with an interviewer"], html: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${company} demo</title><style>body{font-family:system-ui;margin:0;background:#f5f7fb;color:#172033}main{max-width:820px;margin:40px auto;padding:32px;background:#fff;border-radius:24px;box-shadow:0 15px 45px #0001}h1{font-size:42px;margin:0 0 10px}p{color:#667085;line-height:1.6}.cta{display:inline-block;background:#172033;color:#fff;padding:13px 18px;border-radius:10px}</style></head><body><main><small>PRODUCT CONCEPT</small><h1>${company}</h1><p>${problem}</p><h2>${idea || "A simpler digital workflow"}</h2><p>A candidate-built concept that turns the problem into a clear, usable experience.</p><a class="cta">Explore prototype</a></main></body></html>` });
+    return res.json({ title: `${company} \u2014 ${idea || "A focused solution"}`, tagline: "A candidate-built prototype around a real business problem.", users: "Customers, frontline teams and business owners", impact: "Reduce friction, improve visibility and create a measurable workflow.", pitch: ["Clear problem-to-solution narrative", "Designed around a specific user", "Focused on measurable business impact", "Ready to discuss with an interviewer."], html: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui;margin:0;padding:32px;background:#f6f7fb;color:#171e31}main{max-width:760px;margin:auto;background:white;border-radius:24px;padding:32px;box-shadow:0 12px 40px #0001}h1{margin-top:0}p{line-height:1.6}</style></head><body><main><h1>Prototype preview</h1><p>A focused concept around the stated business problem.</p></main></body></html>' });
   }
 });
-var dist = path.join(root, "dist");
-if (fs.existsSync(dist)) {
-  app.use(express.static(dist));
-  app.get("*", (req, res) => res.sendFile(path.join(dist, "index.html")));
-} else app.get("*", (req, res) => res.status(200).send("GetJobReady build is being prepared."));
-app.listen(PORT, () => console.log(`GetJobReady running on ${PORT}; Gemini slots=${publicStatus().keySlots}`));
+app.use(express.static(root));
+app.get("*", (req, res) => {
+  const index = fs.existsSync(path.join(root, "index.html")) ? "index.html" : "index.src.html";
+  res.sendFile(path.join(root, index));
+});
+app.listen(PORT, () => console.log(`GetJobReady listening on ${PORT}`));
