@@ -29,6 +29,8 @@ expect(homeFeed.includes('gjr-interview'), 'student feed exposes audio interview
 expect(homeFeed.includes('gjr-readiness'), 'student feed exposes Corporate Ready shortcut');
 expect(homeFeed.includes('gjr-ai'), 'student feed exposes AI at Work shortcut');
 expect(homeFeed.includes('data-feed-career'), 'student feed exposes internship/full-time career switch');
+expect(homeFeed.includes('feed-nav'), 'student feed has persistent mobile navigation');
+expect(homeFeed.includes('data-feed-nav'), 'student navigation routes Home, Prepare, Interview and Progress');
 expect(roadmap.includes("document.addEventListener('click'"), 'roadmap modules intercept feed card clicks');
 expect(roadmap.includes("if(DATA[title])"), 'roadmap module routing opens shipped modules instead of dead roadmap alerts');
 expect(roadmap.includes("'/api/demo'"), 'demo module uses the product demo API');
