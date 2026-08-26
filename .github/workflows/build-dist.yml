@@ -29,6 +29,8 @@ jobs:
           cp dist/index.src.html dist/index.html
           rm dist/index.src.html
           test -f dist/index.html
+      - name: Verify source to production parity
+        run: node scripts/verify-production-parity.mjs
       - name: Bundle production server
         run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
       - name: Verify production artifact
@@ -43,7 +45,7 @@ jobs:
           grep -R -q "SpeechRecognition" dist
           grep -R -q "YOUR CAREER FEED" dist
           grep -R -q "feed-nav" dist
-          grep -R -q "Impress the interviewer" dist
+          grep -R -q "Impress the Interviewer" dist
           echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
       - name: Smoke test
         run: |
@@ -85,7 +87,7 @@ jobs:
                   *.js*) live_bundle+="$(curl -sSL --max-time 20 -A "$ua" "https://getjobready.online${asset}" || true)"$'\n' ;;
                 esac
               done
-              if grep -q 'YOUR CAREER FEED' <<<"$live_bundle" && grep -q 'feed-nav' <<<"$live_bundle" && grep -q 'Impress the interviewer' <<<"$live_bundle"; then
+              if grep -q 'YOUR CAREER FEED' <<<"$live_bundle" && grep -q 'feed-nav' <<<"$live_bundle" && grep -q 'Impress the Interviewer' <<<"$live_bundle"; then
                 status="verified"
                 reason="public HTML and current career-feed bundle markers are present"
                 break
