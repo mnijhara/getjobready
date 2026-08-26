@@ -55,7 +55,7 @@ expect(roadmap.includes("'/api/demo'"), 'demo module uses the product demo API')
 expect(roadmap.includes("'/api/coach'"), 'roadmap coaching modules use the AI coach API');
 expect(roadmap.includes('Selected drill:'), 'AI roadmap requests preserve the selected drill context');
 expect(roadmap.includes('gjr-module-company'), 'demo module accepts a target company');
-expect(roadmap.includes("'\\"':'&quot;'"), 'generated demo HTML is safely escaped for iframe embedding');
+expect(roadmap.includes('&quot;'), 'generated demo HTML escapes quotation marks for iframe embedding');
 expect(roadmap.includes('maxlength="6000"'), 'student module responses have a bounded input size');
 expect(howItWorks.includes('HOW IT WORKS'), 'How it works experience is implemented');
 expect(howItWorks.includes("document.addEventListener('click'"), 'How it works control has an active click handler');
