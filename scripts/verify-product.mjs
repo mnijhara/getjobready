@@ -7,7 +7,9 @@ const expect = (condition, message) => { if (!condition) fail(message); console.
 
 const entry = read('index.src.html');
 const app = read('src/main-v2.jsx');
-const modules = read('src/roadmap-modules.js');
+const homeFeed = read('src/home-feed.jsx');
+const roadmap = read('src/roadmap-modules.js');
+const howItWorks = read('src/how-it-works.js');
 const session = read('src/session-context.js');
 const server = read('server.cjs');
 const router = read('ai-router.cjs');
@@ -22,12 +24,21 @@ expect(app.includes('speechSynthesis'), 'live interview speaks questions aloud')
 expect(app.includes('.docx'), 'CV upload accepts DOCX files supported by the backend');
 expect(app.includes("sessionStorage.getItem('gjr_career')"), 'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',value)"), 'career selection writes to session state');
-expect(modules.includes('Selected drill:'), 'AI roadmap requests preserve the selected drill context');
-expect(modules.includes('gjr-module-company'), 'demo module accepts a target company');
-expect(modules.includes("'/api/demo'"), 'demo module uses the product demo API');
-expect(modules.includes("'/api/coach'"), 'roadmap coaching modules use the AI coach API');
-expect(modules.includes("'\"':'&quot;'"), 'generated demo HTML is safely escaped for iframe embedding');
-expect(modules.includes('maxlength="6000"'), 'student module responses have a bounded input size');
+expect(homeFeed.includes('gjr-resume'), 'student feed exposes CV preparation shortcut');
+expect(homeFeed.includes('gjr-interview'), 'student feed exposes audio interview shortcut');
+expect(homeFeed.includes('gjr-readiness'), 'student feed exposes Corporate Ready shortcut');
+expect(homeFeed.includes('gjr-ai'), 'student feed exposes AI at Work shortcut');
+expect(homeFeed.includes('data-feed-career'), 'student feed exposes internship/full-time career switch');
+expect(roadmap.includes("document.addEventListener('click'"), 'roadmap modules intercept feed card clicks');
+expect(roadmap.includes("if(DATA[title])"), 'roadmap module routing opens shipped modules instead of dead roadmap alerts');
+expect(roadmap.includes("'/api/demo'"), 'demo module uses the product demo API');
+expect(roadmap.includes("'/api/coach'"), 'roadmap coaching modules use the AI coach API');
+expect(roadmap.includes('Selected drill:'), 'AI roadmap requests preserve the selected drill context');
+expect(roadmap.includes('gjr-module-company'), 'demo module accepts a target company');
+expect(roadmap.includes("'\"':'&quot;'"), 'generated demo HTML is safely escaped for iframe embedding');
+expect(roadmap.includes('maxlength="6000"'), 'student module responses have a bounded input size');
+expect(howItWorks.includes('HOW IT WORKS'), 'How it works experience is implemented');
+expect(howItWorks.includes("document.addEventListener('click'"), 'How it works control has an active click handler');
 expect(session.includes("sessionStorage.setItem(key,activeCareer())"), 'career selection persists across sessions');
 expect(session.includes("body.career=read()"), 'analysis requests use the persisted career selection');
 expect(server.includes("mode === 'general'"), 'server has separate general-CV AI interview logic');
@@ -46,7 +57,7 @@ expect(server.includes("const parts = cvData && cvMime ? [{ text: prompt }, { in
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'), 'AI router uses the server-side Cloudflare AI proxy');
 expect(router.includes('keySlots: configured() ? 5 : 0'), 'AI router exposes the configured five-key proxy capacity without storing keys');
 expect(router.includes('Cloudflare 5-key round-robin + automatic failover'), 'AI router documents five-key proxy failover');
-expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${modules}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
+expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${homeFeed}\n${roadmap}\n${howItWorks}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
 
 execFileSync(process.execPath, ['--check', 'server.cjs'], { stdio: 'inherit' });
 console.log('PASS: server.cjs syntax check');
