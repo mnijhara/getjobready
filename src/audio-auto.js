@@ -1,6 +1,6 @@
 (()=>{
   let started=false,lastTranscript='',silenceTimer=null,autoClickTimer=null,observed=null;
-  const css=`.gjr-handsfree-note{font-size:12px;color:#727a8b;text-align:center;margin-top:8px}.gjr-handsfree-live{box-shadow:0 0 0 8px #6855e81a,0 0 32px #6855e844!important}`;
+  const css=`.gjr-handsfree-note{font-size:12px;color:#727a8b;text-align:center;margin-top:8px}.gjr-handsfree-live{box-shadow:0 0 0 8px #6855e81a,0 0 32px #6855e844!important}.gjr-handsfree-error{color:#a33b3b!important;font-weight:700}`;
   function style(){if(document.getElementById('gjr-auto-audio-css'))return;const s=document.createElement('style');s.id='gjr-auto-audio-css';s.textContent=css;document.head.appendChild(s)}
   const stage=()=>document.querySelector('.voice-panel');
   const buttons=(s,re)=>[...s.querySelectorAll('button')].filter(b=>re.test((b.textContent||'').trim()));
@@ -18,9 +18,21 @@
       if(value&&value!==lastTranscript){lastTranscript=value;clearTimeout(silenceTimer);silenceTimer=setTimeout(()=>finishAnswer(s),1800)}
     }
     function finishAnswer(s){const done=anyButton(s,/done speaking|stop|end answer/i);if(done){try{done.click()}catch{}}}
+    function isVoiceError(){
+      const state=(s.querySelector('.voice-state')?.textContent||'').trim().toLowerCase();
+      const error=s.querySelector('.voice-error')?.textContent||'';
+      return /voice issue|microphone|permission|not supported|error|unavailable/.test(state+' '+error.toLowerCase());
+    }
     function hideConversationButtons(){
       const feedback=anyButton(s,/see feedback/i);
-      [...s.querySelectorAll('button')].forEach(b=>{b.style.display=feedback&&b===feedback?'':'none'});
+      const retry=anyButton(s,/answer with your voice|speak answer|speak now/i);
+      const error=isVoiceError();
+      [...s.querySelectorAll('button')].forEach(b=>{
+        const show=feedback&&b===feedback ? false : error&&retry&&b===retry;
+        b.style.display=show?'':'none';
+      });
+      const note=s.querySelector('.gjr-handsfree-note');
+      if(note){note.textContent=error?'Microphone issue — tap Answer with your voice to retry. Hands-free capture will resume automatically.':'Hands-free interview: speak naturally. Your answer is captured automatically after a short pause.';note.classList.toggle('gjr-handsfree-error',error)}
     }
     function handsFree(){
       const state=(s.querySelector('.voice-state')?.textContent||'').trim().toLowerCase();
@@ -30,7 +42,7 @@
       syncTranscript();
       const orb=s.querySelector('.voice-orb');orb?.classList.toggle('gjr-handsfree-live',state.includes('listening'));
       const answerButton=anyButton(s,/answer with your voice|speak answer|speak now/i);
-      if(started&&answerButton&&!autoClickTimer&&!/speaking|thinking|listening|evaluating/i.test(state)){
+      if(started&&answerButton&&!isVoiceError()&&!autoClickTimer&&!/speaking|thinking|listening|evaluating|voice issue|error/i.test(state)){
         autoClickTimer=setTimeout(()=>{autoClickTimer=null;try{answerButton.click()}catch{}},250)
       }
     }
