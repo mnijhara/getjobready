@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": {"dev": "vite", "build": "vite build", "start": "node server.cjs", "lint": "node --check server.cjs", "verify": "node scripts/verify-product.mjs"},
+  "scripts": {"dev": "vite", "build": "node scripts/prepare-pdf-worker.mjs && vite build", "start": "node server.cjs", "lint": "node --check server.cjs", "verify": "node scripts/verify-product.mjs"},
   "dependencies": {"@vitejs/plugin-react":"latest","vite":"latest","react":"latest","react-dom":"latest","lucide-react":"latest","express":"^4.21.2","cors":"latest","pdfjs-dist":"latest","mammoth":"^1.10.0"},
   "devDependencies": {}
 }
