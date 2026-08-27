@@ -31,6 +31,18 @@ try {
   if (allowed.headers.get('access-control-allow-origin') !== 'https://getjobready.online') {
     throw new Error('Allowed production origin was not reflected by CORS.');
   }
+  if (allowed.headers.get('x-content-type-options') !== 'nosniff') {
+    throw new Error('Missing X-Content-Type-Options: nosniff.');
+  }
+  if (allowed.headers.get('x-frame-options') !== 'SAMEORIGIN') {
+    throw new Error('Missing X-Frame-Options: SAMEORIGIN.');
+  }
+  if (allowed.headers.get('referrer-policy') !== 'strict-origin-when-cross-origin') {
+    throw new Error('Missing strict Referrer-Policy.');
+  }
+  if (allowed.headers.get('permissions-policy') !== 'microphone=(self), camera=(), geolocation=()') {
+    throw new Error('Permissions-Policy does not keep microphone access scoped to self.');
+  }
 
   const blocked = await fetch(`${base}/api/health`, {
     headers: { Origin: 'https://evil.example' },
@@ -39,7 +51,24 @@ try {
     throw new Error('Untrusted origin received an Access-Control-Allow-Origin header.');
   }
 
-  console.log('PASS: CORS allows the production origin and blocks an untrusted browser origin.');
+  const healthExemption = await fetch(`${base}/api/health`, {
+    headers: { 'X-Forwarded-For': '198.51.100.10' },
+  });
+  if (!healthExemption.ok) throw new Error('Health endpoint should remain available to monitoring.');
+
+  let rateLimited = false;
+  for (let i = 0; i < 46; i += 1) {
+    const response = await fetch(`${base}/api/ai-status`, {
+      headers: { 'X-Forwarded-For': '198.51.100.11' },
+    });
+    if (response.status === 429) {
+      rateLimited = true;
+      break;
+    }
+  }
+  if (!rateLimited) throw new Error('API rate limiter did not reject the request after the configured threshold.');
+
+  console.log('PASS: CORS, security headers, health exemption and API rate limiting behave as expected.');
 } finally {
   stop();
   await new Promise(resolve => child.once('exit', resolve));
