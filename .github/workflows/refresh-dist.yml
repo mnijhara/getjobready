@@ -27,19 +27,8 @@ jobs:
         run: npm install
       - name: Product regression verification
         run: npm run verify
-      - name: Ensure production server listens
-        run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const file = 'server.cjs';
-          let s = fs.readFileSync(file, 'utf8');
-          if (!/app\.listen\s*\(/.test(s)) {
-            s += '\napp.listen(PORT, () => console.log(`GetJobReady listening on ${PORT}`));\n';
-            fs.writeFileSync(file, s);
-          }
-          if (!/app\.listen\s*\(/.test(fs.readFileSync(file, 'utf8'))) process.exit(1);
-          NODE
-          node --check server.cjs
+      - name: Check production server
+        run: node --check server.cjs
       - name: Build frontend
         run: npm run build
       - name: Normalize Vite production entrypoint
@@ -76,8 +65,10 @@ jobs:
           grep -R -q "AI Audio Interview" dist
           grep -R -q "General CV" dist
           grep -R -q "CV + specific JD" dist
-          grep -R -q "Start live audio interview" dist
           grep -R -q "SpeechRecognition" dist
+          grep -R -q "YOUR CAREER FEED" dist
+          grep -R -q "feed-nav" dist
+          grep -R -q "Impress the Interviewer" dist
           grep -q '/assets/' index.html
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
