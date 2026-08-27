@@ -17,13 +17,15 @@ process.on('SIGINT', () => { stop(); process.exit(1); });
 
 try {
   const deadline = Date.now() + 10_000;
+  let ready = false;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${base}/api/health`);
-      if (response.ok) break;
+      if (response.ok) { ready = true; break; }
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 200));
   }
+  if (!ready) throw new Error(`Server did not become ready within 10 seconds. ${output}`);
 
   const allowed = await fetch(`${base}/api/health`, {
     headers: { Origin: 'https://getjobready.online' },
@@ -58,15 +60,20 @@ try {
 
   let rateLimited = false;
   for (let i = 0; i < 46; i += 1) {
-    const response = await fetch(`${base}/api/ai-status`, {
-      headers: { 'X-Forwarded-For': '198.51.100.11' },
+    const response = await fetch(`${base}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.11' },
+      body: '{}',
     });
     if (response.status === 429) {
       rateLimited = true;
       break;
     }
+    if (response.status !== 400) {
+      throw new Error(`Unexpected protected API status during rate-limit test: ${response.status}`);
+    }
   }
-  if (!rateLimited) throw new Error('API rate limiter did not reject the request after the configured threshold.');
+  if (!rateLimited) throw new Error('API rate limiter did not reject the protected route after the configured threshold.');
 
   console.log('PASS: CORS, security headers, health exemption and API rate limiting behave as expected.');
 } finally {
