@@ -43,8 +43,8 @@ jobs:
           grep -R -q "General CV" dist
           grep -R -q "CV + specific JD" dist
           grep -R -q "SpeechRecognition" dist
-          grep -R -q "YOUR CAREER FEED" dist
-          grep -R -q "feed-nav" dist
+          grep -R -q "Make your CV stronger first" dist
+          grep -R -q "How it works" dist
           grep -R -q "Impress the Interviewer" dist
           echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
       - name: Smoke test
@@ -87,13 +87,13 @@ jobs:
                   *.js*) live_bundle+="$(curl -sSL --max-time 20 -A "$ua" "https://getjobready.online${asset}" || true)"$'\n' ;;
                 esac
               done
-              if grep -q 'YOUR CAREER FEED' <<<"$live_bundle" && grep -q 'feed-nav' <<<"$live_bundle" && grep -q 'Impress the Interviewer' <<<"$live_bundle"; then
+              if grep -q 'Make your CV stronger first' <<<"$live_bundle" && grep -q 'SpeechRecognition' <<<"$live_bundle" && grep -q 'General CV' <<<"$live_bundle"; then
                 status="verified"
-                reason="public HTML and current career-feed bundle markers are present"
+                reason="public HTML and current native React bundle markers are present"
                 break
               fi
               status="stale-or-unverifiable"
-              reason="public site responded 200 but current feed markers were not found in deployed JS"
+              reason="public site responded 200 but current native React markers were not found in deployed JS"
             elif [[ "$code" == "403" || "$code" == "429" ]]; then
               status="blocked"
               reason="public edge/WAF returned HTTP ${code}; GitHub runner cannot independently verify the deployment"
@@ -115,7 +115,7 @@ jobs:
             echo "- Commit: \`${GITHUB_SHA}\`"
           } >> "$GITHUB_STEP_SUMMARY"
           if [[ "$status" == "verified" ]]; then
-            echo "Live deployment exposes the current career feed and navigation bundle."
+            echo "Live deployment exposes the current native React career product."
           else
             echo "Live deployment could not be independently verified from the GitHub runner; build remains valid because the public edge may block automated probes."
           fi
