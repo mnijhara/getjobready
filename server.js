@@ -60,6 +60,7 @@ var require_ai_router = __commonJS({
       if (data?.result && typeof data.result === "object") return JSON.stringify(data.result);
       return "";
     }
+    var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     async function generate2(prompt, options = {}) {
       if (!configured()) throw Object.assign(new Error("AI_NOT_CONFIGURED"), { code: "AI_NOT_CONFIGURED" });
       if (Date.now() < workerCooldownUntil) throw new Error("AI_PROXY_COOLDOWN");
@@ -78,32 +79,47 @@ var require_ai_router = __commonJS({
       };
       workerRequests += 1;
       lastWorkerUse = Date.now();
-      try {
-        const response = await fetch(GENERATE_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if (!response.ok) {
-          const errorBody = await response.text().catch(() => "");
-          markFailure(response.status);
-          throw new Error(`AI proxy ${response.status}: ${errorBody.slice(0, 300)}`);
-        }
-        const data = await response.json();
-        const text = extractText(data);
-        if (!text) {
-          if (data && typeof data === "object" && !Array.isArray(data)) {
-            markSuccess();
-            return options.json === false ? JSON.stringify(data) : data;
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const response = await fetch(GENERATE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          if (!response.ok) {
+            const errorBody = await response.text().catch(() => "");
+            const retryable = response.status === 429 || response.status >= 500;
+            if (retryable && attempt < maxAttempts) {
+              await sleep(response.status === 429 ? 250 * attempt : 150 * attempt);
+              continue;
+            }
+            markFailure(response.status);
+            throw new Error(`AI proxy ${response.status}: ${errorBody.slice(0, 300)}`);
           }
-          throw new Error("AI proxy returned an empty response");
+          const data = await response.json();
+          const text = extractText(data);
+          if (!text) {
+            if (data && typeof data === "object" && !Array.isArray(data)) {
+              markSuccess();
+              return options.json === false ? JSON.stringify(data) : data;
+            }
+            throw new Error("AI proxy returned an empty response");
+          }
+          markSuccess();
+          return options.json === false ? text : parseJson(text);
+        } catch (error) {
+          const message = String(error.message || "");
+          const retryableNetwork = !message.startsWith("AI proxy ") && attempt < maxAttempts;
+          if (retryableNetwork) {
+            await sleep(150 * attempt);
+            continue;
+          }
+          if (!message.startsWith("AI proxy ")) markFailure(500);
+          throw error;
         }
-        markSuccess();
-        return options.json === false ? text : parseJson(text);
-      } catch (error) {
-        if (!String(error.message || "").startsWith("AI proxy ")) markFailure(500);
-        throw error;
       }
+      throw new Error("AI proxy request failed");
     }
     module2.exports = { generate: generate2, publicStatus: publicStatus2, configured };
   }
