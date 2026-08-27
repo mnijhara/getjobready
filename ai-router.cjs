@@ -47,6 +47,7 @@ function extractText(data) {
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const REQUEST_TIMEOUT_MS = 25_000;
 
 async function generate(prompt, options = {}) {
   if (!configured()) throw Object.assign(new Error('AI_NOT_CONFIGURED'), { code: 'AI_NOT_CONFIGURED' });
@@ -73,12 +74,16 @@ async function generate(prompt, options = {}) {
   lastWorkerUse = Date.now();
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(GENERATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
         const retryable = response.status === 429 || response.status >= 500;
@@ -101,6 +106,7 @@ async function generate(prompt, options = {}) {
       markSuccess();
       return options.json === false ? text : parseJson(text);
     } catch (error) {
+      clearTimeout(timeout);
       const message = String(error.message || '');
       const retryableNetwork = !message.startsWith('AI proxy ') && attempt < maxAttempts;
       if (retryableNetwork) {
