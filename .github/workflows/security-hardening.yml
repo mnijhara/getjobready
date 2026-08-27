@@ -12,10 +12,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Verify fail-closed CORS policy
         shell: bash
         run: |
           set -euo pipefail
           grep -q "process.env.PUBLIC_BASE_URL || 'https://getjobready.online'" server.cjs
           node --check server.cjs
-          echo 'PASS: production CORS has an explicit safe fallback and server syntax is valid.'
+      - name: Exercise CORS policy
+        run: node scripts/security-smoke.mjs
