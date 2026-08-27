@@ -19,6 +19,8 @@ expect(app.includes("post('/api/analyze'"),'CV analysis goes through the server 
 expect(app.includes('function CVStudio'),'native CV improvement studio exists');
 expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet improvements');
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
+expect(app.includes('function buildDraft(text){return String(text||\'\')}'),'CV editor preserves the original CV on first render');
+expect(!app.includes('candidate&&raw.length>30?`• ${candidate}`'),'CV editor does not overwrite every original bullet with one AI suggestion');
 expect(app.includes('Save & continue to live interview'),'CV save gate precedes the interview');
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
 expect(app.includes('SpeechRecognition'),'live interview uses browser speech recognition');
