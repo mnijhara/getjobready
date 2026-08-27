@@ -66,8 +66,8 @@ jobs:
           grep -R -q "General CV" dist
           grep -R -q "CV + specific JD" dist
           grep -R -q "SpeechRecognition" dist
-          grep -R -q "YOUR CAREER FEED" dist
-          grep -R -q "feed-nav" dist
+          grep -R -q "Make your CV stronger first" dist
+          grep -R -q "How it works" dist
           grep -R -q "Impress the Interviewer" dist
           grep -q '/assets/' index.html
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
