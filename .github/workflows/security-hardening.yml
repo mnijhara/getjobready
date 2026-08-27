@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   cors:
     if: github.actor != 'github-actions[bot]'
@@ -12,30 +12,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Harden CORS fallback
+      - name: Verify fail-closed CORS policy
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('server.cjs')
-          s = p.read_text()
-          old = "const allowedOrigin = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\\/$/, '') : null;"
-          new = "const allowedOrigin = (process.env.PUBLIC_BASE_URL || 'https://getjobready.online').replace(/\\/$/, '');"
-          if old in s:
-              s = s.replace(old, new, 1)
-              p.write_text(s)
-          PY
+          set -euo pipefail
           grep -q "process.env.PUBLIC_BASE_URL || 'https://getjobready.online'" server.cjs
           node --check server.cjs
-      - name: Commit hardened server
-        shell: bash
-        run: |
-          if git diff --quiet -- server.cjs; then
-            echo 'CORS policy already hardened.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add server.cjs
-          git commit -m 'security: fail closed on missing CORS origin'
-          git push
+          echo 'PASS: production CORS has an explicit safe fallback and server syntax is valid.'
