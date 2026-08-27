@@ -26,6 +26,8 @@ expect(audioAuto.includes("s.querySelector('.transcript p')"), 'hands-free bridg
 expect(audioAuto.includes('silenceTimer=setTimeout(()=>finishAnswer(s),1800)'), 'hands-free bridge ends answers after a short silence');
 expect(audioAuto.includes("answer with your voice|speak answer|speak now/i"), 'hands-free bridge automatically starts each answer');
 expect(audioAuto.includes("done speaking|stop|end answer/i"), 'hands-free bridge automatically ends each answer');
+expect(audioAuto.includes('isVoiceError'), 'hands-free bridge detects voice errors');
+expect(audioAuto.includes('Microphone issue — tap Answer with your voice to retry.'), 'hands-free bridge exposes a microphone retry path');
 expect(app.includes('AI Audio Interview'), 'React interview screen is present');
 expect(app.includes('SpeechRecognition'), 'browser speech recognition is present');
 
@@ -34,6 +36,7 @@ expect(app.includes('SpeechRecognition'), 'browser speech recognition is present
 expect(distHtml.includes('cv-improvement-flow') || distBundle.includes('Make your CV stronger first.'), 'production bundle contains the CV improvement flow');
 expect(distHtml.includes('audio-auto') || distBundle.includes('Hands-free interview:'), 'production bundle contains the hands-free audio bridge');
 expect(distBundle.includes('.transcript p') || distBundle.includes('silenceTimer'), 'production bundle contains automatic transcript/silence behavior');
+expect(distBundle.includes('Microphone issue') || distBundle.includes('isVoiceError'), 'production bundle contains voice-error recovery behavior');
 expect(distBundle.includes('Continue to live audio interview'), 'production bundle contains the CV-to-interview gate');
 expect(distBundle.includes('gjr_cv_improved') && distBundle.includes('gjr_cv_ready'), 'production bundle contains saved improved-CV interview state');
 expect(distBundle.includes('YOUR CAREER FEED'), 'production bundle contains the current student career feed');
