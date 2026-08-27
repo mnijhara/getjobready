@@ -32,8 +32,11 @@ expect(audioAuto.includes('Hands-free interview:'), 'audio bridge explains hands
 expect(audioAuto.includes('silenceTimer=setTimeout(()=>finishAnswer(s),1800)'), 'audio bridge auto-ends an answer after a short silence');
 expect(audioAuto.includes("/answer with your voice|speak answer|speak now/i"), 'audio bridge automatically starts each spoken answer');
 expect(audioAuto.includes("/done speaking|stop|end answer/i"), 'audio bridge automatically ends each spoken answer');
-expect(audioAuto.includes("b.style.display=feedback&&b===feedback?'':'none'"), 'audio controls are hidden during hands-free conversation');
+expect(audioAuto.includes("b.style.display=show?'':'none'"), 'audio controls are hidden during hands-free conversation');
 expect(audioAuto.includes("s.querySelector('.transcript p')"), 'audio bridge reads the React live transcript');
+expect(audioAuto.includes('isVoiceError'), 'audio bridge detects microphone and voice errors');
+expect(audioAuto.includes('Microphone issue — tap Answer with your voice to retry.'), 'students can retry voice capture after a microphone error');
+expect(audioAuto.includes('!isVoiceError()'), 'automatic capture pauses on voice errors instead of repeatedly clicking a broken control');
 expect(progressBridge.includes("url.endsWith('/api/analyze')||url.endsWith('/api/analyze-upload')"), 'successful CV analysis can complete the CV progress track');
 expect(progressBridge.includes("url.endsWith('/api/interview-turn')"), 'adaptive interview responses are observed for completion');
 expect(progressBridge.includes('body?.done===true'), 'interview progress completes only after the final turn');
