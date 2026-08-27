@@ -62,7 +62,7 @@ expect(homeFeedV2.includes("const streakKey='gjr_streak_v1'"), 'student feed sto
 expect(homeFeedV2.includes('localStorage.setItem(streakKey'), 'preparation streak persists across visits');
 expect(homeFeedV2.includes('previous.last===dateKey(yesterday)'), 'preparation streak increments only on consecutive active days');
 expect(homeFeedV2.includes("const touchStreak=()=>"), 'preparation streak updates from meaningful preparation activity');
-expect(homeFeedV2.includes("currentStreak()?`${currentStreak()} day streak`:'Start your streak'"), 'student feed does not display a fake hardcoded seven-day streak');
+expect(homeFeedV2.includes('const label=count?`${count} day streak`:\'Start your streak\';'), 'student feed does not display a fake hardcoded seven-day streak');
 expect(roadmap.includes("function complete(key)"), 'roadmap modules persist completion state after successful AI work');
 expect(roadmap.includes("new CustomEvent('gjr-progress'"), 'roadmap modules notify the student feed when an activity completes');
 expect(roadmap.includes("complete(d.api==='corporate'?'corporate':d.api==='ai'?'ai':'demo')"), 'roadmap completion maps to the correct student track');
