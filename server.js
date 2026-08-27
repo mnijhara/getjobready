@@ -61,6 +61,7 @@ var require_ai_router = __commonJS({
       return "";
     }
     var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    var REQUEST_TIMEOUT_MS = 25e3;
     async function generate2(prompt, options = {}) {
       if (!configured()) throw Object.assign(new Error("AI_NOT_CONFIGURED"), { code: "AI_NOT_CONFIGURED" });
       if (Date.now() < workerCooldownUntil) throw new Error("AI_PROXY_COOLDOWN");
@@ -82,12 +83,16 @@ var require_ai_router = __commonJS({
       lastWorkerUse = Date.now();
       const maxAttempts = 3;
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
         try {
           const response = await fetch(GENERATE_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: controller.signal
           });
+          clearTimeout(timeout);
           if (!response.ok) {
             const errorBody = await response.text().catch(() => "");
             const retryable = response.status === 429 || response.status >= 500;
@@ -110,6 +115,7 @@ var require_ai_router = __commonJS({
           markSuccess();
           return options.json === false ? text : parseJson(text);
         } catch (error) {
+          clearTimeout(timeout);
           const message = String(error.message || "");
           const retryableNetwork = !message.startsWith("AI proxy ") && attempt < maxAttempts;
           if (retryableNetwork) {
@@ -135,7 +141,7 @@ var { generate, publicStatus } = require_ai_router();
 var app = express();
 var PORT = process.env.PORT || 4173;
 var root = __dirname;
-var allowedOrigin = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
+var allowedOrigin = (process.env.PUBLIC_BASE_URL || "https://getjobready.online").replace(/\/$/, "");
 app.disable("x-powered-by");
 app.use(cors({ origin: (origin, callback) => {
   if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true);
