@@ -9,8 +9,20 @@ function installCareerFeedV2(){
   const moduleButtons=[...grid.querySelectorAll('.module-card')];
   const originalCareerButtons=[...home.querySelectorAll('.career-toggle button')];
   const progressKey='gjr_progress_v1';
+  const streakKey='gjr_streak_v1';
   const readProgress=()=>{try{return JSON.parse(sessionStorage.getItem(progressKey)||'{}')||{}}catch{return {}}};
-  const writeProgress=(key,status='started')=>{const p=readProgress();p[key]=status;sessionStorage.setItem(progressKey,JSON.stringify(p));window.dispatchEvent(new CustomEvent('gjr-progress',{detail:{key,status}}));};
+  const readStreak=()=>{try{return JSON.parse(localStorage.getItem(streakKey)||'{}')||{}}catch{return {}}};
+  const dateKey=(date=new Date())=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const touchStreak=()=>{
+    const today=dateKey(),previous=readStreak();
+    if(previous.last===today)return previous.count||1;
+    const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+    const count=previous.last===dateKey(yesterday)?(previous.count||1)+1:1;
+    try{localStorage.setItem(streakKey,JSON.stringify({count,last:today}));}catch{}
+    return count;
+  };
+  const currentStreak=()=>readStreak().count||0;
+  const writeProgress=(key,status='started')=>{const p=readProgress();p[key]=status;sessionStorage.setItem(progressKey,JSON.stringify(p));touchStreak();window.dispatchEvent(new CustomEvent('gjr-progress',{detail:{key,status}}));};
   const dialog=(title,text,items)=>{
     const m=document.createElement('div');m.className='gjr-how-modal';
     m.innerHTML=`<div class="gjr-how-card"><button class="gjr-how-close" aria-label="Close">×</button><span class="eyebrow">GETJOBREADY</span><h2>${title}</h2><p>${text}</p><div class="gjr-how-list"></div></div>`;
@@ -31,12 +43,12 @@ function installCareerFeedV2(){
   const feed=document.createElement('main');feed.className='feed gjr-career-feed';
   feed.innerHTML=`<section class="stories" aria-label="Career shortcuts">
     <button type="button" class="story add gjr-start"><b>+</b><span>Start</span></button>
-    <button type="button" class="story gjr-streak"><i>🔥</i><span>7 day streak</span></button>
+    <button type="button" class="story gjr-streak"><i>🔥</i><span>Start your streak</span></button>
     <button type="button" class="story gjr-resume"><i>🎯</i><span>Match CV</span></button>
     <button type="button" class="story gjr-interview"><i>🎙️</i><span>Voice prep</span></button>
     <button type="button" class="story gjr-readiness"><i>💼</i><span>Corporate</span></button>
   </section>
-  <section class="welcome-card"><div><span class="eyebrow">FULL-TIME TRACK · DAY 7</span><h1>Let's get you<br><em>job-ready.</em></h1><p>Turn your CV into a role-ready story, practise the interview and build evidence you can take into the room.</p></div><div class="streak"><strong>7</strong><span>🔥 days</span></div></section>
+  <section class="welcome-card"><div><span class="eyebrow">FULL-TIME TRACK · BUILD YOUR STREAK</span><h1>Let's get you<br><em>job-ready.</em></h1><p>Turn your CV into a role-ready story, practise the interview and build evidence you can take into the room.</p></div><div class="streak"><strong>0</strong><span>🔥 days</span></div></section>
   <section class="career-strip" role="tablist" aria-label="Career track"><button type="button" data-feed-career="internship">☀️ Internship</button><button type="button" class="active" data-feed-career="job">💼 Full-time</button></section>
   <section class="section-head"><div><span class="eyebrow">YOUR CAREER FEED</span><h2>What are you working on?</h2></div></section>
   <div class="action-feed">
@@ -51,15 +63,22 @@ function installCareerFeedV2(){
   <nav class="feed-nav" aria-label="Student navigation"><button type="button" class="active" data-feed-nav="home"><strong>⌂</strong><span>Home</span></button><button type="button" data-feed-nav="prepare"><strong>▣</strong><span>Prepare</span></button><button type="button" data-feed-nav="interview"><strong>◉</strong><span>Interview</span></button><button type="button" data-feed-nav="progress"><strong>✦</strong><span>Progress</span></button></nav>`;
   home.replaceWith(feed);grid.style.display='none';root.querySelector('.roadmap')?.remove();
 
+  const renderStreak=()=>{
+    const count=currentStreak();
+    const label=count?`${count} day streak`:'Start your streak';
+    feed.querySelector('.gjr-streak span').textContent=label;
+    feed.querySelector('.streak strong').textContent=String(count);
+    feed.querySelector('.welcome-card .eyebrow').textContent=`${sessionStorage.getItem('gjr_career')==='internship'?'INTERNSHIP':'FULL-TIME'} TRACK · ${count?`${count} DAY STREAK`:'BUILD YOUR STREAK'}`;
+  };
   const setCareer=value=>{
     feed.querySelectorAll('[data-feed-career]').forEach(x=>{x.classList.toggle('active',x.dataset.feedCareer===value);x.setAttribute('aria-selected',String(x.dataset.feedCareer===value));});
     const target=originalCareerButtons.find(x=>x.textContent.includes(value==='internship'?'Summer Internship':'Full-time Job'));target?.click();
     const internship=value==='internship';
-    feed.querySelector('.welcome-card .eyebrow').textContent=internship?'INTERNSHIP TRACK · DAY 7':'FULL-TIME TRACK · DAY 7';
     feed.querySelector('.welcome-card p').textContent=internship?'Build a strong campus-to-internship story, sharpen your CV and practise the questions recruiters ask interns.':'Turn your CV into a role-ready story, practise the interview and build evidence you can take into the room.';
     feed.querySelector('.section-head h2').textContent=internship?'What are you preparing for?':'What are you working on?';
     feed.querySelector('.feed-card.dark p').textContent=internship?'Practise internship questions grounded in your CV.':'Practise a role-specific conversation grounded in your CV + JD.';
     feed.querySelector('.daily-card h3').textContent=internship?'Record your 90-second internship pitch.':'Give me your 90-second answer.';
+    renderStreak();
   };
   const renderProgress=()=>{const p=readProgress(),items=[['cv','CV preparation'],['interview','AI interview'],['corporate','Corporate readiness'],['ai','AI at Work'],['demo','Stand-out demo']],done=items.filter(([k])=>p[k]==='completed').length,started=items.filter(([k])=>p[k]&&p[k]!=='completed').length,panel=feed.querySelector('.progress-panel');panel.querySelector('.progress-score').textContent=`${Math.round(done/items.length*100)}%`;panel.querySelector('.progress-fill').style.width=`${done/items.length*100}%`;panel.querySelector('.progress-head p').textContent=`${done} of ${items.length} activities completed${started?` · ${started} started`:''}.`;panel.querySelector('.progress-items').innerHTML=items.map(([k,l])=>`<div class="progress-item"><span>${p[k]==='completed'?'✓':p[k]?'•':'○'}</span><span>${l}</span><b>${p[k]==='completed'?'Done':p[k]?'Started':'Next'}</b></div>`).join('')};
 
@@ -69,7 +88,7 @@ function installCareerFeedV2(){
   feed.querySelectorAll('.gjr-ai').forEach(b=>b.addEventListener('click',()=>openModule('ai',3,'AI at Work','Learn practical AI workflows for research, writing, analysis and automation.')));
   feed.querySelectorAll('.gjr-demo').forEach(b=>b.addEventListener('click',()=>openModule('demo',4,'Impress the Interviewer','Turn a real company problem into a concise product concept and demo.')));
   feed.querySelectorAll('[data-feed-career]').forEach(b=>b.addEventListener('click',()=>{sessionStorage.setItem('gjr_career',b.dataset.feedCareer);setCareer(b.dataset.feedCareer)}));
-  feed.querySelector('.gjr-streak').addEventListener('click',()=>dialog('7-day streak','You have kept your preparation moving for seven days. Keep the streak by completing one small task today.',[{label:"Today's mission",text:'Record your 90-second answer.',onClick:openInterview}]));
+  feed.querySelector('.gjr-streak').addEventListener('click',()=>dialog(currentStreak()?`${currentStreak()}-day streak`:'Start your streak',currentStreak()?'Keep your preparation moving by completing one small task today.':'Complete one preparation task today to start your streak.',[{label:"Today's mission",text:'Record your 90-second answer.',onClick:openInterview}]));
   feed.querySelectorAll('[data-feed-nav]').forEach(b=>b.addEventListener('click',()=>{feed.querySelectorAll('[data-feed-nav]').forEach(x=>x.classList.remove('active'));b.classList.add('active');const t=b.dataset.feedNav,p=feed.querySelector('.progress-panel');if(t==='home'){p.hidden=true;window.scrollTo({top:0,behavior:'smooth'})}else if(t==='prepare'){p.hidden=true;openPrep()}else if(t==='interview'){p.hidden=true;openInterview()}else{renderProgress();p.hidden=false;p.scrollIntoView({behavior:'smooth',block:'start'})}}));
 
   const ghost=document.querySelector('header .ghost');ghost?.addEventListener('click',()=>dialog('How GetJobReady works','A simple path from your CV to a confident, role-ready interview.',[
@@ -78,8 +97,9 @@ function installCareerFeedV2(){
     {label:'3 · Improve',text:'Use adaptive feedback to strengthen your next answer.'}
   ]));
 
-  window.addEventListener('gjr-progress',renderProgress);
+  window.addEventListener('gjr-progress',()=>{renderProgress();renderStreak()});
   setCareer(sessionStorage.getItem('gjr_career')||'job');
+  renderStreak();
 }
 
 const observer=new MutationObserver(()=>{if(!installed)installCareerFeedV2()});
