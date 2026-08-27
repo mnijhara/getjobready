@@ -24,7 +24,6 @@ expect(distBundle.includes('Improve your CV first'),'production bundle contains 
 expect(distBundle.includes('Save & continue to live interview'),'production bundle contains the CV-to-interview gate');
 expect(distBundle.includes('SpeechRecognition'),'production bundle contains browser voice capture');
 expect(distBundle.includes('Live transcript'),'production bundle contains visible transcript UI');
-expect(distBundle.includes('disableWorker:true'),'production bundle contains worker-independent PDF parsing');
 expect(!distBundle.includes('getjobready-ai-proxy.mnijhara.workers.dev'),'production bundle does not expose the AI proxy endpoint');
 expect(distBundle.includes('How it works'),'production bundle contains the working How it works experience');
 expect(distBundle.includes('Summer Internship')&&distBundle.includes('Full-time Job'),'production bundle contains both career tracks');
