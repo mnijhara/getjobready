@@ -6,7 +6,7 @@ const { generate, publicStatus } = require('./ai-router.cjs');
 const app = express();
 const PORT = process.env.PORT || 4173;
 const root = __dirname;
-const allowedOrigin = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/$/, '') : null;
+const allowedOrigin = (process.env.PUBLIC_BASE_URL || 'https://getjobready.online').replace(/\/$/, '');
 app.disable('x-powered-by');
 app.use(cors({ origin: (origin, callback) => { if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true); return callback(null, false); }, methods: ['GET','POST','OPTIONS'], credentials: false }));
 app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','SAMEORIGIN');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','microphone=(self), camera=(), geolocation=()');next();});
