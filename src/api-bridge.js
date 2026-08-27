@@ -13,7 +13,10 @@ function extractText(data){
 }
 function parseJsonText(text){const cleaned=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/i,'');return JSON.parse(cleaned)}
 async function generate(prompt,parts=[{text:prompt}]){
-  const response=await nativeFetch(`${WORKER_URL}/generate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,contents:[{parts}],model:'gemini-3.7-flash',generationConfig:{responseMimeType:'application/json',maxOutputTokens:6000},json:true})});
+  // `prompt` is already the primary instruction sent to the proxy. Do not repeat
+  // the same text inside contents; keep only additional multimodal context there.
+  const extraParts=parts.filter((part,index)=>!(index===0&&part?.text===prompt));
+  const response=await nativeFetch(`${WORKER_URL}/generate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,contents:extraParts.length?[{parts:extraParts}]:[],model:'gemini-3.7-flash',generationConfig:{responseMimeType:'application/json',maxOutputTokens:6000},json:true})});
   const raw=await response.text(); if(!response.ok) throw new Error(`AI service ${response.status}`);
   const data=JSON.parse(raw),text=extractText(data); return text?parseJsonText(text):data;
 }
