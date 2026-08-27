@@ -10,6 +10,7 @@ const app = read('src/main-v2.jsx');
 const audioAuto = read('src/audio-auto.js');
 const progressBridge = read('src/progress-bridge.js');
 const homeFeed = read('src/home-feed.jsx');
+const homeFeedV2 = read('src/home-feed-v2.js');
 const roadmap = read('src/roadmap-modules.js');
 const howItWorks = read('src/how-it-works.js');
 const session = read('src/session-context.js');
@@ -57,6 +58,11 @@ expect(homeFeed.includes("writeProgress=(key,status='started')"), 'student progr
 expect(homeFeed.includes("p[key]==='completed'"), 'student progress percentage counts completed activities only');
 expect(homeFeed.includes("window.addEventListener('gjr-progress'"), 'student progress listens for completion events from modules');
 expect(homeFeed.includes('progress-score'), 'Progress navigation includes a completion indicator');
+expect(homeFeedV2.includes("const streakKey='gjr_streak_v1'"), 'student feed stores a dedicated preparation streak');
+expect(homeFeedV2.includes('localStorage.setItem(streakKey'), 'preparation streak persists across visits');
+expect(homeFeedV2.includes('previous.last===dateKey(yesterday)'), 'preparation streak increments only on consecutive active days');
+expect(homeFeedV2.includes("const touchStreak=()=>"), 'preparation streak updates from meaningful preparation activity');
+expect(homeFeedV2.includes("currentStreak()?`${currentStreak()} day streak`:'Start your streak'"), 'student feed does not display a fake hardcoded seven-day streak');
 expect(roadmap.includes("function complete(key)"), 'roadmap modules persist completion state after successful AI work');
 expect(roadmap.includes("new CustomEvent('gjr-progress'"), 'roadmap modules notify the student feed when an activity completes');
 expect(roadmap.includes("complete(d.api==='corporate'?'corporate':d.api==='ai'?'ai':'demo')"), 'roadmap completion maps to the correct student track');
@@ -89,7 +95,7 @@ expect(server.includes("const parts = cvData && cvMime ? [{ text: prompt }, { in
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'), 'AI router uses the server-side Cloudflare AI proxy');
 expect(router.includes('keySlots: configured() ? 5 : 0'), 'AI router exposes the configured five-key proxy capacity without storing keys');
 expect(router.includes('Cloudflare 5-key round-robin + automatic failover'), 'AI router documents five-key proxy failover');
-expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${audioAuto}\n${progressBridge}\n${homeFeed}\n${roadmap}\n${howItWorks}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
+expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${audioAuto}\n${progressBridge}\n${homeFeed}\n${homeFeedV2}\n${roadmap}\n${howItWorks}\n${session}\n${server}\n${router}`), 'no provider API key or plaintext key assignment is committed to product source');
 
 execFileSync(process.execPath, ['--check', 'server.cjs'], { stdio: 'inherit' });
 console.log('PASS: server.cjs syntax check');
