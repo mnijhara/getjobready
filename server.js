@@ -64,7 +64,8 @@ var require_ai_router = __commonJS({
     async function generate2(prompt, options = {}) {
       if (!configured()) throw Object.assign(new Error("AI_NOT_CONFIGURED"), { code: "AI_NOT_CONFIGURED" });
       if (Date.now() < workerCooldownUntil) throw new Error("AI_PROXY_COOLDOWN");
-      const parts = options.parts || [{ text: prompt }];
+      const suppliedParts = options.parts || [{ text: prompt }];
+      const parts = suppliedParts.filter((part, index) => !(index === 0 && part?.text === prompt));
       const model = options.model || DEFAULT_MODEL;
       const generationConfig = {
         responseMimeType: options.responseMimeType || "application/json",
@@ -73,7 +74,7 @@ var require_ai_router = __commonJS({
       const body = {
         prompt,
         model,
-        contents: [{ parts }],
+        contents: parts.length ? [{ parts }] : [],
         generationConfig,
         json: options.json !== false
       };
