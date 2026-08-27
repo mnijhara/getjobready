@@ -8,6 +8,7 @@ const entry = read('index.src.html');
 const app = read('src/main-v2.jsx');
 const cvFlow = read('src/cv-improvement-flow.js');
 const audioAuto = read('src/audio-auto.js');
+const homeFeedV2 = read('src/home-feed-v2.js');
 const distHtml = read('dist/index.html');
 const distBundle = fs.readdirSync('dist/assets').filter((name) => name.endsWith('.js')).map((name) => read(`dist/assets/${name}`)).join('\n');
 
@@ -28,6 +29,9 @@ expect(audioAuto.includes("answer with your voice|speak answer|speak now/i"), 'h
 expect(audioAuto.includes("done speaking|stop|end answer/i"), 'hands-free bridge automatically ends each answer');
 expect(audioAuto.includes('isVoiceError'), 'hands-free bridge detects voice errors');
 expect(audioAuto.includes('Microphone issue — tap Answer with your voice to retry.'), 'hands-free bridge exposes a microphone retry path');
+expect(homeFeedV2.includes("const streakKey='gjr_streak_v1'"), 'source feed stores the preparation streak');
+expect(homeFeedV2.includes('touchStreak'), 'source feed updates the streak from preparation activity');
+expect(homeFeedV2.includes("'Start your streak'"), 'source feed avoids a fake hardcoded streak');
 expect(app.includes('AI Audio Interview'), 'React interview screen is present');
 expect(app.includes('SpeechRecognition'), 'browser speech recognition is present');
 
@@ -39,6 +43,7 @@ expect(distBundle.includes('.transcript p') || distBundle.includes('silenceTimer
 expect(distBundle.includes('Microphone issue') || distBundle.includes('isVoiceError'), 'production bundle contains voice-error recovery behavior');
 expect(distBundle.includes('Continue to live audio interview'), 'production bundle contains the CV-to-interview gate');
 expect(distBundle.includes('gjr_cv_improved') && distBundle.includes('gjr_cv_ready'), 'production bundle contains saved improved-CV interview state');
+expect(distBundle.includes('gjr_streak_v1') && distBundle.includes('Start your streak'), 'production bundle contains real student streak behavior');
 expect(distBundle.includes('YOUR CAREER FEED'), 'production bundle contains the current student career feed');
 expect(distBundle.includes('feed-nav'), 'production bundle contains persistent student navigation');
 expect(distBundle.includes('Impress the Interviewer'), 'production bundle contains the shipped demo module');
