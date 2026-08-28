@@ -104,6 +104,13 @@ app.get(/^\/pdf\.worker(?:-[^/]+)?\.mjs$/, (req, res) => {
   return res.sendFile(worker);
 });
 
+app.use((err, req, res, next) => {
+  if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'Request body is too large.' });
+  if (err instanceof SyntaxError && err?.status === 400 && Object.prototype.hasOwnProperty.call(err, 'body')) return res.status(400).json({ error: 'Invalid JSON request body.' });
+  console.error('request:', err?.message || 'Unexpected request error');
+  return res.status(500).json({ error: 'Unexpected server error.' });
+});
+
 app.use(express.static(root));
 app.get('*', (req,res) => { const index = fs.existsSync(path.join(root,'index.html')) ? 'index.html' : 'index.src.html'; res.sendFile(path.join(root,index)); });
 app.listen(PORT, () => console.log(`GetJobReady listening on ${PORT}`));
