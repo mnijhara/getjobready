@@ -47,6 +47,8 @@ expect(server.includes('Cache-Control')&&server.includes('no-store'),'student AP
 expect(server.includes('Pragma')&&server.includes('no-cache'),'legacy cache proxies are instructed not to store API responses');
 expect(server.includes('const allowedOrigin ='),'API CORS policy defines the configured public origin');
 expect(server.includes('Too many requests'),'API rate limiting is enabled');
+expect(server.includes("res.status(503).json({ error: 'AI analysis is temporarily unavailable. Please retry in a moment.' })"),'AI analysis failures return an explicit retryable error instead of synthetic results');
+expect(server.includes("res.status(503).json({ error: 'Interview feedback is temporarily unavailable. Please retry in a moment.' })"),'interview feedback failures return an explicit retryable error instead of synthetic scores');
 expect(server.includes('app.listen(PORT'),'production server starts successfully');
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'),'AI router uses the server-side Cloudflare AI proxy');
 expect(router.includes('Cloudflare 5-key round-robin + automatic failover'),'AI router documents proxy failover');
