@@ -152,6 +152,10 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "microphone=(self), camera=(), geolocation=()");
+  if (req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+  }
   next();
 });
 app.use(express.json({ limit: "8mb" }));
@@ -239,7 +243,7 @@ ANSWERS:
 ${JSON.stringify(safeAnswers)}`));
   } catch (error) {
     const words = safeAnswers.reduce((n, a) => n + a.answer.trim().split(/\s+/).filter(Boolean).length, 0);
-    return res.json({ score: Math.min(94, Math.max(62, 68 + Math.min(18, Math.floor(words / 35)))), strengths: ["You completed the full interview", "Your answers show preparation and intent", "You demonstrated willingness to reflect"], improvements: ["Use Situation \u2192 Action \u2192 Result", "Add numbers, scope or concrete evidence", "Lead with the outcome and keep context concise"], nextAction: "Repeat the interview and make every example end with a clear result and learning." });
+    return res.json({ score: Math.min(94, Math.max(62, 68 + Math.min(18, Math.floor(words / 35)))), strengths: ["You completed the conversation", "Your answers show preparation and intent", "You demonstrated willingness to reflect"], improvements: ["Use Situation \u2192 Action \u2192 Result", "Add numbers, scope or concrete evidence", "Lead with the outcome and keep context concise"], nextAction: "Repeat the interview and make every example end with a clear result and learning." });
   }
 });
 app.post("/api/interview-turn", async (req, res) => {
