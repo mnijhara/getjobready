@@ -30,6 +30,11 @@ expect(app.includes('disableWorker:true'),'production PDF parsing is independent
 expect(app.includes('.docx'),'CV upload accepts DOCX files');
 expect(app.includes("sessionStorage.getItem('gjr_career')"),'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',v)"),'career selection writes to session state');
+expect(app.includes("sessionStorage.getItem('gjr_cv_mode')"),'preparation mode restores from session state');
+expect(app.includes("sessionStorage.getItem('gjr_cv_text')"),'CV text restores from session state');
+expect(app.includes("sessionStorage.getItem('gjr_jd_text')"),'job description restores from session state');
+expect(app.includes("sessionStorage.setItem('gjr_cv_text',e.target.value)"),'pasted CV edits persist to session state');
+expect(app.includes("sessionStorage.setItem('gjr_jd_text',e.target.value)"),'pasted JD edits persist to session state');
 expect(app.includes('How it works'),'How it works is implemented in the native React UI');
 expect(app.includes('Summer Internship')&&app.includes('Full-time Job'),'career switch offers both tracks');
 expect(server.includes("mode === 'general'"),'server has separate general-CV AI logic');
