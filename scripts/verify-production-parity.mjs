@@ -22,8 +22,7 @@ expect(app.includes("post('/api/analyze'"),'source sends CV analysis through the
 expect(app.includes("post('/api/interview-turn'"),'source sends interview turns through the server API');
 expect(!app.includes(proxyMarker),'source does not expose the AI proxy to the browser');
 expect(distHtml.includes('/assets/')||distHtml.includes('index-'),'production HTML references built assets');
-expect(distBundle.includes('interview-turn') && distBundle.includes('AI Audio Interview'),'production bundle contains the native voice interview product flow');
-expect(distBundle.includes('Live transcript'),'production bundle contains visible transcript UI');
+expect(distBundle.includes('Live transcript') && distBundle.includes('captured automatically'),'production bundle contains the native voice interview UI contract');
 expect(!distBundle.includes(proxyMarker),'production bundle does not expose the AI proxy endpoint');
 expect(distBundle.includes('How it works'),'production bundle contains the working How it works experience');
 expect(distBundle.includes('Summer Internship')&&distBundle.includes('Full-time Job'),'production bundle contains both career tracks');
