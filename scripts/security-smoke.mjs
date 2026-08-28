@@ -64,6 +64,28 @@ try {
   });
   if (!healthExemption.ok) throw new Error('Health endpoint should remain available to monitoring.');
 
+  const malformed = await fetch(`${base}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.12' },
+    body: '{"cv":',
+  });
+  if (malformed.status !== 400) throw new Error(`Malformed JSON should return 400, received ${malformed.status}.`);
+  const malformedBody = await malformed.json();
+  if (malformedBody.error !== 'Invalid JSON request body.') {
+    throw new Error('Malformed JSON exposed an unexpected or unsafe error message.');
+  }
+
+  const oversized = await fetch(`${base}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.13' },
+    body: `{"cv":"${'x'.repeat(8 * 1024 * 1024)}"}`,
+  });
+  if (oversized.status !== 413) throw new Error(`Oversized JSON should return 413, received ${oversized.status}.`);
+  const oversizedBody = await oversized.json();
+  if (oversizedBody.error !== 'Request body is too large.') {
+    throw new Error('Oversized JSON exposed an unexpected or unsafe error message.');
+  }
+
   let rateLimited = false;
   for (let i = 0; i < 46; i += 1) {
     const response = await fetch(`${base}/api/analyze`, {
@@ -81,7 +103,7 @@ try {
   }
   if (!rateLimited) throw new Error('API rate limiter did not reject the protected route after the configured threshold.');
 
-  console.log('PASS: CORS, security headers, API privacy headers, health exemption and API rate limiting behave as expected.');
+  console.log('PASS: CORS, security headers, API privacy headers, safe parser errors, health exemption and API rate limiting behave as expected.');
 } finally {
   stop();
   await new Promise(resolve => child.once('exit', resolve));
