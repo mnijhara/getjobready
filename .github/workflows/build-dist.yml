@@ -44,7 +44,7 @@ jobs:
           grep -R -q "AI Audio Interview" dist
           grep -R -q "General CV" dist
           grep -R -q "CV + specific JD" dist
-          grep -R -q "SpeechRecognition" dist
+          grep -R -q "captured automatically" dist
           grep -R -q "Improve your CV first" dist
           grep -R -q "Save & continue to live interview" dist
           grep -R -q "Live transcript" dist
@@ -91,7 +91,7 @@ jobs:
                   *.js*) live_bundle+="$(curl -sSL --max-time 20 -A "$ua" "https://getjobready.online${asset}" || true)"$'\n' ;;
                 esac
               done
-              if grep -q 'Improve your CV first' <<<"$live_bundle" && grep -q 'SpeechRecognition' <<<"$live_bundle" && grep -q 'General CV' <<<"$live_bundle"; then
+              if grep -q 'Improve your CV first' <<<"$live_bundle" && grep -q 'captured automatically' <<<"$live_bundle" && grep -q 'General CV' <<<"$live_bundle"; then
                 status="verified"
                 reason="public HTML and current native React bundle markers are present"
                 break
