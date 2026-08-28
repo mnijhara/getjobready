@@ -45,6 +45,12 @@ try {
   if (allowed.headers.get('permissions-policy') !== 'microphone=(self), camera=(), geolocation=()') {
     throw new Error('Permissions-Policy does not keep microphone access scoped to self.');
   }
+  if (allowed.headers.get('cache-control') !== 'no-store, max-age=0') {
+    throw new Error('Student API responses must explicitly disable intermediary/browser caching.');
+  }
+  if (allowed.headers.get('pragma') !== 'no-cache') {
+    throw new Error('Student API responses must include the no-cache compatibility header.');
+  }
 
   const blocked = await fetch(`${base}/api/health`, {
     headers: { Origin: 'https://evil.example' },
@@ -75,7 +81,7 @@ try {
   }
   if (!rateLimited) throw new Error('API rate limiter did not reject the protected route after the configured threshold.');
 
-  console.log('PASS: CORS, security headers, health exemption and API rate limiting behave as expected.');
+  console.log('PASS: CORS, security headers, API privacy headers, health exemption and API rate limiting behave as expected.');
 } finally {
   stop();
   await new Promise(resolve => child.once('exit', resolve));
