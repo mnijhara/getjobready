@@ -12,7 +12,7 @@ expect(app.includes("PDF, DOCX or TXT · or paste below"), 'CV uploader copy mat
 expect(app.includes("async function docxText(file)"), 'DOCX text extraction is implemented');
 expect(app.includes("import('mammoth')"), 'DOCX extraction uses the bundled Mammoth dependency');
 expect(app.includes("if(/\\.docx$/i.test(file.name))return docxText(file)"), 'DOCX uploads are routed through text extraction');
-expect(app.includes("sessionStorage.getItem('gjr_career')"), 'career choice restores after reload');
+expect(app.includes("readSession('gjr_career','job')"), 'career choice restores through the shared session helper');
 expect(app.includes("sessionStorage.setItem('gjr_cv_text',text)"), 'uploaded CV text is persisted');
 expect(app.includes("sessionStorage.setItem('gjr_jd_text',prep==='general'?'':jd)"), 'target JD text is persisted after analysis');
 expect(app.includes("sessionStorage.setItem('gjr_cv_improved',text)"), 'saved improved CV is persisted');
