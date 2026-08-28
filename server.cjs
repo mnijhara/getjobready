@@ -93,6 +93,17 @@ app.post('/api/demo', async (req, res) => {
   catch { return res.json({ title: `${company} — ${idea || 'A focused solution'}`, tagline: 'A candidate-built prototype around a real business problem.', users: 'Customers, frontline teams and business owners', impact: 'Reduce friction, improve visibility and create a measurable workflow.', pitch: ['Clear problem-to-solution narrative', 'Designed around a specific user', 'Focused on measurable business impact', 'Ready to discuss with an interviewer.'], html: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui;margin:0;padding:32px;background:#f6f7fb;color:#171e31}main{max-width:760px;margin:auto;background:white;border-radius:24px;padding:32px;box-shadow:0 12px 40px #0001}h1{margin-top:0}p{line-height:1.6}</style></head><body><main><h1>Prototype preview</h1><p>A focused concept around the stated business problem.</p></main></body></html>' }); }
 });
 
+// PDF.js in the frontend can emit a hashed worker URL. Hostinger serves the committed
+// production artifact from /dist, so expose that worker at both the stable URL and the
+// hashed URL without requiring a rebuild of the browser bundle.
+app.get(/^\/pdf\.worker(?:-[^/]+)?\.mjs$/, (req, res) => {
+  const worker = path.join(root, 'dist', 'pdf.worker.mjs');
+  if (!fs.existsSync(worker)) return res.status(503).type('text/plain').send('PDF worker is not available in this deployment.');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+  return res.sendFile(worker);
+});
+
 app.use(express.static(root));
 app.get('*', (req,res) => { const index = fs.existsSync(path.join(root,'index.html')) ? 'index.html' : 'index.src.html'; res.sendFile(path.join(root,index)); });
 app.listen(PORT, () => console.log(`GetJobReady listening on ${PORT}`));
