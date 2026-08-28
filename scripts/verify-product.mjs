@@ -45,4 +45,5 @@ expect(router.includes('Cloudflare 5-key round-robin + automatic failover'),'AI 
 expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${server}\n${router}`),'no provider API key is committed to product source');
 execFileSync(process.execPath,['--check','server.cjs'],{stdio:'inherit'});
 console.log('PASS: server.cjs syntax check');
+execFileSync(process.execPath,['scripts/verify-student-inputs.mjs'],{stdio:'inherit'});
 console.log('GetJobReady product verification passed.');
