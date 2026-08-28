@@ -3,4 +3,4 @@
 This file intentionally triggers the main-branch production build/deployment pipeline.
 The application source is unchanged; production artifacts are rebuilt from the current main branch.
 
-<!-- deployment trigger: 2026-08-26T17:24:00Z -->
+<!-- deployment trigger: 2026-08-28T13:58:00+05:30 -->
