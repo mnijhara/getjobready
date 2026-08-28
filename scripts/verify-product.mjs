@@ -21,7 +21,7 @@ expect(app.includes('function CVStudio'),'native CV improvement studio exists');
 expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet improvements');
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
 expect(app.includes("useState(()=>String(initial||''))"),'CV editor initializes from the original CV without rewriting it');
-expect(!app.includes('candidate&&raw.length>30?`• ${candidate}`'),'CV editor does not overwrite every original bullet with one AI suggestion');
+expect(!candidateAndRawReplacement(app),'CV editor does not overwrite every original bullet with one AI suggestion');
 expect(app.includes('Save & continue to live interview'),'CV save gate precedes the interview');
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
 expect(app.includes('SpeechRecognition'),'live interview uses browser speech recognition');
@@ -31,9 +31,9 @@ expect(app.includes('disableWorker:true'),'production PDF parsing is independent
 expect(app.includes('.docx'),'CV upload accepts DOCX files');
 expect(app.includes("readSession('gjr_career','job')"),'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',v)"),'career selection writes to session state');
-expect(app.includes("sessionStorage.getItem('gjr_cv_mode')"),'preparation mode restores from session state');
-expect(app.includes("sessionStorage.getItem('gjr_cv_text')"),'CV text restores from session state');
-expect(app.includes("sessionStorage.getItem('gjr_jd_text')"),'job description restores from session state');
+expect(app.includes("readSession('gjr_cv_mode','specific')"),'preparation mode restores from session state');
+expect(app.includes("readSession('gjr_cv_text','')"),'CV text restores from session state');
+expect(app.includes("readSession('gjr_jd_text','')"),'job description restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_cv_text',e.target.value)"),'pasted CV edits persist to session state');
 expect(app.includes("sessionStorage.setItem('gjr_jd_text',e.target.value)"),'pasted JD edits persist to session state');
 expect(app.includes('How it works'),'How it works is implemented in the native React UI');
@@ -60,3 +60,4 @@ execFileSync(process.execPath,['--check','server.cjs'],{stdio:'inherit'});
 console.log('PASS: server.cjs syntax check');
 execFileSync(process.execPath,['scripts/verify-student-inputs.mjs'],{stdio:'inherit'});
 console.log('GetJobReady product verification passed.');
+function candidateAndRawReplacement(source){return source.includes('candidate&&raw.length>30?`• ${candidate}`')}
