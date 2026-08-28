@@ -19,6 +19,8 @@ jobs:
         run: npm install
       - name: Product regression verification
         run: npm run verify
+      - name: Audio interview contract verification
+        run: node scripts/verify-audio-interview.mjs
       - name: Check production server
         run: node --check server.cjs
       - name: Build Vite frontend
