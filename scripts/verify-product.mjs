@@ -19,7 +19,7 @@ expect(app.includes("post('/api/analyze'"),'CV analysis goes through the server 
 expect(app.includes('function CVStudio'),'native CV improvement studio exists');
 expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet improvements');
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
-expect(app.includes('function buildDraft(text){return String(text||\'\')}'),'CV editor preserves the original CV on first render');
+expect(app.includes("useState(()=>String(initial||''))"),'CV editor initializes from the original CV without rewriting it');
 expect(!app.includes('candidate&&raw.length>30?`• ${candidate}`'),'CV editor does not overwrite every original bullet with one AI suggestion');
 expect(app.includes('Save & continue to live interview'),'CV save gate precedes the interview');
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
@@ -37,6 +37,8 @@ expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW'),'server has explicit C
 expect(server.includes('CANDIDATE CV:'),'server interview prompts include candidate CV context');
 expect(server.includes('X-Content-Type-Options'),'security headers are enabled');
 expect(server.includes('Permissions-Policy'),'microphone permissions are explicitly scoped');
+expect(server.includes('Cache-Control')&&server.includes('no-store'),'student API responses are not cacheable');
+expect(server.includes('Pragma')&&server.includes('no-cache'),'legacy cache proxies are instructed not to store API responses');
 expect(server.includes('const allowedOrigin ='),'API CORS policy defines the configured public origin');
 expect(server.includes('Too many requests'),'API rate limiting is enabled');
 expect(server.includes('app.listen(PORT'),'production server starts successfully');
