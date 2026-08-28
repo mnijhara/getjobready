@@ -31,7 +31,7 @@ app.post('/api/analyze', async (req, res) => {
   const { cv = '', jd = '', career = 'job', mode = 'specific' } = req.body || {};
   if (!cv.trim() && !jd.trim()) return res.status(400).json({ error: 'CV or job description is required.' });
   try { return res.json(await generate(analysisPrompt(cv, jd, career, mode))); }
-  catch (error) { console.error('analyze:', error.message); return res.json(fallback); }
+  catch (error) { console.error('analyze:', error.message); return res.status(503).json({ error: 'AI analysis is temporarily unavailable. Please retry in a moment.' }); }
 });
 
 app.post('/api/analyze-upload', async (req, res) => {
@@ -45,7 +45,7 @@ app.post('/api/analyze-upload', async (req, res) => {
       ? `You are an expert campus recruiter and CV strategist. Read the attached CV WITHOUT assuming a target job. Return ONLY valid JSON with exactly: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4 without inventing facts), plan (exactly 7 actionable steps), interviewQuestions (exactly 5 general interview questions grounded in this CV). Questions must cover the candidate's actual projects, experience, achievements, teamwork, ownership, problem solving and behavioural readiness. Do not invent facts or assume a role.`
       : `You are an expert campus recruiter. Read the attached CV and analyse it against the target job description. Career mode: ${career}. Return ONLY valid JSON with exactly: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4 without inventing facts), plan (exactly 7), interviewQuestions (exactly 5 role-specific questions). Target JD:\n${String(jd).slice(0,30000)}`;
     return res.json(await generate('', { parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }] }));
-  } catch (error) { console.error('analyze-upload:', error.message); return res.json(fallback); }
+  } catch (error) { console.error('analyze-upload:', error.message); return res.status(503).json({ error: 'AI analysis is temporarily unavailable. Please retry in a moment.' }); }
 });
 
 app.post('/api/interview-feedback', async (req, res) => {
@@ -55,7 +55,7 @@ app.post('/api/interview-feedback', async (req, res) => {
     ? `GENERAL CV INTERVIEW. Use the candidate CV as the preparation context:\n${String(cv).slice(0,40000)}`
     : `ROLE-SPECIFIC CV + JD INTERVIEW. Use BOTH sources when evaluating evidence, relevance and fit.\n\nCANDIDATE CV:\n${String(cv).slice(0,40000)}\n\nTARGET JD:\n${String(jd).slice(0,30000)}`;
   try { return res.json(await generate(`You are a demanding but supportive campus interviewer. Evaluate these interview answers. Return ONLY valid JSON with exactly: score (0-100), strengths (max 4), improvements (max 4), nextAction. Assess clarity, structure, evidence, ownership, relevance, communication, confidence and business thinking.\n\n${context}\n\nANSWERS:\n${JSON.stringify(safeAnswers)}`)); }
-  catch (error) { const words = safeAnswers.reduce((n, a) => n + a.answer.trim().split(/\s+/).filter(Boolean).length, 0); return res.json({ score: Math.min(94, Math.max(62, 68 + Math.min(18, Math.floor(words / 35)))), strengths: ['You completed the conversation', 'Your answers show preparation and intent', 'You demonstrated willingness to reflect'], improvements: ['Use Situation → Action → Result', 'Add numbers, scope or concrete evidence', 'Lead with the outcome and keep context concise'], nextAction: 'Repeat the interview and make every example end with a clear result and learning.' }); }
+  catch (error) { console.error('interview-feedback:', error.message); return res.status(503).json({ error: 'Interview feedback is temporarily unavailable. Please retry in a moment.' }); }
 });
 
 app.post('/api/interview-turn', async (req, res) => {
