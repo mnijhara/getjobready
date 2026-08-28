@@ -28,7 +28,7 @@ expect(app.includes('Live transcript'),'live interview transcript is visible');
 expect(app.includes('captured automatically'),'student is told spoken answers are captured automatically');
 expect(app.includes('disableWorker:true'),'production PDF parsing is independent of a remotely fetched PDF worker');
 expect(app.includes('.docx'),'CV upload accepts DOCX files');
-expect(app.includes("sessionStorage.getItem('gjr_career')"),'career selection restores from session state');
+expect(app.includes("readSession('gjr_career','job')"),'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',v)"),'career selection writes to session state');
 expect(app.includes("sessionStorage.getItem('gjr_cv_mode')"),'preparation mode restores from session state');
 expect(app.includes("sessionStorage.getItem('gjr_cv_text')"),'CV text restores from session state');
