@@ -16,6 +16,7 @@ expect(app.includes("prep==='general"),'general CV preparation mode exists');
 expect(app.includes("prep==='specific"),'CV + JD preparation mode exists');
 expect(!app.includes('getjobready-ai-proxy.mnijhara.workers.dev'),'browser does not call the AI proxy directly');
 expect(app.includes("post('/api/analyze'"),'CV analysis goes through the server API');
+expect(!app.includes('setResult(fallback(prep))'),'AI analysis failures do not masquerade as successful synthetic results');
 expect(app.includes('function CVStudio'),'native CV improvement studio exists');
 expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet improvements');
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
