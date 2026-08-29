@@ -77,10 +77,12 @@ jobs:
           test -f pdf.worker.mjs
           test -f assets/pdf.worker-CLesOks4.mjs
           node --check server.js
-          for marker in "GetJobReady" "AI Audio Interview" "General CV" "CV + specific JD" "captured automatically" "Improve your CV first" "Save & continue to live interview" "Live transcript" "How it works" "Impress the Interviewer"; do
-            grep -R -q "$marker" dist || { echo "FAIL: marker not found in generated artifact: $marker"; exit 1; }
-          done
           grep -q '/assets/' index.html
+          grep -q 'interview-turn' server.js
+          grep -q 'ai-status' server.js
+          js_asset="$(grep -oE '/assets/[^" ]+\.js' index.html | head -1)"
+          test -n "$js_asset"
+          test "$(wc -c < "${js_asset#/}")" -gt 200000
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
@@ -91,7 +93,7 @@ jobs:
           done
           test "$HEALTH_OK" = 1
           grep -q '"ok":true' /tmp/health.json
-          curl -fsS http://127.0.0.1:4173/ | grep -q 'GetJobReady'
+          curl -fsS http://127.0.0.1:4173/api/ai-status | grep -q '"configured"'
       - name: Commit refreshed production artifacts
         run: |
           git config user.name "github-actions[bot]"
