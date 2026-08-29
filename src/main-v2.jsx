@@ -377,7 +377,11 @@ function App(){
  };
 
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
- const saveInterviewResult=d=>{if(profile){db.saveInterview({role:roleName||'General Interview',score:d.score,strengths:d.strengths,nextAction:d.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:d.score})}; setResult(r=>({...r,feedback:d}));setScreen('feedback')};
+ const saveInterviewResult=d=>{
+  const fb=d||{score:10,strengths:['You completed all questions'],improvements:['Use the STAR method for every answer','Give at least 30-60 seconds per answer','Quantify every result with a number'],nextAction:'Start over with real STAR answers using examples from your CV.'};
+  if(profile){db.saveInterview({role:roleName||'General Interview',score:fb.score,strengths:fb.strengths,nextAction:fb.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:fb.score})}
+  setResult(r=>({...r,feedback:fb}));setScreen('feedback');
+ };
  const goHome=()=>setScreen('home');
  if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
@@ -387,7 +391,7 @@ function App(){
  if(screen==='interview'){
   const totalQs=questions.length||6;
   const isLastTurn=qIndex>=totalQs-1;
-  return <Workspace title="AI Audio Interview" compact back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[Math.min(qIndex,totalQs-1)]}turn={qIndex+1}maxTurns={totalQs}history={answers}onTurn={(d,a)=>{const newAnswers=[...answers,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}];setAnswers(newAnswers);const nextIdx=qIndex+1;if(nextIdx>=totalQs||d.done){saveInterviewResult(d.finalFeedback||{score:d.score||65,strengths:d.strengths||['Completed the full interview'],improvements:d.improvements||['Add more specific STAR examples'],nextAction:d.nextAction||'Practise one more round with stronger metrics.'});}else{setQIndex(nextIdx);}}}onDone={saveInterviewResult}/></Workspace>;
+  return <Workspace title="AI Audio Interview" compact back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[Math.min(qIndex,totalQs-1)]}turn={qIndex+1}maxTurns={totalQs}history={answers}onTurn={(d,a)=>{const newAnswers=[...answers,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}];setAnswers(newAnswers);const nextIdx=qIndex+1;if(nextIdx>=totalQs||d.done){saveInterviewResult(d.finalFeedback);}else{setQIndex(nextIdx);}}}onDone={saveInterviewResult}/></Workspace>;
  }
 
 
@@ -1042,9 +1046,14 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
    setTranscript('');
    latestTranscript.current='';
    setStatus('starting');
-   if(data.done){
-    onDone(data.finalFeedback||{score:data.score||65,strengths:data.strengths||['Completed all interview questions'],improvements:data.improvements||['Add more specific STAR examples'],nextAction:data.nextAction||'Practise one more time with stronger metrics.'});
+   // Always compute honest local score from all turns including this one
+   const localEval=evaluateInterviewTurnLocal(question,answer,turns);
+   const honestFeedback=localEval.finalFeedback;
+   if(data.done||localEval.done){
+    onDone(honestFeedback);
    }else{
+    // Merge honest evaluation into data so per-answer coaching shows correctly
+    data.evaluation=data.evaluation||localEval.evaluation;
     onTurn(data,answer);
     started.current=false;
    }
