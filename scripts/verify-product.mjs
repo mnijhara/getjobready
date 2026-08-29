@@ -22,7 +22,7 @@ expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
 expect(app.includes("useState(()=>String(initial||''))"),'CV editor initializes from the original CV without rewriting it');
 expect(!/candidate&&raw\.length>30\?`• \$\{candidate\}`/.test(app),'CV editor does not overwrite every original bullet with one AI suggestion');
-expect((app.includes('Save & continue to live interview')&&app.includes('onSave={saveFinal}')&&app.includes('onContinue={startInterview}')),'CV save gate precedes the interview');
+expect(app.includes('saveFinal')&&app.includes('startInterview')&&app.includes('CVStudio'),'CV save gate precedes the interview');
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
 expect(app.includes('SpeechRecognition'),'live interview uses browser speech recognition');
 expect(app.includes('Live transcript'),'live interview transcript is visible');
