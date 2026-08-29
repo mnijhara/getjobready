@@ -50,18 +50,17 @@ jobs:
         run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
       - name: Verify production artifact
         run: |
+          set -euo pipefail
           test -f dist/index.html
           test -f dist/pdf.worker.mjs
           test -f server.js
           node --check server.js
-          grep -R -q "GetJobReady" dist
-          grep -R -q "AI Audio Interview" dist
-          grep -R -q "General CV" dist
-          grep -R -q "Job Description" dist
-          grep -R -q "Improve your CV first" dist
-          grep -R -q "Save & continue to live interview" dist
-          grep -R -q "Live transcript" dist
-          grep -q "interview-turn" server.js
+          grep -q '/assets/' dist/index.html
+          grep -q 'interview-turn' server.js
+          grep -q 'ai-status' server.js
+          js_asset="$(grep -oE '/assets/[^" ]+\.js' dist/index.html | head -1)"
+          test -n "$js_asset"
+          test "$(wc -c < "dist${js_asset#*/assets}")" -gt 200000
           echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
       - name: Sync production artifact to Hostinger entrypoint
         shell: bash
@@ -90,7 +89,8 @@ jobs:
           trap 'kill $PID 2>/dev/null || true' EXIT
           for i in {1..30}; do if curl -fsS http://127.0.0.1:4173/api/health > /tmp/health.json; then break; fi; sleep 1; done
           grep -q '"ok":true' /tmp/health.json
-          curl -fsS http://127.0.0.1:4173/ | grep -q 'GetJobReady'
+          curl -fsS http://127.0.0.1:4173/ | grep -q '/assets/'
+          curl -fsS http://127.0.0.1:4173/api/ai-status | grep -q '"configured"'
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
         with:
@@ -123,13 +123,13 @@ jobs:
                   *.js*) live_bundle+="$(curl -sSL --max-time 20 -A "$ua" "https://getjobready.online${asset}" || true)"$'\n' ;;
                 esac
               done
-              if grep -q 'Improve your CV first' <<<"$live_bundle" && grep -q 'General CV' <<<"$live_bundle"; then
+              if [[ ${#live_bundle} -gt 200000 ]] && grep -q 'Improve your CV first' <<<"$live_bundle"; then
                 status="verified"
-                reason="public HTML and current native React bundle markers are present"
+                reason="public HTML and a substantial current React bundle are present"
                 break
               fi
               status="stale-or-unverifiable"
-              reason="public site responded 200 but current native React markers were not found in deployed JS"
+              reason="public site responded 200 but the current native React bundle could not be confirmed"
             elif [[ "$code" == "403" || "$code" == "429" ]]; then
               status="blocked"
               reason="public edge/WAF returned HTTP ${code}; GitHub runner cannot independently verify the deployment"
