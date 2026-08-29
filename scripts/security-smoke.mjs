@@ -103,7 +103,16 @@ try {
   }
   if (!rateLimited) throw new Error('API rate limiter did not reject the protected route after the configured threshold.');
 
-  console.log('PASS: CORS, security headers, API privacy headers, safe parser errors, health exemption and API rate limiting behave as expected.');
+  const independentClient = await fetch(`${base}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.12' },
+    body: '{}',
+  });
+  if (independentClient.status !== 400) {
+    throw new Error(`Rate limiting should be isolated by client IP behind the trusted proxy; received ${independentClient.status}.`);
+  }
+
+  console.log('PASS: CORS, security headers, API privacy headers, safe parser errors, health exemption and per-client API rate limiting behave as expected.');
 } finally {
   stop();
   await new Promise(resolve => child.once('exit', resolve));
