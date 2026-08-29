@@ -432,12 +432,25 @@ function parseCV(raw){
   }
  }
 
- // 2. Extract title if present
+ // 2. Extract title if present (cleanly strip candidate name prefix)
  if(firstLine.includes('|')){
   const parts=firstLine.split('|').map(s=>s.trim());
-  const roleParts=parts.filter(p=>/(Engineer|Developer|Consultant|Analyst|Designer|Manager|Intern|Architect)/i.test(p)&&!p.includes('@')&&!/\d/.test(p));
+  const roleParts=parts.map(p=>{
+   let cleanP=p;
+   if(name&&cleanP.toLowerCase().startsWith(name.toLowerCase())){
+    cleanP=cleanP.slice(name.length).trim();
+   }
+   cleanP=cleanP
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,'')
+    .replace(/\+?\d[\d\s\-]{8,}\d/g,'')
+    .replace(/^(LinkedIn|GitHub|CodeChef|LeetCode|Codeforces|Portfolio)/gi,'')
+    .trim();
+   return cleanP;
+  }).filter(p=>p.length>=3&&/(Engineer|Developer|Consultant|Analyst|Designer|Manager|Intern|Architect|Specialist|Lead|Associate)/i.test(p));
+
   if(roleParts.length)title=roleParts.join(' | ');
  }
+
 
  // 3. Build clean contact line
  const contactParts=[];
