@@ -1,8 +1,19 @@
-# Hostinger Apache configuration for SPA and Social Crawler Access
+# Hostinger Apache configuration for SPA, Cache Control, and Social Crawler Access
 
 <IfModule mod_headers.c>
   Header set Access-Control-Allow-Origin "*"
-  Header set Cache-Control "public, max-age=3600"
+
+  # HTML files MUST NEVER be cached to prevent stale JS bundle hash 404s
+  <FilesMatch "\.(html|htm)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Static hashed assets can be cached safely
+  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|webmanifest|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
 </IfModule>
 
 # Correct MIME Types for Favicons and Social Images
