@@ -260,15 +260,121 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
 }
 
  function VoiceInterview({cv,jd,mode,career,question,turn,maxTurns,history,onTurn,onDone}){
- const[status,setStatus]=useState('starting'),[transcript,setTranscript]=useState(''),[turns,setTurns]=useState(history||[]),[permission,setPermission]=useState(false),rec=useRef(null),started=useRef(false),submitting=useRef(false);
+ const[status,setStatus]=useState('starting'),[transcript,setTranscript]=useState(''),[turns,setTurns]=useState(history||[]),[permission,setPermission]=useState(false);
+ const rec=useRef(null),started=useRef(false),submitting=useRef(false),latestTranscript=useRef('');
  const supported=typeof window!=='undefined'&&('webkitSpeechRecognition'in window||'SpeechRecognition'in window);
  useEffect(()=>{setTurns(history||[])},[history]);
- const speakAndListen=()=>{if(started.current)return;started.current=true;window.speechSynthesis?.cancel();const u=new SpeechSynthesisUtterance(question);const voices=window.speechSynthesis?.getVoices()||[];let best=voices.find(v=>v.lang.startsWith('en')&&(v.name.includes('Google')||v.name.includes('Premium')||v.name.includes('Natural')));if(!best)best=voices.find(v=>v.lang.startsWith('en-IN')||v.lang.startsWith('en-GB')||v.lang.startsWith('en-US'));if(best)u.voice=best;u.rate=1;u.pitch=1;u.onend=()=>beginRecognition();window.speechSynthesis?.speak(u)};
- const beginRecognition=()=>{if(!supported){setStatus('unsupported');return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const r=new SR();r.lang='en-IN';r.interimResults=true;r.continuous=false;r.maxAlternatives=1;r.onstart=()=>{setStatus('listening');setPermission(true)};r.onresult=e=>{let text='';for(let i=e.resultIndex;i<e.results.length;i++)text+=e.results[i][0].transcript+' ';setTranscript(text.trim())};r.onend=()=>{const answer=transcript.trim();setStatus(answer?'thinking':'idle');if(answer&&!submitting.current){submitting.current=true;submit(answer).finally(()=>{submitting.current=false})}};r.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');else if(e.error!=='aborted')setStatus('error')};rec.current=r;try{r.start()}catch{setStatus('error')}};
+
+ const speakAndListen=()=>{
+  if(started.current)return;
+  started.current=true;
+  setStatus('starting');
+  latestTranscript.current='';
+  setTranscript('');
+  window.speechSynthesis?.cancel();
+  
+  const u=new SpeechSynthesisUtterance(question);
+  const voices=window.speechSynthesis?.getVoices()||[];
+  let best=voices.find(v=>v.lang.startsWith('en')&&(v.name.includes('Google')||v.name.includes('Premium')||v.name.includes('Natural')));
+  if(!best)best=voices.find(v=>v.lang.startsWith('en-IN')||v.lang.startsWith('en-GB')||v.lang.startsWith('en-US'));
+  if(best)u.voice=best;
+  u.rate=1;u.pitch=1;
+  u.onend=()=>beginRecognition();
+  window.speechSynthesis?.speak(u);
+ };
+
+ const beginRecognition=()=>{
+  if(!supported){setStatus('unsupported');return}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const r=new SR();
+  r.lang='en-IN';r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+  r.onstart=()=>{setStatus('listening');setPermission(true)};
+  r.onresult=e=>{
+   let text='';
+   for(let i=0;i<e.results.length;i++){text+=e.results[i][0].transcript+' '}
+   latestTranscript.current=text.trim();
+   setTranscript(text.trim());
+  };
+  r.onend=()=>{
+   const answer=latestTranscript.current.trim();
+   if(answer&&!submitting.current){
+    setStatus('thinking');
+    submitting.current=true;
+    submit(answer).finally(()=>{submitting.current=false});
+   }else if(!answer&&!submitting.current){
+    setStatus('idle');
+   }
+  };
+  r.onerror=e=>{
+   if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');
+   else if(e.error!=='aborted')setStatus('error');
+  };
+  rec.current=r;
+  try{r.start()}catch{setStatus('error')}
+ };
+
  const startJourney=()=>{started.current=false;speakAndListen()};
- const submit=async(answer)=>{try{let data;try{data=await post('/api/interview-turn',{cv,jd,mode,career,question,answer,history:turns,turn,maxTurns})}catch(e){console.warn(e);const next=fallback(mode).interviewQuestions[turn]||'Tell me what you would improve in your next answer.';data={done:turn>=maxTurns,nextQuestion:next,evaluation:{score:70,notes:'Clear answer captured. Add a specific example and measurable outcome.'},finalFeedback:{score:70,strengths:['You answered with your own experience'],improvements:['Add a concrete example','Quantify the result'],nextAction:'Repeat the interview with one stronger STAR story.'}}}setTurns(x=>[...x,{question,answer,evaluation:data.evaluation}]);setTranscript('');if(data.done)onDone(data.finalFeedback||data);else{onTurn(data,answer);started.current=false}}catch(e){setStatus('error');alert(e.message||'We could not submit this answer. Please try again.')}};
- useEffect(()=>{setStatus('starting');started.current=false;setTranscript('');window.speechSynthesis?.cancel();const t=setTimeout(()=>{if(!started.current)startJourney()},800);return()=>{clearTimeout(t);rec.current?.abort();window.speechSynthesis?.cancel()}},[question,turn]);
- return <div className="interview"><div className="interview-progress">{Array.from({length:maxTurns}).map((_,i)=><div key={i} className={`dot ${i<turn-1?'done':i===turn-1?'active':''}`}/>)}</div><div className="question-card"aria-live="polite"><span className="eyebrow">QUESTION {turn} OF {maxTurns}</span><h2>{question}</h2><p>{status==='thinking'?'Evaluating your answer…':status==='listening'?'I’m listening. Finish naturally — I’ll capture it automatically.':'The question will be spoken aloud. Tap the mic once to begin; after that the interview runs hands-free.'}</p></div><div className={`voice-card handsfree ${status}`}onClick={status==='idle'||status==='permission'||status==='error'?startJourney:undefined}role="button"tabIndex={0}onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startJourney()}}}><div className={`mic ${status}`}><Mic size={38}/>{status==='listening'&&<i/>}</div><div className="voice-state"><b>{status==='listening'?'Listening…':status==='thinking'?'AI is evaluating…':status==='permission'?'Tap to allow microphone':'Tap mic to begin'}</b><span>{supported?'No submit button. Your answer is captured when you finish speaking.':'Use Chrome on Android or desktop for voice input.'}</span></div></div><div className="transcript-card"><div className="transcript-head"><div className="label"><Headphones size={17}/> Live transcript</div><span>{transcript?'Capturing':'Waiting for your answer'}</span></div><p className={transcript?'live':''}>{transcript||'Your spoken answer will appear here in real time.'}</p></div>{permission&&<div className="interview-hint"><Volume2 size={15}/> Question audio · automatic answer capture · no manual submit</div>}</div>
+
+ const submit=async(answer)=>{
+  try{
+   let data;
+   try{
+    data=await post('/api/interview-turn',{cv,jd,mode,career,question,answer,history:turns,turn,maxTurns});
+   }catch(e){
+    console.warn(e);
+    const next=fallback(mode).interviewQuestions[turn]||'Tell me what you would improve in your next answer.';
+    data={
+     done:turn>=maxTurns,
+     nextQuestion:next,
+     evaluation:{score:70,notes:'Clear answer captured. Add a specific example and measurable outcome.'},
+     finalFeedback:{score:70,strengths:['You answered with your own experience'],improvements:['Add a concrete example','Quantify the result'],nextAction:'Repeat the interview with one stronger STAR story.'}
+    };
+   }
+   setTurns(x=>[...x,{question,answer,evaluation:data.evaluation}]);
+   setTranscript('');
+   latestTranscript.current='';
+   if(data.done){
+    onDone(data.finalFeedback||data);
+   }else{
+    onTurn(data,answer);
+    started.current=false;
+   }
+  }catch(e){
+   setStatus('error');
+   alert(e.message||'We could not submit this answer. Please try again.');
+  }
+ };
+
+ useEffect(()=>{
+  setStatus('starting');
+  started.current=false;
+  setTranscript('');
+  latestTranscript.current='';
+  window.speechSynthesis?.cancel();
+  const t=setTimeout(()=>{if(!started.current)startJourney()},600);
+  return()=>{clearTimeout(t);rec.current?.abort();window.speechSynthesis?.cancel()}
+ },[question,turn]);
+
+ return <div className="interview">
+  <div className="interview-progress">{Array.from({length:maxTurns}).map((_,i)=><div key={i} className={`dot ${i<turn-1?'done':i===turn-1?'active':''}`}/>)}</div>
+  <div className="question-card"aria-live="polite">
+   <span className="eyebrow">QUESTION {turn} OF {maxTurns}</span>
+   <h2>{question}</h2>
+   <p>{status==='starting'?'AI Interviewer is speaking the question aloud…':status==='thinking'?'AI is evaluating your answer…':status==='listening'?'Listening to your answer — finish speaking and it will capture automatically.':'Hands-free mode active. Question is spoken out loud.'}</p>
+  </div>
+  <div className={`voice-card handsfree ${status}`} onClick={status==='idle'||status==='permission'||status==='error'?startJourney:undefined} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startJourney()}}}>
+   <div className={`mic ${status}`}><Mic size={38}/>{(status==='listening'||status==='starting')&&<i/>}</div>
+   <div className="voice-state">
+    <b>{status==='starting'?'Speaking Question…':status==='listening'?'Listening to you…':status==='thinking'?'Evaluating answer…':status==='permission'?'Tap to allow microphone':'Tap to restart question'}</b>
+    <span>{supported?'Hands-free active. Answers are captured automatically when you stop speaking.':'Use Chrome on Android or desktop for voice input.'}</span>
+   </div>
+  </div>
+  <div className="transcript-card">
+   <div className="transcript-head"><div className="label"><Headphones size={17}/> Live transcript</div><span>{transcript?'Capturing':'Waiting for your answer'}</span></div>
+   <p className={transcript?'live':''}>{transcript||'Your spoken answer will appear here in real time.'}</p>
+  </div>
+  {permission&&<div className="interview-hint"><Volume2 size={15}/> Question audio · automatic answer capture · 100% hands-free</div>}
+ </div>
 }
 
 function Feedback({data,answers,onSyncSpokenWins}){
