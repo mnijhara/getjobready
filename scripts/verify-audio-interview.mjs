@@ -4,7 +4,7 @@ const source = fs.readFileSync('src/main-v2.jsx', 'utf8');
 const required = [
   ['speech synthesis API', "speechSynthesis"],
   ['Indian English voice locale', "u.lang='en-IN'"],
-  ['cancel previous question audio', 'speechSynthesis.cancel()'],
+  ['cancel previous question audio', 'window.speechSynthesis?.cancel()'],
   ['question accessibility announcement', 'aria-live="polite"'],
   ['speech cleanup on unmount', 'window.speechSynthesis?.cancel()'],
 ];
