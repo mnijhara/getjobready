@@ -163,23 +163,24 @@ function evaluateInterviewTurnLocal(question,answer,history){
   note='Strong STAR response with clear personal ownership and measurable outcomes. Well articulated.';
  }
 
- // Generate a model answer based on the question type and content
+ // Generate a model answer based on the specific question type
  const q=question.toLowerCase();
  let modelAnswer='';
  const quoteMatch=question.match(/"([^"]+)"/);
  const quotedSnippet=quoteMatch?quoteMatch[1]:'';
 
- if(/tell me about yourself|background|academic|proud/i.test(q)){
+ if(/tell me about yourself|background in technology|academic journey|proud of so far/i.test(q)){
   modelAnswer=`"I'm a final-year Computer Science student with a strong foundation in backend development, data structures, and cloud technologies. Over the past two years, I've built production-grade systems including API microservices and automated testing pipelines. The project I'm most proud of is an automated storage optimization tool that reduced cloud storage overhead by 35% across 10,000+ daily test files. I'm eager to bring my hands-on backend and problem-solving skills to this engineering team."`;
- }else if(quotedSnippet||/streamlined|cloudflare|r2|internship|day-to-day|responsibility|tools|number|impact/i.test(q)){
-  const topic=quotedSnippet||'my key internship project';
-  modelAnswer=`"During my internship at Coding Panda, our team faced high latency and rising storage costs when running automated test suites. [Situation/Task] I took full ownership of optimizing test case batch storage. [Action] I architected a solution using Cloudflare R2 object storage with Hono.js microservices, wrote worker scripts to batch process test assets asynchronously, and implemented cache headers for fast retrieval. [Result] This reduced batch upload latency by 42% and cut monthly storage costs by 30% while scaling to handle 50,000+ test runs per week."`;
- }else if(/went wrong|deadline|missed|roadblock|debug|resolve|differently/i.test(q)){
-  modelAnswer=`"During a critical project milestone, an API endpoint began failing under concurrent load 48 hours before release. [Situation/Task] As the backend lead, I had to diagnose the bottleneck immediately without delaying the team. [Action] I used distributed tracing to locate an unindexed database query causing thread starvation, wrote an asynchronous worker to offload heavy jobs, and added rate-limiting middleware. [Result] We resolved the issue within 6 hours, stress-tested up to 5,000 concurrent requests with zero errors, and delivered on schedule. Going forward, I instituted automated load testing before every major release."`;
- }else if(/ai tools|chatgpt|claude|copilot|frameworks|faster|effective/i.test(q)){
+ }else if(/ai tools|chatgpt|claude|copilot|frameworks|faster or more effective/i.test(q)){
   modelAnswer=`"I use modern AI tools daily to accelerate development velocity and code quality. Specifically, I use GitHub Copilot to write unit test scaffolding and boilerplate algorithms, and Claude/ChatGPT to simulate edge cases and explain legacy stack error logs. For instance, when integrating Cloudflare R2 APIs, I used LLM prompts to quickly compare SDK caching strategies, saving roughly 4 hours of trial-and-error. I always manually review and write tests for any AI-assisted code to maintain strict security and performance standards."`;
- }else if(/30-day|30 day|joined|tomorrow|value|relationships|prove/i.test(q)){
+ }else if(/went wrong|deadline was missed|roadblock|debug or resolve|what would you do differently/i.test(q)){
+  modelAnswer=`"During a critical project milestone, an API endpoint began failing under concurrent load 48 hours before release. [Situation/Task] As the backend lead, I had to diagnose the bottleneck immediately without delaying the team. [Action] I used distributed tracing to locate an unindexed database query causing thread starvation, wrote an asynchronous worker to offload heavy jobs, and added rate-limiting middleware. [Result] We resolved the issue within 6 hours, stress-tested up to 5,000 concurrent requests with zero errors, and delivered on schedule. Going forward, I instituted automated load testing before every major release."`;
+ }else if(/30-day plan|30 day|joined this team tomorrow|add real value|prove yourself/i.test(q)){
   modelAnswer=`"In my first 30 days, my priority is 30% learning, 40% execution, and 30% relationship building. In Week 1, I'll deep-dive into the codebase, understand the deployment pipelines, and set up 1-on-1s with my mentor and peers to align on expectations. By Week 2 and 3, I aim to resolve at least 2 backlog bugs and ship my first pull request to demonstrate reliable execution. By Day 30, I will document any friction points I noticed in onboarding and present a proactive roadmap for my next quarter deliverables."`;
+ }else if(/in your cv|cloudflare|r2|batch storage/i.test(q)||quotedSnippet){
+  modelAnswer=`"In my CV project involving batch storage optimization: [Situation] Our team faced high latency and rising storage costs when running automated test suites. [Task] I took full ownership of designing a scalable batch storage system using Cloudflare R2. [Action] I architected the storage pipeline with Hono.js microservices, wrote worker scripts to batch process test assets asynchronously, and implemented cache headers for fast retrieval. [Result] This reduced batch upload latency by 42% and cut monthly storage costs by 30% while scaling to handle 50,000+ test runs per week."`;
+ }else if(/summer internship|key technical project|day-to-day responsibility|one number that shows your impact/i.test(q)){
+  modelAnswer=`"During my summer internship as a Backend Developer: [Situation/Task] I was responsible for maintaining microservice endpoints and improving test automation speed. [Action] On a day-to-day basis, I developed REST APIs in Node.js, integrated Redis caching, and automated test result storage. [Result] The key number showing my impact was reducing end-to-end test execution time by 55%, enabling our engineering team to ship pull requests twice as fast every sprint."`;
  }else{
   modelAnswer=`"[Situation & Task] Outline the specific project, context, and problem you were assigned. [Action] Detail what YOU specifically coded, designed, or led — mention specific technologies and decisions. [Result] Conclude with quantifiable impact — percentages, performance gains, revenue, or hours saved."`;
  }
