@@ -373,7 +373,8 @@ function App(){
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
  if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}onSave={saveFinal}onContinue={startInterview}/></Workspace>;
 
- if(screen==='interview')return <Workspace title="AI Audio Interview" subtitle={prep==='general'?'General interview grounded in your final CV.':'Role-specific interview grounded in your final CV + JD.'} icon={<Mic/>} back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}question={questions[qIndex]}turn={qIndex+1}maxTurns={7}history={answers}onTurn={(d,a)=>{setAnswers(x=>[...x,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}]);if(!d.done&&d.nextQuestion){setResult(r=>({...r,interviewQuestions:[...(r?.interviewQuestions||questions),d.nextQuestion]}));setQIndex(i=>i+1)}}}onDone={saveInterviewResult}/></Workspace>;
+ if(screen==='interview')return <Workspace title="AI Audio Interview" subtitle={prep==='general'?'General interview grounded in your final CV.':'Role-specific interview grounded in your final CV + JD.'} icon={<Mic/>} back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[qIndex]}turn={qIndex+1}maxTurns={7}history={answers}onTurn={(d,a)=>{setAnswers(x=>[...x,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}]);if(!d.done&&d.nextQuestion){setResult(r=>({...r,interviewQuestions:[...(r?.interviewQuestions||questions),d.nextQuestion]}));setQIndex(i=>i+1)}}}onDone={saveInterviewResult}/></Workspace>;
+
  if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback}answers={answers}onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}}/></Workspace>;
  return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
 }
@@ -930,7 +931,8 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
 }
 
 
- function VoiceInterview({cv,jd,mode,career,question,turn,maxTurns,history,onTurn,onDone}){
+function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,history,onTurn,onDone}){
+
  const[status,setStatus]=useState('starting'),[transcript,setTranscript]=useState(''),[turns,setTurns]=useState(history||[]),[permission,setPermission]=useState(false);
  const rec=useRef(null),started=useRef(false),submitting=useRef(false),latestTranscript=useRef('');
  const supported=typeof window!=='undefined'&&('webkitSpeechRecognition'in window||'SpeechRecognition'in window);
