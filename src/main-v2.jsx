@@ -85,15 +85,16 @@ function toSentenceCase(text){
 function cleanExtractedCVText(raw){
  if(!raw)return'';
  let text=raw
+  .replace(/\r\n/g,'\n')
   .replace(/E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y/gi,'\n\nEXECUTIVE SUMMARY\n')
   .replace(/C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S/gi,'\n\nCORE COMPETENCIES\n')
+  .replace(/T\s*E\s*C\s*H\s*N\s*I\s*C\s*A\s*L\s*S\s*K\s*I\s*L\s*L\s*S/gi,'\n\nTECHNICAL SKILLS\n')
   .replace(/P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|W\s*O\s*R\s*K\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
-  .replace(/E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N\s*&\s*L\s*A\s*N\s*G\s*U\s*A\s*G\s*E\s*S|E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N/gi,'\n\nEDUCATION & LANGUAGES\n')
-  .replace(/(EXECUTIVE SUMMARY|CORE COMPETENCIES|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EDUCATION & LANGUAGES|EDUCATION|PROJECTS|CERTIFICATIONS)/gi,'\n\n$1\n')
-  .replace(/(▪|•|◆|●)/g,'\n• ');
+  .replace(/\b(EXECUTIVE SUMMARY|CORE COMPETENCIES|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|KEY PROJECTS|PROJECTS|EDUCATION|ACADEMIC BACKGROUND|ACADEMICS|TECHNICAL SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS)\b/g,'\n\n$1\n')
+  .replace(/(▪|•|◆|●|\*\s+)/g,'\n• ');
 
  return text.split('\n')
-  .map(line=>toSentenceCase(line.trim()))
+  .map(line=>line.trim())
   .filter(Boolean)
   .join('\n');
 }
@@ -105,19 +106,18 @@ function generateTailoredCVQuestions(cvText,jd,role){
  lines.forEach(l=>{
   if(l.includes(' · ')||l.includes(' - ')){
    companies.push(l.split(' · ')[0]||l);
-  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION)/i.test(l)){
+  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)){
    bullets.push(l);
   }
  });
 
  const b1=bullets[0]||'your key achievements';
  const b2=bullets[1]||'a major project';
- const comp=companies[0]||'your previous organisation';
- // Detect domain from top header lines and target role
- const topContext=lines.slice(0,12).join(' ')+' '+(role||'')+' '+(jd||'');
- const domain=/\b(marketing|brand|campaign|consumer|growth|advertising)\b/i.test(topContext)?'Marketing'
-  :/\b(finance|analyst|banking|credit|dcf|investment|financial)\b/i.test(topContext)?'Finance'
-  :/\b(software|tech|developer|engineer|python|data science|fullstack)\b/i.test(topContext)?'Technology'
+ const comp=companies[0]||'your previous organisation or project';
+ const topContext=lines.slice(0,15).join(' ')+' '+(role||'')+' '+(jd||'');
+ const domain=/\b(software|engineer|developer|coding|backend|frontend|fullstack|java|python|golang|go|react|node|c\+\+|computer science|b\.tech|btech|algorithms|git|cloud|aws|docker)\b/i.test(topContext)?'Technology'
+  :/\b(marketing|brand|campaign|consumer|growth|advertising)\b/i.test(topContext)?'Marketing'
+  :/\b(finance|banking|valuation|equity|portfolio|cfa|financial)\b/i.test(topContext)?'Finance'
   :/\b(human resources|hrbp|talent acquisition|recruitment|people ops)\b/i.test(topContext)?'Human Resources'
   :/\b(consulting|strategy|operations|business analyst)\b/i.test(topContext)?'Management Consulting'
   :(role||'your field');
@@ -126,14 +126,15 @@ function generateTailoredCVQuestions(cvText,jd,role){
  const q1=`Tell me about yourself — your background in ${domain}, your academic journey, and the one experience or project you're most proud of so far.`;
  const q2=`In your CV, you mention "${b1.slice(0,85)}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
  const q3=isInternship
-  ?`Tell me about your summer internship. What was your day-to-day responsibility, what tools or AI did you use, and what's the one number that shows your impact?`
+  ?`Tell me about your summer internship or key technical project. What was your day-to-day responsibility, what tools or AI did you use, and what's the one number that shows your impact?`
   :`Tell me about a major project at ${comp.slice(0,40)}. What was your personal ownership, what challenge did you face, and what was the quantifiable outcome?`;
- const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or data platforms — in your studies or work? Give me a specific example where it made you faster or more effective.`;
- const q5=`Describe a time when something went wrong, a deadline was missed, or you disagreed with your team. How did you handle it and what would you do differently?`;
+ const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or modern frameworks — in your work or studies? Give me a specific example where it made you faster or more effective.`;
+ const q5=`Describe a time when something went wrong, a deadline was missed, or you faced a technical roadblock. How did you debug or resolve it and what would you do differently?`;
  const q6=`If you joined ${role?'the '+role+' team':'this team'} tomorrow, what's your 30-day plan to add real value, build relationships, and prove yourself quickly?`;
 
  return[q1,q2,q3,q4,q5,q6];
 }
+
 
 function evaluateInterviewTurnLocal(question,answer,history){
  const words=answer.trim().split(/\s+/).filter(Boolean);
@@ -398,17 +399,20 @@ function parseCV(raw){
 
  let name='',title='',contact='';
 
- // Step 1: Scan first 8 lines for candidate name & header contact info
- for(let i=0;i<Math.min(8,lines.length);i++){
+ // Step 1: Scan first 6 lines strictly for candidate name, title, and contact items
+ for(let i=0;i<Math.min(6,lines.length);i++){
   const l=lines[i];
 
-  // If line contains email, phone, or portfolio links
-  if(l.includes('@')||/\+?\d[\d\s\-]{8,}/.test(l)||/(LinkedIn|GitHub|Codeforces|CodeChef|LeetCode)/i.test(l)){
-   if(!contact)contact=l;
-   else if(!contact.includes(l))contact+=' | '+l;
+  // If line contains email, phone, or pure platform links
+  const isContactLine=(l.includes('@')||/\+?\d[\d\s\-]{8,}/.test(l)||/^(LinkedIn|GitHub|Codeforces|CodeChef|LeetCode|Portfolio)/i.test(l))&&!/^[•▪*-]/.test(l)&&l.length<100&&!/(Education|Experience|Institute|University|Projects|Solved|Engineered)/i.test(l);
+  
+  if(isContactLine){
+   const cleanItem=l.replace(/[•▪*-]/g,'').trim();
+   if(!contact)contact=cleanItem;
+   else if(!contact.includes(cleanItem))contact+=' | '+cleanItem;
 
-   // Try extracting candidate name from mixed header lines (e.g. "Vijit Vishnoi | +91 8209287464 | vishnoivijit@gmail.com")
-   const stripped=l
+   // Try extracting candidate name if present on this contact line
+   const stripped=cleanItem
     .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,'')
     .replace(/\+?\d[\d\s\-\(\)]{8,}\d/g,'')
     .replace(/(github|linkedin|leetcode|codechef|codeforces)(\.com|\.in)?(\/[^\s]*)?/gi,'')
@@ -417,14 +421,14 @@ function parseCV(raw){
     .replace(/\s+/g,' ')
     .trim();
 
-   if(!name&&stripped.length>=3&&stripped.length<=50&&/^[A-Za-z\s.'-]+$/.test(stripped)&&!/(EDUCATION|EXPERIENCE|PROJECTS|SKILLS|SUMMARY)/i.test(stripped)){
+   if(!name&&stripped.length>=3&&stripped.length<=40&&/^[A-Za-z\s.'-]+$/.test(stripped)&&!/(EDUCATION|EXPERIENCE|PROJECTS|SKILLS|SUMMARY)/i.test(stripped)){
     name=stripped;
    }
    continue;
   }
 
-  // Pure name line
-  if(!name&&l.length>=2&&l.length<=60&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS|ACHIEVEMENTS|LEADERSHIP|PROFILE|EXECUTIVE)/i.test(l)){
+  // Pure name line (line 0 or line 1)
+  if(!name&&i<2&&l.length>=2&&l.length<=50&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS|ACHIEVEMENTS|LEADERSHIP|PROFILE|EXECUTIVE)/i.test(l)&&!l.includes('@')&&!/\d/.test(l)){
    const cleanName=l.replace(/[^A-Za-z\s.'-]/g,'').replace(/\s+/g,' ').trim();
    if(cleanName.length>=2&&cleanName.split(' ').length<=4){
     name=cleanName;
@@ -432,14 +436,15 @@ function parseCV(raw){
    }
   }
 
-  if(name&&!title&&l.length<140&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)){
+  // Sub-header title
+  if(name&&!title&&i<3&&l.length<100&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)&&!l.includes('@')&&!/\d{6,}/.test(l)){
    title=l;
   }
  }
 
- // Fallback name extraction using Title Case capitalized words match in top 5 lines
+ // Fallback name extraction using Title Case capitalized words match in top 4 lines
  if(!name||name==='Your Name'){
-  for(let i=0;i<Math.min(5,lines.length);i++){
+  for(let i=0;i<Math.min(4,lines.length);i++){
    const match=lines[i].match(/^([A-Z][a-zA-Z'-]+\s+[A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)/);
    if(match&&!/(Education|Experience|Projects|Skills|Summary|Achievements|Leadership|Backend|Frontend|Full|Software)/i.test(match[1])){
     name=match[1];
@@ -482,14 +487,14 @@ function parseCV(raw){
    const cleanText=l.replace(/^[•▪*-]\s*/,'').trim();
    if(isBullet){
     if(!currentJob){
-     currentJob={role:currentSection.toUpperCase(),company:'',dates:'',bullets:[toSentenceCase(cleanText)]};
+     currentJob={role:currentSection.toUpperCase(),company:'',dates:'',bullets:[cleanText]};
     }else{
-     currentJob.bullets.push(toSentenceCase(cleanText));
+     currentJob.bullets.push(cleanText);
     }
    }else{
     finishBlock();
     const parts=l.split(/\s+[·|]\s+/);
-    currentJob={role:toSentenceCase(parts[0]||l),company:parts[1]||'',dates:parts.slice(2).join(' · ')||'',bullets:[]};
+    currentJob={role:parts[0]||l,company:parts[1]||'',dates:parts.slice(2).join(' · ')||'',bullets:[]};
    }
    return;
   }
@@ -501,34 +506,36 @@ function parseCV(raw){
  return{name:name||'Your Name',title:title||'',contact:contact||'',sections};
 }
 
-
 function generateSuggestions(parsed,jd){
  const sugg=[];let id=0;
  const{sections,name,title}=parsed;
  const allText=JSON.stringify(parsed).toLowerCase();
 
- // Detect the domain from the parsed CV content
- const domain=(/(hr|human resources|talent|people|hrbp|recruitment)/i.test(allText)?'HR'
-  :/(finance|analyst|banking|credit|dcf)/i.test(allText)?'Finance'
-  :/(marketing|brand|campaign|consumer)/i.test(allText)?'Marketing'
-  :/(engineer|software|python|sql|data)/i.test(allText)?'Technology':'General');
+ // Strict domain detection
+ const domain=/\b(software|engineer|developer|coding|backend|frontend|fullstack|java|python|golang|go|react|node|c\+\+|computer science|b\.tech|btech|algorithms|git|cloud|aws|docker)\b/i.test(allText)?'Technology'
+  :/\b(human resources|talent acquisition|recruitment|people ops|hrbp)\b/i.test(allText)?'HR'
+  :/\b(finance|banking|valuation|equity|portfolio|cfa|financial analyst)\b/i.test(allText)?'Finance'
+  :/\b(marketing|brand management|campaign|digital marketing|consumer insights)\b/i.test(allText)?'Marketing'
+  :'General';
 
- const firstExp=sections.experience[0];
- const firstCompany=firstExp?.company||'your most recent role';
- const firstRole=firstExp?.role||'your role';
- const allBullets=sections.experience.flatMap(e=>e.bullets);
+ const firstExp=sections.experience[0]||sections.projects[0];
+ const firstCompany=firstExp?.company||firstExp?.role||'your key role';
+ const firstRole=firstExp?.role||'Software Engineer';
+ const allBullets=[...sections.experience.flatMap(e=>e.bullets),...sections.projects.flatMap(p=>p.bullets)];
  const yearsMatch=allText.match(/(\d+)\s*(\+?\s*)year/i);
  const yearsExp=yearsMatch?parseInt(yearsMatch[1]):null;
 
  // 1. Executive Summary
  if(!sections.summary.length){
-  const sumExample=domain==='HR'
+  const sumExample=domain==='Technology'
+   ?`Software Engineer with strong foundation in distributed systems, REST APIs, and scalable web architecture. Proven track record solving 800+ algorithmic problems and delivering production-ready applications.`
+   :domain==='HR'
    ?`${yearsExp?yearsExp+'+ years of':''} experience in talent acquisition, HRBP, and organisational development. Proven track record building high-performance teams and reducing attrition.`
    :domain==='Finance'
    ?`Finance professional with strong analytical skills in financial modelling, credit analysis, and stakeholder management. Consistent track record of data-driven decision-making.`
    :domain==='Marketing'
    ?`Marketing professional specialising in brand management, consumer insights, and digital campaigns. Experience translating data into actionable growth strategies.`
-   :`Results-driven professional with hands-on experience in ${firstRole} at ${firstCompany}. Strong problem-solver with a track record of measurable impact.`;
+   :`Results-driven professional with hands-on experience in ${firstRole}. Strong problem-solver with a track record of measurable impact.`;
   sugg.push({id:id++,type:'add_section',section:'EXECUTIVE SUMMARY',icon:'📝',label:'Add a powerful Executive Summary (missing)',preview:sumExample,checked:true});
  }else{
   const sumText=sections.summary.join(' ');
@@ -539,7 +546,8 @@ function generateSuggestions(parsed,jd){
 
  // 2. Competencies
  if(sections.competencies.length<6){
-  const compExamples=domain==='HR'?'Talent Acquisition · HRBP · Org Design · Change Management · Employee Engagement · People Analytics'
+  const compExamples=domain==='Technology'?'Data Structures & Algorithms · System Design · Go / React · REST APIs & WebSockets · SQL / NoSQL · Docker & Cloud'
+   :domain==='HR'?'Talent Acquisition · HRBP · Org Design · Change Management · Employee Engagement · People Analytics'
    :domain==='Finance'?'Financial Modelling · Credit Analysis · DCF Valuation · Risk Assessment · Stakeholder Management · Excel/SQL'
    :domain==='Marketing'?'Brand Management · Consumer Insights · Digital Marketing · Campaign ROI · Market Research · Content Strategy'
    :'Data Analysis · Problem Solving · Stakeholder Communication · Project Management · Critical Thinking · Presentation';
@@ -547,29 +555,31 @@ function generateSuggestions(parsed,jd){
  }
 
  // 3. AI / modern tools
- if(!/ai|chatgpt|claude|python|analytics|sql|powerbi|tableau|data/i.test(allText)){
-  const aiExample=domain==='HR'
+ if(!/ai|chatgpt|claude|copilot|llm|analytics|docker/i.test(allText)){
+  const aiExample=domain==='Technology'
+   ?`Integrated LLM-driven APIs and automated prompt pipelines with strict schema validation to accelerate feature delivery.`
+   :domain==='HR'
    ?`Used AI-powered ATS analytics and ChatGPT to screen 500+ applications, reducing time-to-hire by 28% and improving quality-of-hire scores.`
-   :domain==='Finance'
-   ?`Leveraged Python and Excel Power Query to automate financial model reconciliation, saving 6 hours per reporting cycle.`
-   :`Leveraged AI research tools (ChatGPT, Perplexity) to synthesize competitor intelligence, accelerating strategic decisions by 35%.`;
-  sugg.push({id:id++,type:'add_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'🤖',label:'Add AI & digital tools usage — currently missing from your CV',preview:aiExample,checked:true});
+   :`Leveraged AI research tools (ChatGPT, Claude) to automate workflows and accelerate project delivery by 35%.`;
+  sugg.push({id:id++,type:'add_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'🤖',label:'Add AI & modern tools usage to your CV',preview:aiExample,checked:true});
  }
 
  // 4. Unquantified bullets
  const unquantified=allBullets.filter(b=>!/\d/.test(b)&&b.length>20).slice(0,2);
  unquantified.forEach((b,i)=>{
-  const verb=b.match(/^(managed|led|handled|drove|supported|assisted|coordinated)/i)?.[0]||'Led';
-  sugg.push({id:id++,type:'quantify_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'📊',label:`Quantify: "${b.slice(0,50)}..." — add a number`,preview:`${verb} [X-person team / X% improvement / ₹X value / X-month timeline]. Add the metric that proves impact.`,checked:i===0});
+  const verb=b.match(/^(managed|led|handled|drove|supported|assisted|coordinated|engineered|designed|built)/i)?.[0]||'Led';
+  sugg.push({id:id++,type:'quantify_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'📊',label:`Quantify: "${b.slice(0,50)}..." — add a number`,preview:`${verb} [X% speedup / 100% uptime / X+ users / X-ms latency]. Add the exact metric that proves impact.`,checked:i===0});
  });
 
  // 5. Certifications
  if(!sections.certifications.length){
-  const certExamples=domain==='HR'?'SHRM Certified Professional · LinkedIn Learning: People Analytics · Google AI Essentials (2024)'
+  const certExamples=domain==='Technology'?'AWS Certified Cloud Practitioner · Docker & Kubernetes Fundamentals · Google AI Essentials'
+   :domain==='HR'?'SHRM Certified Professional · LinkedIn Learning: People Analytics · Google AI Essentials'
    :domain==='Finance'?'CFA Level I / Bloomberg Market Concepts · Google AI Essentials · Excel Modeling Certification'
-   :`Google AI Essentials (Free, 2024) · LinkedIn Learning: ${domain} Analytics · Coursera: AI for Everyone`;
+   :`Google AI Essentials (2024) · LinkedIn Learning: ${domain} Analytics · Coursera: AI for Everyone`;
   sugg.push({id:id++,type:'add_section',section:'CERTIFICATIONS',icon:'🎓',label:'Add Certifications section — shows commitment to learning',preview:certExamples,checked:false});
  }
+
 
  // 6. JD-specific keywords
  if(jd&&jd.length>50){
@@ -702,37 +712,37 @@ function renderExecutivePDF(p){
  const css=`
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   @media print {
-   @page { margin: 0; size: A4 portrait; }
-   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-   .cv-wrap { min-height: 100vh; }
+   @page { margin: 6mm 10mm; size: A4 portrait; }
+   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 9pt !important; }
+   .cv-wrap { max-height: 282mm; overflow: hidden; }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; font-variant-ligatures: none; }
-  html, body { height: 100%; background: #fff; }
-  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; line-height: 1.55; color: #1e293b; }
-  .cv-wrap { width: 100%; max-width: 820px; min-height: 100%; margin: 0 auto; background: #fff; display: flex; flex-direction: column; justify-content: flex-start; }
-  .cv-banner { background: linear-gradient(135deg, #15213b, #1a2744 60%, #25375c); padding: 32px 40px 20px; position: relative; }
-  .cv-banner h1 { font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 6px; line-height: 1.15; }
-  .cv-banner .cv-title { font-size: 12.5px; color: #cbd5e1; font-weight: 600; margin-bottom: 8px; letter-spacing: 0.3px; }
-  .cv-contact { background: #0f172a; padding: 9px 40px; font-size: 10px; color: #cbd5e1; display: flex; flex-wrap: wrap; gap: 4px 18px; font-weight: 500; border-bottom: 2px solid #2563eb; }
+  html, body { background: #fff; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 9.5px; line-height: 1.38; color: #1e293b; }
+  .cv-wrap { width: 100%; max-width: 820px; margin: 0 auto; background: #fff; display: flex; flex-direction: column; }
+  .cv-banner { background: linear-gradient(135deg, #15213b, #1a2744 60%, #25375c); padding: 18px 32px 12px; position: relative; }
+  .cv-banner h1 { font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: 1.5px; text-transform: uppercase; margin: 0 0 3px; line-height: 1.1; }
+  .cv-banner .cv-title { font-size: 11px; color: #cbd5e1; font-weight: 600; margin-bottom: 4px; letter-spacing: 0.3px; }
+  .cv-contact { background: #0f172a; padding: 6px 32px; font-size: 9px; color: #cbd5e1; display: flex; flex-wrap: wrap; gap: 2px 14px; font-weight: 500; border-bottom: 2px solid #2563eb; }
   .cv-contact .sep { color: #475569; margin: 0 2px; }
-  .cv-body { padding: 28px 40px 36px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+  .cv-body { padding: 14px 32px 16px; display: flex; flex-direction: column; gap: 10px; }
   .section { page-break-inside: avoid; }
-  h2 { font-size: 11px; font-weight: 800; letter-spacing: 2.5px; color: #1a2744; border-bottom: 1.5px solid #1a2744; padding-bottom: 4px; margin-bottom: 12px; text-transform: uppercase; }
-  .summary-text { font-size: 11px; color: #334155; line-height: 1.6; }
-  .comp-table { width: 100%; border-collapse: collapse; margin-top: 2px; }
-  .comp-table td { font-size: 10.5px; font-weight: 500; color: #334155; padding: 4px 8px 4px 0; width: 33.3%; vertical-align: top; }
-  .job-block { margin-bottom: 16px; page-break-inside: avoid; }
+  h2 { font-size: 9.5px; font-weight: 800; letter-spacing: 2px; color: #1a2744; border-bottom: 1px solid #1a2744; padding-bottom: 2px; margin-bottom: 6px; text-transform: uppercase; }
+  .summary-text { font-size: 9.5px; color: #334155; line-height: 1.4; }
+  .comp-table { width: 100%; border-collapse: collapse; margin-top: 1px; }
+  .comp-table td { font-size: 9.5px; font-weight: 500; color: #334155; padding: 2px 6px 2px 0; width: 33.3%; vertical-align: top; }
+  .job-block { margin-bottom: 8px; page-break-inside: avoid; }
   .job-block:last-child { margin-bottom: 0; }
-  .job-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
-  .job-role { font-weight: 700; font-size: 12px; color: #0f172a; }
-  .job-sep { color: #94a3b8; font-size: 11.5px; }
-  .job-company { font-size: 11.5px; color: #2563eb; font-weight: 600; }
-  .job-dates { margin-left: auto; font-size: 10px; color: #64748b; font-style: italic; white-space: nowrap; }
-  ul { padding-left: 16px; margin: 5px 0 0; }
-  li { font-size: 10.5px; color: #334155; margin-bottom: 4px; line-height: 1.5; }
+  .job-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px; margin-bottom: 2px; }
+  .job-role { font-weight: 700; font-size: 10.5px; color: #0f172a; }
+  .job-sep { color: #94a3b8; font-size: 10px; }
+  .job-company { font-size: 10px; color: #2563eb; font-weight: 600; }
+  .job-dates { margin-left: auto; font-size: 9px; color: #64748b; font-style: italic; white-space: nowrap; }
+  ul { padding-left: 14px; margin: 2px 0 0; }
+  li { font-size: 9.5px; color: #334155; margin-bottom: 2px; line-height: 1.36; }
   li:last-child { margin-bottom: 0; }
-  .edu-line { font-size: 11px; color: #334155; margin-bottom: 5px; line-height: 1.5; }
-  p { font-size: 11px; color: #334155; }
+  .edu-line { font-size: 9.5px; color: #334155; margin-bottom: 2px; line-height: 1.35; }
+  p { font-size: 9.5px; color: #334155; }
  `;
 
  return `<html><head><meta charset="utf-8"><title>CV – ${name}</title><style>${css}</style></head><body>
@@ -762,6 +772,13 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
  const[editText,setEditText]=useState(()=>cleanExtractedCVText(String(initial||'')));
  const[previewKey,setPreviewKey]=useState(0);
 
+ // Score evaluation fallback
+ const currentResult=(result&&result.score)?result:localReview(initial||'',jd||'',mode);
+ const currentScore=currentResult.score||78;
+ const currentHeadline=currentResult.headline||(mode==='general'?'Your CV has a solid foundation.':'Role-specific placement alignment in progress.');
+ const currentSummary=currentResult.summary||'Review and apply recommended improvements below before your interview.';
+ const scoreColor=currentScore>=80?'#22c55e':currentScore>=65?'#f59e0b':'#ef4444';
+
  // JD keyword match %
  const jdMatchPct=useMemo(()=>{
   if(!jd||jd.length<30)return null;
@@ -772,8 +789,6 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
   const matched=jdWords.filter(k=>cvLow.includes(k)).length;
   return Math.round((matched/jdWords.length)*100);
  },[jd,editText]);
-
- const scoreColor=result.score>=80?'#22c55e':result.score>=65?'#f59e0b':'#ef4444';
 
  const toggleCheck=id=>{
   setChecked(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n});
@@ -818,8 +833,8 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
  return <div className="studio">
   {/* Score card */}
   <div className="score-card">
-   <div><span className="eyebrow">AI CV REVIEW · PLACEMENT READINESS</span><h2>{result.headline}</h2><p>{result.summary}</p></div>
-   <div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{result.score}</strong><small>/100</small></div>
+   <div><span className="eyebrow">AI CV REVIEW · PLACEMENT READINESS</span><h2>{currentHeadline}</h2><p>{currentSummary}</p></div>
+   <div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{currentScore}</strong><small>/100</small></div>
   </div>
   {/* JD match bar */}
   {jdMatchPct!==null&&<div className="jd-match-bar">
@@ -828,6 +843,7 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
    <strong style={{color:jdMatchPct>=70?'#22c55e':jdMatchPct>=45?'#f59e0b':'#ef4444'}}>{jdMatchPct}%</strong>
    <span className="jd-match-tip">{jdMatchPct>=70?'Strong ATS match ✓':jdMatchPct>=45?'Add more JD keywords':'Low match — apply ticked suggestions'}</span>
   </div>}
+
 
   {/* Two-col layout: suggestions left, preview right */}
   <div className="studio-cols">
