@@ -17,7 +17,7 @@ const fallback=mode=>({score:72,headline:mode==='general'?'Your CV has a solid b
 const readSession=(key,f='')=>{try{return sessionStorage.getItem(key)||f}catch{return f}};
 const saveSession=(key,v)=>{try{sessionStorage.setItem(key,v)}catch{}};
 
-async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);return data}
+async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const ct=r.headers.get('content-type')||'';if(!ct.includes('application/json')){throw new Error('API unavailable')}const text=await r.text();if(!text||text.startsWith('<!doctype')||text.startsWith('<html')){throw new Error('API unavailable')}let data;try{data=JSON.parse(text)}catch(e){throw new Error('API unavailable')}if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);return data}
 
 async function pdfText(file){
  try{
@@ -401,7 +401,7 @@ function App(){
 
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
  const saveInterviewResult=d=>{
-  const fb=d||{score:10,strengths:['You completed all questions'],improvements:['Use the STAR method for every answer','Give at least 30-60 seconds per answer','Quantify every result with a number'],nextAction:'Start over with real STAR answers using examples from your CV.'};
+  const fb=d||{score:10,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the Model Answers below and practise again with real STAR answers from your CV.'};
   if(profile){db.saveInterview({role:roleName||'General Interview',score:fb.score,strengths:fb.strengths,nextAction:fb.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:fb.score})}
   setResult(r=>({...r,feedback:fb}));setScreen('feedback');
  };
@@ -1120,7 +1120,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
 
 function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[]);
- const d=data||{score:10,strengths:['You completed all questions'],improvements:['Use the STAR method for every answer','Give at least 30-60 seconds per answer','Quantify every result with a number'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
+ const d=data||{score:10,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
  const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
  const copyReport=()=>{
   const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${a.evaluation?.score||'N/A'}/100\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer: ${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
