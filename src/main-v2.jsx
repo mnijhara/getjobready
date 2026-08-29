@@ -212,8 +212,9 @@ function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInter
  const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
  useEffect(()=>{setApps(db.getApplications());setInterviews(db.getInterviews())},[]);
  const del=id=>{if(!confirm('Delete this application?'))return;db.deleteApplication(id);setApps(db.getApplications())};
- const masterCV=localStorage.getItem('gjr_master_cv')||'';
+ const masterCV=db.getMasterCV();
  const hasMaster=!!masterCV;
+
  return <div className="dashboard">
   <div className="dash-head">
    <div><span className="eyebrow">YOUR WORKSPACE</span><h2>Welcome back, <em>{profile.email.split('@')[0]}</em> 👋</h2><p className="sub">Your preparation hub — CVs, interviews, feedback all in one place.</p></div>
@@ -302,18 +303,18 @@ function App(){
  const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
  const[masterSaved,setMasterSaved]=useState(false);
  const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
- const handleLogin=email=>{db.saveProfile(email);setProfile({email});setScreen('home')};
- const handleLogout=()=>{db.logout();setProfile(null);setScreen('home')};
+ const handleLogin=email=>{db.saveProfile(email);setProfile({email});setCv(db.getMasterCV());setJd('');setAppId(null);setRoleName('');setScreen('home')};
+ const handleLogout=()=>{db.logout();setProfile(null);setCv('');setJd('');setAppId(null);setRoleName('');setScreen('home')};
  const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
  // New Application: ALWAYS go to resume screen with specific/JD mode when master exists
- const confirmNewApp=name=>{const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=localStorage.getItem('gjr_master_cv')||'';setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);const mode=masterCV?'specific':'general';setPrep(mode);saveSession('gjr_cv_mode',mode);setShowRoleModal(false);setScreen('resume')};
+ const confirmNewApp=name=>{const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=db.getMasterCV();setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);const mode=masterCV?'specific':'general';setPrep(mode);saveSession('gjr_cv_mode',mode);setShowRoleModal(false);setScreen('resume')};
  // Open app → go straight to cvstudio
  const openApp=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
  // Edit CV for a specific app
  const editCV=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
  // Start interview directly for a specific app (skip CV studio)
  const directInterview=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
- const openMasterCV=()=>{const masterCV=localStorage.getItem('gjr_master_cv')||'';setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
+ const openMasterCV=()=>{const masterCV=db.getMasterCV();setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
  const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
  const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text||!text.trim())throw new Error('The file contains no readable text. Please paste the text into the text box below.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error('File parse exception:',e);if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){window.location.reload();return}alert(e.message||'We could not read that file. Please paste your text into the box instead.')}};
@@ -337,8 +338,8 @@ function App(){
    
    const targetId=appId||Date.now().toString();
    setAppId(targetId);
-   if(!localStorage.getItem('gjr_master_cv')){
-    localStorage.setItem('gjr_master_cv',cv);
+   if(!db.getMasterCV()){
+    db.saveMasterCV(cv);
    }
    if(profile){
     db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':(jd.slice(0,30)+'…')),cv,score:data?.score,jd,result:data});
@@ -354,11 +355,12 @@ function App(){
   const targetId=appId||Date.now().toString();
   setAppId(targetId);
   if(appId==='master'){
-   localStorage.setItem('gjr_master_cv',text);
+   db.saveMasterCV(text);
   }else if(profile){
    db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':'Custom Application'),cv:text,score:result?.score,jd,result});
   }
  };
+
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
  const saveInterviewResult=d=>{if(profile){db.saveInterview({role:roleName||'General Interview',score:d.score,strengths:d.strengths,nextAction:d.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:d.score})}; setResult(r=>({...r,feedback:d}));setScreen('feedback')};
  const goHome=()=>setScreen('home');
