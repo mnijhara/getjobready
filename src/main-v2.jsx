@@ -20,14 +20,54 @@ const saveSession=(key,v)=>{try{sessionStorage.setItem(key,v)}catch{}};
 async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);return data}
 
 async function pdfText(file){
- const lib=await import('pdfjs-dist');
- const pdfjs=lib.default&&lib.default.getDocument?lib.default:lib;
- pdfjs.GlobalWorkerOptions.workerSrc='/pdf.worker.mjs';
- const pdf=await pdfjs.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise;
- let out='';for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);const t=await p.getTextContent();out+=t.items.map(x=>x.str).join(' ')+'\n'}return out.trim();
+ try{
+  const lib=await import('pdfjs-dist').catch(e=>{
+   if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){
+    window.location.reload();
+   }
+   throw e;
+  });
+  const pdfjs=lib.default&&lib.default.getDocument?lib.default:lib;
+  pdfjs.GlobalWorkerOptions.workerSrc='/pdf.worker.mjs';
+  const pdf=await pdfjs.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise;
+  let out='';for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);const t=await p.getTextContent();out+=t.items.map(x=>x.str).join(' ')+'\n'}
+  if(out.trim())return out.trim();
+ }catch(err){
+  console.warn('PDF.js parsing failed, trying text extraction fallback:',err);
+  if(err?.message?.includes('dynamically imported module')||err?.name==='TypeError'){
+   window.location.reload();
+   return '';
+  }
+ }
+ // Fallback text reader for unencrypted / simple PDFs
+ try{
+  const raw=await file.text();
+  const clean=raw.replace(/[^\x20-\x7E\n\r\t]/g,' ').replace(/\s+/g,' ').trim();
+  if(clean.length>40)return clean;
+ }catch{}
+ throw new Error('Could not extract text from this PDF file. Please paste your CV text into the text box below.');
 }
-async function docxText(file){const mammoth=await import('mammoth');const result=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});return String(result.value||'').trim()}
-async function readFile(file){if(file.type==='text/plain')return file.text();if(/\.pdf$/i.test(file.name))return pdfText(file);if(/\.docx$/i.test(file.name))return docxText(file);throw new Error('Unsupported file type')}
+
+async function docxText(file){
+ try{
+  const mammoth=await import('mammoth').catch(e=>{
+   if(e?.message?.includes('dynamically imported module')){window.location.reload()}
+   throw e;
+  });
+  const result=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});
+  return String(result.value||'').trim();
+ }catch(e){
+  throw new Error('Could not read this DOCX file. Please paste your text into the text box below.');
+ }
+}
+
+async function readFile(file){
+ if(file.type==='text/plain'||/\.txt$/i.test(file.name))return file.text();
+ if(/\.pdf$/i.test(file.name))return pdfText(file);
+ if(/\.docx$/i.test(file.name))return docxText(file);
+ throw new Error('Unsupported file type. Please upload a PDF, DOCX or TXT file.');
+}
+
 
 function toSentenceCase(text){
  if(!text||typeof text!=='string')return text;
@@ -274,9 +314,7 @@ function App(){
  // Start interview directly for a specific app (skip CV studio)
  const directInterview=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
  const openMasterCV=()=>{const masterCV=localStorage.getItem('gjr_master_cv')||'';setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
- const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
- const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
- const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text.trim())throw new Error('The file contains no readable text. Please paste the text instead.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error(e);alert(`We could not read that file. ${e.message||'Please paste the text instead.'}`)}};
+ const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text||!text.trim())throw new Error('The file contains no readable text. Please paste the text into the text box below.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error('File parse exception:',e);if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){window.location.reload();return}alert(e.message||'We could not read that file. Please paste your text into the box instead.')}};
  const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
  const analyze=async()=>{
   if(!cv.trim())return alert('Upload your CV or paste your CV text.');
