@@ -140,63 +140,85 @@ function generateTailoredCVQuestions(cvText,jd,role){
 }
 
 function evaluateInterviewTurnLocal(question,answer,history){
-
  const words=answer.trim().split(/\s+/).filter(Boolean);
  const wordCount=words.length;
- const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(answer.trim());
+ const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$|^build\s*a\s*good\s*job$)/i.test(answer.trim());
  const isRepetitive=wordCount>4&&new Set(words).size<wordCount*0.4;
  let turnScore=0;let note='';
 
  if(wordCount<=3||isGibberish){
-  turnScore=Math.round(Math.random()*8+5);// 5-12
-  note=isGibberish?'This is not a real interview answer. A recruiter will reject this immediately. Use the STAR method: Situation → Task → Action → Result.':'Answer too brief. Give a full structured answer with context, actions you took, and outcomes.';
- }else if(wordCount<10||isRepetitive){
-  turnScore=Math.round(Math.random()*10+18);// 18-28
-  note='Answer is too short or repetitive. Expand with specific examples: what YOU did, what challenge you solved, and the measurable outcome.';
+  turnScore=Math.round(Math.random()*6+4); // 4-10
+  note='This answer is only ' + wordCount + ' word' + (wordCount===1?'':'s') + ' and lacks substantive content. In a real interview, this is an immediate rejection. Use the STAR method (Situation → Task → Action → Result) and speak for at least 45–60 seconds.';
+ }else if(wordCount<12||isRepetitive){
+  turnScore=Math.round(Math.random()*8+16); // 16-24
+  note='Answer is too brief (' + wordCount + ' words). It describes a vague statement rather than a complete STAR story. Add details on what YOU personally built or delivered.';
  }else if(wordCount<25){
-  turnScore=Math.round(Math.random()*10+35);// 35-45
-  note='Decent start but lacks depth. Add a specific metric or outcome (e.g. "reduced load time by 30%") and explain your personal contribution.';
- }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team|project|solved|completed|delivered)/i.test(answer)){
-  turnScore=Math.round(Math.random()*10+50);// 50-60
-  note='Good structure but no measurable result. Always end with a number: how much, how many, how fast, or what changed.';
+  turnScore=Math.round(Math.random()*10+32); // 32-42
+  note='Decent start but lacks depth. Elaborate on the technical complexity, what obstacles you overcame, and add a specific measurable outcome.';
+ }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team|project|solved|completed|delivered|seconds|ms|users|scale)/i.test(answer)){
+  turnScore=Math.round(Math.random()*10+48); // 48-58
+  note='Good structure, but missing quantifiable impact. Recruiters look for numbers: percentage improvement, time saved, lines of code, or business metrics.';
  }else{
-  turnScore=Math.min(95,Math.round(70+wordCount/4));
-  note='Strong STAR response with clear ownership and measurable outcomes. Well done.';
+  turnScore=Math.min(95,Math.round(72+wordCount/4));
+  note='Strong STAR response with clear personal ownership and measurable outcomes. Well articulated.';
  }
 
- const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note}}];
+ // Generate a model answer based on the question type and content
+ const q=question.toLowerCase();
+ let modelAnswer='';
+ const quoteMatch=question.match(/"([^"]+)"/);
+ const quotedSnippet=quoteMatch?quoteMatch[1]:'';
+
+ if(/tell me about yourself|background|academic|proud/i.test(q)){
+  modelAnswer=`"I'm a final-year Computer Science student with a strong foundation in backend development, data structures, and cloud technologies. Over the past two years, I've built production-grade systems including API microservices and automated testing pipelines. The project I'm most proud of is an automated storage optimization tool that reduced cloud storage overhead by 35% across 10,000+ daily test files. I'm eager to bring my hands-on backend and problem-solving skills to this engineering team."`;
+ }else if(quotedSnippet||/streamlined|cloudflare|r2|internship|day-to-day|responsibility|tools|number|impact/i.test(q)){
+  const topic=quotedSnippet||'my key internship project';
+  modelAnswer=`"During my internship at Coding Panda, our team faced high latency and rising storage costs when running automated test suites. [Situation/Task] I took full ownership of optimizing test case batch storage. [Action] I architected a solution using Cloudflare R2 object storage with Hono.js microservices, wrote worker scripts to batch process test assets asynchronously, and implemented cache headers for fast retrieval. [Result] This reduced batch upload latency by 42% and cut monthly storage costs by 30% while scaling to handle 50,000+ test runs per week."`;
+ }else if(/went wrong|deadline|missed|roadblock|debug|resolve|differently/i.test(q)){
+  modelAnswer=`"During a critical project milestone, an API endpoint began failing under concurrent load 48 hours before release. [Situation/Task] As the backend lead, I had to diagnose the bottleneck immediately without delaying the team. [Action] I used distributed tracing to locate an unindexed database query causing thread starvation, wrote an asynchronous worker to offload heavy jobs, and added rate-limiting middleware. [Result] We resolved the issue within 6 hours, stress-tested up to 5,000 concurrent requests with zero errors, and delivered on schedule. Going forward, I instituted automated load testing before every major release."`;
+ }else if(/ai tools|chatgpt|claude|copilot|frameworks|faster|effective/i.test(q)){
+  modelAnswer=`"I use modern AI tools daily to accelerate development velocity and code quality. Specifically, I use GitHub Copilot to write unit test scaffolding and boilerplate algorithms, and Claude/ChatGPT to simulate edge cases and explain legacy stack error logs. For instance, when integrating Cloudflare R2 APIs, I used LLM prompts to quickly compare SDK caching strategies, saving roughly 4 hours of trial-and-error. I always manually review and write tests for any AI-assisted code to maintain strict security and performance standards."`;
+ }else if(/30-day|30 day|joined|tomorrow|value|relationships|prove/i.test(q)){
+  modelAnswer=`"In my first 30 days, my priority is 30% learning, 40% execution, and 30% relationship building. In Week 1, I'll deep-dive into the codebase, understand the deployment pipelines, and set up 1-on-1s with my mentor and peers to align on expectations. By Week 2 and 3, I aim to resolve at least 2 backlog bugs and ship my first pull request to demonstrate reliable execution. By Day 30, I will document any friction points I noticed in onboarding and present a proactive roadmap for my next quarter deliverables."`;
+ }else{
+  modelAnswer=`"[Situation & Task] Outline the specific project, context, and problem you were assigned. [Action] Detail what YOU specifically coded, designed, or led — mention specific technologies and decisions. [Result] Conclude with quantifiable impact — percentages, performance gains, revenue, or hours saved."`;
+ }
+
+ const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note,modelAnswer}}];
  const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score||5),0)/allTurns.length);
 
  const strengths=[];const improvements=[];
  if(avgScore<30){
-  strengths.push('You attempted all questions — that is a start');
-  improvements.push('None of your answers used the STAR method. Practise with real examples from your CV');
-  improvements.push('Every answer needs: Situation, Task, Action, Result — practise out loud daily');
-  improvements.push('Aim for at least 30–60 seconds per answer with a specific metric');
+  strengths.push('Microphone and speech input captured successfully');
+  strengths.push('Completed all turns of the practice interview');
+  improvements.push('All submitted answers were too brief or generic (under 10 words). A recruiter will reject these.');
+  improvements.push('Every answer must use the STAR method: Situation → Task → Action → Result.');
+  improvements.push('Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.');
+  improvements.push('Review the Model Answers below for each question to see what hiring managers look for.');
  }else if(avgScore<55){
-  strengths.push('Some answers showed awareness of structure');
-  improvements.push('Quantify every result: %, Rs, users, days, team size');
-  improvements.push('Include your personal actions, not just "we did" — say "I built", "I led", "I designed"');
-  improvements.push('Use AI tools (ChatGPT, Copilot) in answers to show tech awareness');
+  strengths.push('Attempted structured responses across key competencies');
+  improvements.push('Quantify every outcome with numbers: %, time saved, user count, or team size.');
+  improvements.push('Highlight YOUR individual ownership — use "I built", "I architected", "I resolved" instead of passive phrasing.');
+  improvements.push('Demonstrate technical depth by naming specific frameworks, databases, and debugging tools.');
  }else if(avgScore<75){
-  strengths.push('Good basic structure and relevant examples');
-  strengths.push('Communication was clear and on-topic');
-  improvements.push('Add stronger numbers and metrics to each STAR story');
-  improvements.push('Trim answers to 45–60 seconds — conciseness impresses recruiters');
+  strengths.push('Clear communication with relevant technical context');
+  strengths.push('Addressed core questions with structured STAR thinking');
+  improvements.push('Sharpen metrics — add exact benchmark numbers and business impact.');
+  improvements.push('Practice concise 60-second delivery to keep recruiters engaged.');
  }else{
-  strengths.push('Strong articulation of STAR stories with clear personal ownership');
-  strengths.push('Demonstrated quantifiable business impact — exactly what recruiters look for');
-  improvements.push('Refine for 60-second executive elevator pitch delivery');
+  strengths.push('Exceptional STAR delivery with strong ownership verbs and quantified impact');
+  strengths.push('Demonstrated deep technical mastery and clear business thinking');
+  improvements.push('Refine for executive-level 45-second elevator pitch speed.');
  }
 
  return{
   done:allTurns.length>=6,
-  evaluation:{score:turnScore,notes:note},
+  evaluation:{score:turnScore,notes:note,modelAnswer},
   finalFeedback:{
    score:avgScore,
    strengths,
    improvements,
-   nextAction:avgScore>=75?'Ready for recruiter interviews! Practice 1 more role-specific JD.':avgScore>=50?'Repeat with real STAR examples from your CV — aim for 30-60 seconds per answer.':'Start over with real answers. Use your CV to craft STAR examples before the next attempt.'
+   nextAction:avgScore>=75?'Ready for recruiter rounds! Practice 1 more role-specific JD.':avgScore>=50?'Repeat with structured 45-second STAR answers using examples from your CV.':'Review the Model Answers below and practise again with real STAR answers from your CV.'
   }
  };
 }
@@ -1027,36 +1049,32 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
  const submit=async(answer)=>{
   try{
    let data;
-   // Build the next question list from current component's context
    const allQuestions=generateTailoredCVQuestions(cv,jd,roleName||'');
+   const localEval=evaluateInterviewTurnLocal(question,answer,turns);
    try{
     data=await post('/api/interview-turn',{cv,jd,mode,career,question,answer,history:turns,turn,maxTurns});
+    if(data && data.evaluation){
+     data.evaluation.modelAnswer=data.evaluation.modelAnswer||localEval.evaluation.modelAnswer;
+     data.evaluation.notes=data.evaluation.notes||localEval.evaluation.notes;
+    }
    }catch(e){
     console.warn('AI turn evaluate error; using local evaluator',e);
-    const evalResult=evaluateInterviewTurnLocal(question,answer,turns);
     const nextQ=allQuestions[turns.length+1]||'What is one thing you would improve in your next interview answer, and why?';
     data={
-     done:evalResult.done,
+     done:localEval.done,
      nextQuestion:nextQ,
-     evaluation:evalResult.evaluation,
-     finalFeedback:evalResult.finalFeedback
+     evaluation:localEval.evaluation,
+     finalFeedback:localEval.finalFeedback
     };
    }
-   setTurns(x=>[...x,{question,answer,evaluation:data.evaluation}]);
+   const finalEval=(data&&data.evaluation)?{...localEval.evaluation,...data.evaluation,modelAnswer:data.evaluation.modelAnswer||localEval.evaluation.modelAnswer,notes:data.evaluation.notes||localEval.evaluation.notes}:localEval.evaluation;
+   const finalFeedback=localEval.finalFeedback;
+   setTurns(x=>[...x,{question,answer,evaluation:finalEval}]);
    setTranscript('');
    latestTranscript.current='';
    setStatus('starting');
-   // Always compute honest local score from all turns including this one
-   const localEval=evaluateInterviewTurnLocal(question,answer,turns);
-   const honestFeedback=localEval.finalFeedback;
-   if(data.done||localEval.done){
-    onDone(honestFeedback);
-   }else{
-    // Merge honest evaluation into data so per-answer coaching shows correctly
-    data.evaluation=data.evaluation||localEval.evaluation;
-    onTurn(data,answer);
-    started.current=false;
-   }
+   onTurn({...data, evaluation:finalEval, finalFeedback, done:(data&&data.done)||localEval.done}, answer);
+   started.current=false;
   }catch(e){
    setStatus('error');
    alert(e.message||'We could not submit this answer. Please try again.');
@@ -1101,15 +1119,15 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
 
 function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[]);
- const d=data||{score:10,strengths:['You completed all questions'],improvements:['Use the STAR method for every answer','Give at least 30-60 seconds per answer','Quantify every result with a number'],nextAction:'Start over with real STAR answers using examples from your CV.'};
+ const d=data||{score:10,strengths:['You completed all questions'],improvements:['Use the STAR method for every answer','Give at least 30-60 seconds per answer','Quantify every result with a number'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
  const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
  const copyReport=()=>{
-  const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nA: ${a.answer}${a.evaluation?.score?'\nScore: '+a.evaluation.score+'/100':''}${a.evaluation?.notes?'\nCoaching: '+a.evaluation.notes:''}`).join('\n\n')}`;
+  const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${a.evaluation?.score||'N/A'}/100\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer: ${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
   navigator.clipboard?.writeText(text);
   setCopied(true);setTimeout(()=>setCopied(false),2000);
  };
  const downloadReport=()=>{
-  const text=`GETJOBREADY CAMPUS PLACEMENT READINESS REPORT\nScore: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nDETAILED TRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nYour Answer: ${a.answer}${a.evaluation?.score?'\nTurn Score: '+a.evaluation.score+'/100':''}${a.evaluation?.notes?'\nCoaching: '+a.evaluation.notes:''}`).join('\n\n')}`;
+  const text=`GETJOBREADY CAMPUS PLACEMENT READINESS REPORT\nScore: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nDETAILED TRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${a.evaluation?.score||'N/A'}/100\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer (STAR format):\n${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
   const blob=new Blob([text],{type:'text/plain'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -1128,14 +1146,27 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
  const sc=d.score||10;
  const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
  const scoreLabel=sc>=75?'Interview-ready 🚀':sc>=50?'Keep improving 💪':'Needs more practice 🔥';
- return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript and personalised coaching are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div>
+ return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript, personalized coaching, and model STAR answers are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div>
  <div className="insights"><div><h3>Strengths</h3>{(d.strengths||[]).map(x=><p key={x}>✓ {x}</p>)}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
 
- <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript</div><div className="report-actions"><button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
+ <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript &amp; model answers</div><div className="report-actions"><button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
   {(answers||[]).map((x,i)=><div className="turn-review" key={i}>
-   <div className="turn-review-header"><b>Q{i+1}. {x.question}</b>{x.evaluation?.score&&<span className="turn-score" style={{color:x.evaluation.score>=70?'#22c55e':x.evaluation.score>=45?'#f59e0b':'#ef4444'}}>{x.evaluation.score}/100</span>}</div>
-   <p style={{color:'#374151',fontWeight:500}}>{x.answer}</p>
-   {x.evaluation?.notes&&<div className="turn-coaching"><span>💡 Coach: </span>{x.evaluation.notes}</div>}
+   <div className="turn-review-header"><b>Q{i+1}. {x.question}</b>{x.evaluation?.score!==undefined&&<span className="turn-score" style={{color:x.evaluation.score>=70?'#22c55e':x.evaluation.score>=45?'#f59e0b':'#ef4444'}}>{x.evaluation.score}/100</span>}</div>
+   
+   <div className="turn-section candidate-answer">
+    <span className="turn-tag your-answer-tag">Your Spoken Answer:</span>
+    <p>"{x.answer}"</p>
+   </div>
+
+   {x.evaluation?.notes&&<div className="turn-section coach-feedback">
+    <span className="turn-tag coach-tag">💡 Coach Feedback:</span>
+    <p>{x.evaluation.notes}</p>
+   </div>}
+
+   {x.evaluation?.modelAnswer&&<div className="turn-section model-answer">
+    <span className="turn-tag model-tag">🌟 What a Strong STAR Answer Sounds Like:</span>
+    <p>{x.evaluation.modelAnswer}</p>
+   </div>}
   </div>)}
  </div>
 

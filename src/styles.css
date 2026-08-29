@@ -170,3 +170,30 @@ button.danger:hover { background: rgba(239,68,68,0.08) !important; }
 .new-card.locked { opacity: .65; cursor: not-allowed; }
 .new-card-hint { font-size: 10px; color: #7c8493; margin-top: 4px; font-style: italic; }
 
+/* ── Transcript Turn Review & Model Answers ── */
+.turn-review { border-top: 1px solid #edf0f4; padding: 22px 0 16px; display: flex; flex-direction: column; gap: 12px; }
+.turn-review:first-of-type { border-top: none; }
+.turn-review-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.turn-review-header b { font: 800 15px/1.4 Manrope, sans-serif; color: #12182a; }
+.turn-score { flex: none; font-size: 11px; font-weight: 800; background: rgba(0,0,0,.04); border: 1px solid rgba(0,0,0,.08); border-radius: 999px; padding: 4px 10px; }
+
+.turn-section { border-radius: 14px; padding: 12px 15px; display: flex; flex-direction: column; gap: 6px; }
+.turn-section p { font-size: 13px; line-height: 1.6; margin: 0; }
+.turn-tag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; display: inline-flex; align-items: center; gap: 5px; }
+
+/* Candidate Spoken Answer */
+.candidate-answer { background: #f8f9fc; border: 1px solid #e2e6f0; }
+.your-answer-tag { color: #64748b; }
+.candidate-answer p { color: #1e293b; font-style: italic; font-weight: 500; }
+
+/* Coach Feedback */
+.coach-feedback { background: #fff8f6; border: 1px solid #fed7aa; border-left: 4px solid #f97316; }
+.coach-tag { color: #c2410c; }
+.coach-feedback p { color: #9a3412; font-weight: 500; }
+
+/* Model Answer */
+.model-answer { background: #f5f3ff; border: 1px solid #ddd6fe; border-left: 4px solid #7c3aed; }
+.model-tag { color: #6d28d9; }
+.model-answer p { color: #4c1d95; line-height: 1.65; }
+
+
