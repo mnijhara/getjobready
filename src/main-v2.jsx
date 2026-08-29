@@ -86,11 +86,14 @@ function cleanExtractedCVText(raw){
  if(!raw)return'';
  let text=raw
   .replace(/\r\n/g,'\n')
-  .replace(/E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y/gi,'\n\nEXECUTIVE SUMMARY\n')
-  .replace(/C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S/gi,'\n\nCORE COMPETENCIES\n')
-  .replace(/T\s*E\s*C\s*H\s*N\s*I\s*C\s*A\s*L\s*S\s*K\s*I\s*L\s*L\s*S/gi,'\n\nTECHNICAL SKILLS\n')
-  .replace(/P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|W\s*O\s*R\s*K\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
-  .replace(/\b(EXECUTIVE SUMMARY|CORE COMPETENCIES|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|KEY PROJECTS|PROJECTS|EDUCATION|ACADEMIC BACKGROUND|ACADEMICS|TECHNICAL SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS)\b/g,'\n\n$1\n')
+  // Split on section headers (case-insensitive with flexible whitespace)
+  .replace(/\s+(Education|Academic Background|Academics|Academic Details)\s+/gi,'\n\nEDUCATION\n')
+  .replace(/\s+(Experience|Work Experience|Professional Experience|Internships)\s+/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
+  .replace(/\s+(Projects|Key Projects|Academic Projects|Personal Projects)\s+/gi,'\n\nKEY PROJECTS\n')
+  .replace(/\s+(Technical Skills|Technical Expertise|Key Skills|Skills & Tools|Skills)\s+/gi,'\n\nTECHNICAL SKILLS\n')
+  .replace(/\s+(Achievements|Honors & Awards|Awards|Competitive Programming)\s+/gi,'\n\nACHIEVEMENTS\n')
+  .replace(/\s+(Leadership & Responsibility|Positions of Responsibility|Leadership|Extracurricular)\s+/gi,'\n\nLEADERSHIP\n')
+  .replace(/\s+(Certifications|Certificates|Courses)\s+/gi,'\n\nCERTIFICATIONS\n')
   .replace(/(▪|•|◆|●|\*\s+)/g,'\n• ');
 
  return text.split('\n')
@@ -98,6 +101,7 @@ function cleanExtractedCVText(raw){
   .filter(Boolean)
   .join('\n');
 }
+
 
 function generateTailoredCVQuestions(cvText,jd,role){
  const cv=cvText||'';
@@ -399,52 +403,51 @@ function parseCV(raw){
 
  let name='',title='',contact='';
 
- const nameBlacklist=/\b(Institute|University|College|School|Department|Faculty|Academy|Foundation|Bachelor|Master|Technology|Engineering|CGPA|GPA|Semester|BTech|B\.Tech|Degree|India|Ranchi|Delhi|Bombay|Madras|Kharagpur|Roorkee|Guwahati|Hyderabad|IIT|IIIT|NIT|BITS|Summary|Experience|Projects|Skills|Leadership|Achievements|Certifications|Languages|Coursework)\b/i;
+ const firstLine=lines[0]||'';
 
- // Step 1: Scan first 6 lines strictly for candidate name, title, and contact items
- for(let i=0;i<Math.min(6,lines.length);i++){
-  const l=lines[i];
+ // 1. Extract name from top line (before pipe '|', '+', email, or role titles)
+ const emailMatch=firstLine.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+ const email=emailMatch?emailMatch[0]:'';
+ const phoneMatch=firstLine.match(/\+?\d[\d\s\-]{8,}\d/);
+ const phone=phoneMatch?phoneMatch[0].trim():'';
 
-  // If line contains email, phone, or pure platform links
-  const isContactLine=(l.includes('@')||/\+?\d[\d\s\-]{8,}/.test(l)||/^(LinkedIn|GitHub|Codeforces|CodeChef|LeetCode|Portfolio)/i.test(l))&&!/^[•▪*-]/.test(l)&&l.length<100&&!nameBlacklist.test(l);
-  
-  if(isContactLine){
-   const cleanItem=l.replace(/[•▪*-]/g,'').trim();
-   if(!contact)contact=cleanItem;
-   else if(!contact.includes(cleanItem))contact+=' | '+cleanItem;
-   continue;
-  }
+ let nameCandidate=firstLine
+  .split(/\||\+|[a-zA-Z0-9._%+-]+@|Backend|Frontend|Full\s*Stack|Software|Engineer|Developer|Intern|Data/i)[0]
+  .replace(/[^A-Za-z\s.'-]/g,' ')
+  .replace(/\s+/g,' ')
+  .trim();
 
-  // Pure name line (test first 3 lines)
-  if(!name&&i<3&&l.length>=2&&l.length<=45&&!l.includes('@')&&!/\d/.test(l)&&!nameBlacklist.test(l)){
-   const cleanName=l.replace(/[^A-Za-z\s.'-]/g,'').replace(/\s+/g,' ').trim();
-   const words=cleanName.split(' ');
-   if(words.length>=2&&words.length<=4&&!nameBlacklist.test(cleanName)){
-    name=cleanName;
-    continue;
-   }
-  }
-
-  // Sub-header title
-  if(name&&!title&&i<4&&l.length<100&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)&&!l.includes('@')&&!/\d{6,}/.test(l)&&!nameBlacklist.test(l)){
-   title=l;
-  }
- }
-
- // Fallback name extraction: look for first standalone 2-3 word capitalized line that is not blacklisted
- if(!name||name==='Your Name'){
-  for(let i=0;i<Math.min(5,lines.length);i++){
-   const l=lines[i];
-   if(!nameBlacklist.test(l)&&!l.includes('@')&&!/\d/.test(l)){
-    const match=l.match(/^([A-Z][a-zA-Z'-]+\s+[A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)/);
-    if(match&&!nameBlacklist.test(match[1])){
-     name=match[1];
-     break;
-    }
+ if(nameCandidate&&nameCandidate.split(' ').length>=2&&nameCandidate.split(' ').length<=4){
+  name=nameCandidate;
+ }else{
+  // Fallback scan of first 3 lines
+  for(let i=0;i<Math.min(3,lines.length);i++){
+   const clean=lines[i].replace(/[^A-Za-z\s.'-]/g,' ').replace(/\s+/g,' ').trim();
+   const words=clean.split(' ');
+   if(words.length>=2&&words.length<=4&&!/(Institute|University|College|Education|Experience|Projects|Skills)/i.test(clean)){
+    name=clean;
+    break;
    }
   }
  }
 
+ // 2. Extract title if present
+ if(firstLine.includes('|')){
+  const parts=firstLine.split('|').map(s=>s.trim());
+  const roleParts=parts.filter(p=>/(Engineer|Developer|Consultant|Analyst|Designer|Manager|Intern|Architect)/i.test(p)&&!p.includes('@')&&!/\d/.test(p));
+  if(roleParts.length)title=roleParts.join(' | ');
+ }
+
+ // 3. Build clean contact line
+ const contactParts=[];
+ if(phone)contactParts.push(phone);
+ if(email)contactParts.push(email);
+ if(/LinkedIn/i.test(firstLine))contactParts.push('LinkedIn');
+ if(/GitHub/i.test(firstLine))contactParts.push('GitHub');
+ if(/LeetCode/i.test(firstLine))contactParts.push('LeetCode');
+ if(/CodeChef/i.test(firstLine))contactParts.push('CodeChef');
+ if(/Codeforces/i.test(firstLine))contactParts.push('Codeforces');
+ contact=contactParts.join(' | ');
 
  const sections={summary:[],competencies:[],experience:[],projects:[],education:[],certifications:[],achievements:[],leadership:[],others:[]};
  let currentSection='others';
@@ -460,18 +463,22 @@ function parseCV(raw){
   }
  };
 
- lines.forEach(l=>{
+ lines.slice(1).forEach(l=>{
   if(/(EXECUTIVE SUMMARY|PROFESSIONAL SUMMARY|SUMMARY|PROFILE|OBJECTIVE|ABOUT ME)/i.test(l)&&l.length<40){finishBlock();currentSection='summary';return}
-  if(/(CORE COMPETENCIES|TECHNICAL SKILLS|SKILLS|KEY SKILLS|TECHNOLOGIES|COURSEWORK)/i.test(l)&&l.length<40){finishBlock();currentSection='competencies';return}
+  if(/(CORE COMPETENCIES|TECHNICAL SKILLS|SKILLS & TOOLS|KEY SKILLS|SKILLS|TECHNOLOGIES|COURSEWORK)/i.test(l)&&l.length<40){finishBlock();currentSection='competencies';return}
   if(/(PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|INTERNSHIPS|EMPLOYMENT)/i.test(l)&&l.length<40){finishBlock();currentSection='experience';return}
-  if(/(PROJECTS|KEY PROJECTS|ACADEMIC PROJECTS|PERSONAL PROJECTS)/i.test(l)&&l.length<40){finishBlock();currentSection='projects';return}
+  if(/(KEY PROJECTS|PROJECTS|ACADEMIC PROJECTS|PERSONAL PROJECTS)/i.test(l)&&l.length<40){finishBlock();currentSection='projects';return}
   if(/(EDUCATION|ACADEMIC BACKGROUND|ACADEMIC DETAILS|ACADEMICS)/i.test(l)&&l.length<40){finishBlock();currentSection='education';return}
   if(/(CERTIFICATIONS|COURSES|TRAINING|LICENSES)/i.test(l)&&l.length<40){finishBlock();currentSection='certifications';return}
   if(/(ACHIEVEMENTS|HONORS|AWARDS|COMPETITIVE PROGRAMMING)/i.test(l)&&l.length<40){finishBlock();currentSection='achievements';return}
-  if(/(LEADERSHIP|POSITIONS OF RESPONSIBILITY|VOLUNTEERING)/i.test(l)&&l.length<40){finishBlock();currentSection='leadership';return}
+  if(/(LEADERSHIP & RESPONSIBILITY|LEADERSHIP|POSITIONS OF RESPONSIBILITY|VOLUNTEERING)/i.test(l)&&l.length<40){finishBlock();currentSection='leadership';return}
 
   if(currentSection==='summary'){sections.summary.push(l);return}
-  if(currentSection==='competencies'){sections.competencies.push(...l.split(/[|,·•:]/).map(s=>s.trim()).filter(Boolean));return}
+  if(currentSection==='competencies'){
+   if(l.length<120&&!/^(Spearheaded|Progressed|Solved|Authored|Engineered|Partnered|•|▪)/i.test(l)){
+    sections.competencies.push(...l.split(/[|,·•:]/).map(s=>s.trim()).filter(s=>s.length>=2&&s.length<=32&&!/^(Languages|Web|Databases|DevOps|Tools|Coursework|Leadership)/i.test(s)));
+   }
+   return}
   if(currentSection==='education'){sections.education.push(l);return}
   if(currentSection==='certifications'){sections.certifications.push(l);return}
 
@@ -577,8 +584,7 @@ function generateSuggestions(parsed,jd){
  // 6. JD-specific keywords
  if(jd&&jd.length>50){
   const stopWords=new Set(['the','and','or','to','a','an','in','of','for','with','on','at','by','from','as','is','are','be','been','this','that','will','can','not','have','has','had','its','it']);
-  const jdWords=jd.toLowerCase().match(/\b[a-z]{4,}\b/g)||[];
-  const jdKeywords=[...new Set(jdWords)].filter(k=>!stopWords.has(k)&&!/^(your|you|our|team|work|role|must|require|skill|candidate|applicant)/.test(k));
+  const jdKeywords=[...new Set((jd.toLowerCase().match(/\b[a-z]{4,}\b/g)||[]))].filter(k=>!stopWords.has(k)).slice(0,40);
   const missing=jdKeywords.filter(k=>!allText.includes(k)).slice(0,3);
   missing.forEach(k=>{
    sugg.push({id:id++,type:'add_keyword',section:'PROFESSIONAL EXPERIENCE',icon:'🎯',label:`JD requires "${k}" — not found in your CV`,preview:`Add "${k}" naturally in an experience bullet to pass ATS screening.`,checked:true});
@@ -622,10 +628,15 @@ function buildCV(parsed,checkedSuggestions){
 function renderExecutivePDF(p){
  const{name,title,contact,sections}=p;
 
- // Build competencies grid (3 per row)
+ // Clean 3x3 Core Competencies grid (max 9 skills)
+ const cleanComps=[...new Set((sections.competencies||[])
+  .map(c=>c.replace(/^[▪•*-]\s*/,'').trim())
+  .filter(c=>c.length>=2&&c.length<=28&&!/^(Languages|Web|Databases|DevOps|Tools|Coursework|Leadership|Spearheaded|Progressed|Solved)/i.test(c))
+ )].slice(0,9);
+
  const compRows=[];
- for(let i=0;i<sections.competencies.length;i+=3){
-  compRows.push(sections.competencies.slice(i,i+3));
+ for(let i=0;i<cleanComps.length;i+=3){
+  compRows.push(cleanComps.slice(i,i+3));
  }
 
  let body='';
@@ -636,7 +647,7 @@ function renderExecutivePDF(p){
  }
 
  // Competencies
- if(sections.competencies.length){
+ if(compRows.length){
   body+=`<div class="section"><h2>C O R E &nbsp; C O M P E T E N C I E S</h2><table class="comp-table">`;
   compRows.forEach(row=>{
    body+=`<tr>${row.map(c=>`<td>▪ ${c}</td>`).join('')}</tr>`;
