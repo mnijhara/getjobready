@@ -58,7 +58,84 @@ function cleanExtractedCVText(raw){
   .join('\n');
 }
 
-function localReview(cv,jd,mode){const base=fallback(mode);const words=cv.trim().split(/\s+/).filter(Boolean).length;return {...base,score:Math.max(62,Math.min(88,base.score+(words>450?7:words>220?3:0))),summary:mode==='specific'?`Local CV review is ready. Add evidence that directly connects your experience to this job description (${Math.min(3,Math.max(1,Math.round(jd.length/1200)))} priority areas identified).`:`Local CV review is ready. Your draft is editable below and can be improved before the interview.`}}
+function generateTailoredCVQuestions(cvText,jdText,role){
+ const cv=cvText||'';
+ const lines=cv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
+ const companies=[];const bullets=[];
+ lines.forEach(l=>{
+  if(l.includes(' · ')||l.includes(' - ')){
+   companies.push(l.split(' · ')[0]||l);
+  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION)/i.test(l)){
+   bullets.push(l);
+  }
+ });
+
+ const b1=bullets[0]||'leading key initiatives in your recent role';
+ const comp=companies[0]||'your previous organisation';
+
+ const q1=`Tell me about yourself, your background in ${role||'Human Resources'}, and what key achievements define your career so far.`;
+ const q2=`In your CV, you mention "${b1.slice(0,85)}..." — walk me through the exact STAR breakdown of this project.`;
+ const q3=`Tell me about your summer internship or a major project experience. What was your specific responsibility, what tools or AI did you use, and what was the quantifiable outcome?`;
+ const q4=`How have you used AI tools (like ChatGPT, Claude, Python, or data analytics) or online certifications to improve your day-to-day productivity and problem-solving?`;
+ const q5=`Tell me about a challenging situation at ${comp.slice(0,40)} where something went wrong or deadlines were tight, and how you took ownership to fix it.`;
+ const q6=`Based on your experience, what is your 30-day plan to add immediate value and build strong stakeholder trust in this new role?`;
+
+ return[q1,q2,q3,q4,q5,q6];
+}
+
+function evaluateInterviewTurnLocal(question,answer,history){
+ const words=answer.trim().split(/\s+/).filter(Boolean);
+ const wordCount=words.length;
+ const isRepetitive=/(workout|walk|talk|blah|xyz|test)\s+\1/i.test(answer)||(wordCount>4&&new Set(words).size<wordCount*0.5);
+ let turnScore=0;let note='';
+
+ if(wordCount<6||isRepetitive){
+  turnScore=Math.min(30,Math.max(15,wordCount*4));
+  note=isRepetitive?'Repetitive non-professional text detected. Answer in full STAR sentences.':'Answer is too brief (<6 words). Provide a complete STAR response with context and outcomes.';
+ }else if(wordCount<18){
+  turnScore=45;
+  note='Answer is too concise. Elaborate on your personal action and measurable result.';
+ }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team)/i.test(answer)){
+  turnScore=60;
+  note='Good context, but lacks concrete metrics or clear personal ownership verbs.';
+ }else{
+  turnScore=Math.min(95,75+Math.round(wordCount/3));
+  note='Strong STAR response with clear ownership and measurable outcomes.';
+ }
+
+ const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note}}];
+ const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score||30),0)/allTurns.length);
+
+ const strengths=[];const improvements=[];
+ if(avgScore<45){
+  strengths.push('Voice captured clearly by microphone');
+  improvements.push('Give full multi-sentence STAR answers instead of 1-line or repetitive phrases');
+  improvements.push('Include specific metrics (% improvement, headcount, revenue) from your CV');
+ }else if(avgScore<70){
+  strengths.push('Good basic structure and communication');
+  improvements.push('Quantify results with numbers (% growth, team size, turnaround time)');
+  improvements.push('Elaborate on how you used AI tools or frameworks to solve the challenge');
+ }else{
+  strengths.push('Strong articulation of STAR stories with clear personal ownership');
+  strengths.push('Demonstrated quantifiable business impact');
+  improvements.push('Refine conciseness for 60-second executive elevator pitches');
+ }
+
+ const nextQIndex=allTurns.length;
+ return{
+  done:allTurns.length>=6,
+  nextQuestion:allTurns.length<6?undefined:'Interview complete',
+  evaluation:{score:turnScore,notes:note},
+  finalFeedback:{
+   score:avgScore,
+   strengths,
+   improvements,
+   nextAction:avgScore>=75?'Ready for recruiter interviews! Practice 1 more role-specific JD.':'Repeat the interview with structured 45-second STAR answers.'
+  }
+ };
+}
+
+function localReview(cv,jd,mode){const base=fallback(mode);const words=cv.trim().split(/\s+/).filter(Boolean).length;const customQs=generateTailoredCVQuestions(cv,jd,'');return {...base,interviewQuestions:customQs,score:Math.max(62,Math.min(88,base.score+(words>450?7:words>220?3:0))),summary:mode==='specific'?`Local CV review is ready. Add evidence that directly connects your experience to this job description (${Math.min(3,Math.max(1,Math.round(jd.length/1200)))} priority areas identified).`:`Local CV review is ready. Your draft is editable below and can be improved before the interview.`}}
 function localImprove(cv){
  const lines=cleanExtractedCVText(cv).split(/\n+/).map(x=>x.trim()).filter(Boolean);if(!lines.length)return cv;
  return lines.map((line,i)=>{if(i<3)return line;const clean=line.replace(/^[•●▪-]\s*/,'');if(clean.length<45||/[.!?]$/.test(clean))return line;return `• ${clean.replace(/^I\s+/i,'').replace(/\s+/g,' ')}.`}).join('\n');
@@ -110,7 +187,7 @@ function App(){
  const[cv,setCv]=useState(()=>readSession('gjr_cv_text','')), [jd,setJd]=useState(()=>readSession('gjr_jd_text','')),[cvFile,setCvFile]=useState(null),[jdFile,setJdFile]=useState(null);
  const[loading,setLoading]=useState(false),[result,setResult]=useState(null),[qIndex,setQIndex]=useState(0),[answers,setAnswers]=useState([]);
  const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
- const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:fallback(prep).interviewQuestions,[result,prep]);
+ const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
  const handleLogin=email=>{db.saveProfile(email);setProfile({email});setScreen('home')};
  const handleLogout=()=>{db.logout();setProfile(null);setScreen('home')};
  const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
@@ -427,13 +504,15 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
    try{
     data=await post('/api/interview-turn',{cv,jd,mode,career,question,answer,history:turns,turn,maxTurns});
    }catch(e){
-    console.warn(e);
-    const next=fallback(mode).interviewQuestions[turn]||'Tell me what you would improve in your next answer.';
+    console.warn('AI turn evaluate error; using local evaluator',e);
+    const evalResult=evaluateInterviewTurnLocal(question,answer,turns);
+    const customQs=questions;
+    const nextQ=customQs[turns.length+1]||'Walk me through what you would improve in your next answer.';
     data={
-     done:turn>=maxTurns,
-     nextQuestion:next,
-     evaluation:{score:70,notes:'Clear answer captured. Add a specific example and measurable outcome.'},
-     finalFeedback:{score:70,strengths:['You answered with your own experience'],improvements:['Add a concrete example','Quantify the result'],nextAction:'Repeat the interview with one stronger STAR story.'}
+     done:evalResult.done,
+     nextQuestion:nextQ,
+     evaluation:evalResult.evaluation,
+     finalFeedback:evalResult.finalFeedback
     };
    }
    setTurns(x=>[...x,{question,answer,evaluation:data.evaluation}]);
