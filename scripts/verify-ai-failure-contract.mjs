@@ -19,7 +19,7 @@ const contracts = [
   },
   {
     route: "app.post('/api/demo'",
-    nextRoute: "// PDF.js in the frontend",
+    nextRoute: "app.get(/^\\/pdf\\.worker",
     name: 'demo',
     required: "res.status(503).json({ error: 'AI prototype generation is temporarily unavailable. Please retry in a moment.' })",
     forbidden: ['A candidate-built prototype around a real business problem.', 'Clear problem-to-solution narrative', '<h1>Prototype preview</h1>'],
