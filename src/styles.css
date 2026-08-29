@@ -9,11 +9,11 @@
 .dash-card p { font-size: 14px; margin: 0; color: #4b5563; }
 .dash-card p.sub { font-size: 12px; color: #9ca3af; margin-top: auto; }
 .dash-card .card-actions { margin-top: 16px; display: flex; gap: 8px; }
-.dash-card.new-card { background: rgba(104,85,232,0.04); border: 2px dashed rgba(104,85,232,0.2); justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s; }
+.dash-card.new-card { background: rgba(104,85,232,0.04); border: 2px dashed rgba(104,85,232,0.2); justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s; min-height: 160px; }
 .dash-card.new-card:hover { background: rgba(104,85,232,0.08); border-color: rgba(104,85,232,0.4); }
-.dash-card.new-card .card-center { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: #6855e8; }
-.dash-card.new-card .card-center b { font-size: 16px; font-weight: 700; }
-.dash-card.new-card .card-center span { font-size: 13px; color: #6b7280; }
+.dash-card .card-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: #6855e8; width: 100%; padding: 16px 0; }
+.dash-card .card-center b { font-size: 16px; font-weight: 700; display: block; }
+.dash-card .card-center span { font-size: 13px; color: #6b7280; display: block; }
 .login-card { text-align: center; }
 .login-input { width: 100%; padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 16px; margin: 20px 0; font-family: inherit; transition: border 0.2s; }
 .login-input:focus { outline: none; border-color: #6855e8; box-shadow: 0 0 0 3px rgba(104,85,232,0.1); }
@@ -25,9 +25,10 @@
 .dash-tabs .tab-count { background: rgba(104,85,232,0.1); color: #6855e8; border-radius: 99px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
 
 /* Master CV Card */
-.master-cv-card { background: linear-gradient(135deg, rgba(104,85,232,0.06), rgba(155,120,255,0.04)) !important; border: 1.5px solid rgba(104,85,232,0.2) !important; }
+.master-cv-card { background: linear-gradient(135deg, rgba(104,85,232,0.06), rgba(155,120,255,0.04)) !important; border: 1.5px solid rgba(104,85,232,0.2) !important; align-items: center !important; justify-content: center !important; cursor: pointer; min-height: 160px; transition: all 0.2s; }
 .master-cv-card:hover { border-color: rgba(104,85,232,0.4) !important; }
 .master-cv-card .card-center { color: #6855e8; }
+.master-cv-card .card-center svg { flex-shrink: 0; }
 .cv-preview { font-size: 11px; color: #9ca3af; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 
 /* Interview History */
