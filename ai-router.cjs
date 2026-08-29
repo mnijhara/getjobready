@@ -13,11 +13,8 @@ function publicStatus() {
   const healthy = Date.now() >= workerCooldownUntil;
   return {
     configured: configured(),
-    keySlots: configured() ? 5 : 0,
-    healthySlots: configured() && healthy ? 5 : 0,
-    model: DEFAULT_MODEL,
-    router: 'Cloudflare 5-key round-robin + automatic failover',
-    proxy: WORKER_URL,
+    healthy: configured() && healthy,
+    router: 'Cloudflare AI proxy with automatic failover',
     requests: workerRequests,
     lastRequestAt: lastWorkerUse || null,
   };
