@@ -1,3 +1,2 @@
-// Compatibility entrypoint for the previously deployed Vite PDF.js worker URL.
-// The real worker is deployed at /pdf.worker.mjs.
+// Compatibility entrypoint for the previously deployed PDF.js worker URL.
 import '../pdf.worker.mjs';
