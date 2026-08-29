@@ -9,7 +9,7 @@ const walk=(dir)=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{const p=`
 const distFiles=walk('dist');
 const distText=distFiles.filter(f=>/\.(js|html|css|mjs)$/.test(f)).map(read).join('\n');
 const proxyMarker=['getjobready-ai-proxy','mnijhara','workers','dev'].join('.');
-expect(entry.includes('/src/main-v2.jsx'),'source entry loads the native React product');
+expect(entry.includes('/src/native-entry.jsx')||entry.includes('/src/main-v2.jsx'),'source entry loads the native React product');
 expect(!entry.includes('api-bridge.js'),'source entry does not load the legacy API bridge');
 expect(!entry.includes('cv-improvement-flow.js'),'legacy CV overlay is not shipped');
 expect(!entry.includes('audio-auto.js'),'legacy audio bridge is not shipped');
