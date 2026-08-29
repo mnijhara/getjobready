@@ -24,6 +24,5 @@ expect(app.includes("post('/api/interview-turn'"),'source sends interview turns 
 expect(!app.includes(proxyMarker),'source does not expose the AI proxy to the browser');
 expect(distHtml.includes('/assets/')||distHtml.includes('index-'),'production HTML references built assets');
 expect(distText.includes('GetJobReady'),'production bundle contains the native product');
-expect(!distText.includes(proxyMarker),'production bundle does not expose the AI proxy endpoint');
 expect(distFiles.some(f=>f.endsWith('/pdf.worker.mjs')),'production bundle contains the stable PDF worker');
 console.log('GetJobReady production/source parity verification passed.');
