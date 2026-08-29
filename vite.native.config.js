@@ -10,10 +10,7 @@ export default defineConfig({
     ]
   },
   server: { port: 5173 },
-  input: fileURLToPath(new URL('./native.html', import.meta.url)),
   build: {
-    rolldownOptions: {
-      input: fileURLToPath(new URL('./native.html', import.meta.url))
-    }
+    input: fileURLToPath(new URL('./native.html', import.meta.url))
   }
 });
