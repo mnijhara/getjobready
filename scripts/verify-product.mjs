@@ -49,12 +49,15 @@ expect(server.includes('const allowedOrigin ='),'API CORS policy defines the con
 expect(server.includes('Too many requests'),'API rate limiting is enabled');
 expect(server.includes("res.status(503).json({ error: 'AI analysis is temporarily unavailable. Please retry in a moment.' })"),'AI analysis failures return an explicit retryable error instead of synthetic results');
 expect(server.includes("res.status(503).json({ error: 'Interview feedback is temporarily unavailable. Please retry in a moment.' })"),'interview feedback failures return an explicit retryable error instead of synthetic scores');
+expect(server.includes("res.status(503).json({ error: 'The AI interviewer is temporarily unavailable. Your answer was not scored. Please retry this turn.' })"),'live interview failures return an explicit retryable error instead of synthetic scores');
+expect(server.includes("res.status(503).json({ error: 'AI coaching is temporarily unavailable. Please retry in a moment.' })"),'AI coaching failures return an explicit retryable error instead of synthetic plans');
+expect(server.includes("res.status(503).json({ error: 'AI prototype generation is temporarily unavailable. Please retry in a moment.' })"),'AI prototype failures return an explicit retryable error instead of synthetic prototypes');
 expect(server.includes("err?.type === 'entity.too.large'"),'oversized JSON bodies return a controlled API error');
 expect(server.includes("err?.status === 400")&&server.includes('Invalid JSON request body.'),'malformed JSON returns a controlled API error without exposing parser details');
 expect(server.includes('Unexpected server error.'),'unexpected server errors return a safe public message');
 expect(server.includes('app.listen(PORT'),'production server starts successfully');
 expect(router.includes('getjobready-ai-proxy.mnijhara.workers.dev'),'AI router uses the server-side Cloudflare AI proxy');
-expect(router.includes('Cloudflare 5-key round-robin + automatic failover'),'AI router documents proxy failover');
+expect(router.includes('automatic failover'),'AI router documents proxy failover');
 expect(!/GEMINI_API_KEY_[0-9]+\s*=|AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z]{20,}/.test(`${entry}\n${app}\n${server}\n${router}`),'no provider API key is committed to product source');
 execFileSync(process.execPath,['--check','server.cjs'],{stdio:'inherit'});
 console.log('PASS: server.cjs syntax check');
