@@ -17,3 +17,33 @@
 .login-card { text-align: center; }
 .login-input { width: 100%; padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 16px; margin: 20px 0; font-family: inherit; transition: border 0.2s; }
 .login-input:focus { outline: none; border-color: #6855e8; box-shadow: 0 0 0 3px rgba(104,85,232,0.1); }
+
+/* Dashboard Tabs */
+.dash-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid rgba(104,85,232,0.1); padding-bottom: 0; }
+.dash-tabs button { padding: 10px 18px; border: none; background: none; font-size: 14px; font-weight: 600; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+.dash-tabs button.selected { color: #6855e8; border-bottom-color: #6855e8; }
+.dash-tabs .tab-count { background: rgba(104,85,232,0.1); color: #6855e8; border-radius: 99px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
+
+/* Master CV Card */
+.master-cv-card { background: linear-gradient(135deg, rgba(104,85,232,0.06), rgba(155,120,255,0.04)) !important; border: 1.5px solid rgba(104,85,232,0.2) !important; }
+.master-cv-card:hover { border-color: rgba(104,85,232,0.4) !important; }
+.master-cv-card .card-center { color: #6855e8; }
+.cv-preview { font-size: 11px; color: #9ca3af; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+
+/* Interview History */
+.interview-history { display: flex; flex-direction: column; gap: 12px; }
+.history-card { padding: 20px 24px !important; }
+.history-card .label { font-weight: 700; color: #12182a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.history-card .sub { font-size: 12px; color: #9ca3af; font-weight: 400; }
+.history-card p { font-size: 14px; margin: 4px 0; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; font-size: 15px; }
+
+/* Danger button */
+button.danger { color: #ef4444 !important; }
+button.danger:hover { background: rgba(239,68,68,0.08) !important; }
+
+/* Dashboard head sub */
+.dash-head p.sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+.dash-head h2 em { font-style: normal; color: #6855e8; }

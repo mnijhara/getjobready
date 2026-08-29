@@ -35,33 +35,72 @@ function localImprove(cv){
  return lines.map((line,i)=>{if(i<3)return line;const clean=line.replace(/^[•●▪-]\s*/,'');if(clean.length<45||/[.!?]$/.test(clean))return line;return `• ${clean.replace(/^I\s+/i,'').replace(/\s+/g,' ')}.`}).join('\n');
 }
 
-function Dashboard({profile,onLogout,onNewApp,onOpen}){
- const[apps,setApps]=useState([]);useEffect(()=>{setApps(db.getApplications())},[]);
- return <div className="dashboard"><div className="dash-head"><div><span className="eyebrow">YOUR WORKSPACE</span><h2>Welcome back, {profile.email.split('@')[0]}</h2></div><button className="ghost-sm"onClick={onLogout}>Logout</button></div><div className="dash-grid"><div className="input-card dash-card new-card"role="button"onClick={onNewApp}><div className="card-center"><Plus size={32}/><b>New Application</b><span>Tailor CV & Practise Interview</span></div></div>{apps.map(a=><div key={a.id}className="input-card dash-card"><div className="label"><BriefcaseBusiness size={17}/> {a.role||'General Role'}</div><p><strong>AI Score:</strong> <span style={{color:a.score>=80?'#22c55e':a.score>=65?'#f59e0b':'#ef4444'}}>{a.score||'--'}/100</span></p><p className="sub">Updated: {new Date(a.updated).toLocaleDateString()}</p><div className="card-actions"><button className="secondary"onClick={()=>onOpen(a)}>Open Workspace</button></div></div>)}</div></div>
+function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV}){
+ const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
+ useEffect(()=>{setApps(db.getApplications());setInterviews(db.getInterviews())},[]);
+ const del=id=>{if(!confirm('Delete this application?'))return;db.deleteApplication(id);setApps(db.getApplications())};
+ const masterCV=localStorage.getItem('gjr_master_cv')||'';
+ return <div className="dashboard">
+  <div className="dash-head">
+   <div><span className="eyebrow">YOUR WORKSPACE</span><h2>Welcome back, <em>{profile.email.split('@')[0]}</em> 👋</h2><p className="sub">Your preparation hub — CVs, interviews, feedback all in one place.</p></div>
+   <button className="ghost-sm" onClick={onLogout}>Sign out</button>
+  </div>
+  <div className="dash-tabs">
+   <button className={tab==='apps'?'selected':''} onClick={()=>setTab('apps')}>📁 My Applications <span className="tab-count">{apps.length}</span></button>
+   <button className={tab==='interviews'?'selected':''} onClick={()=>setTab('interviews')}>🎙️ Interview History <span className="tab-count">{interviews.length}</span></button>
+  </div>
+  {tab==='apps'&&<div className="dash-grid">
+   <div className="input-card dash-card master-cv-card" role="button" onClick={onMasterCV}>
+    <div className="card-center"><FileText size={28}/><b>Master CV</b><span>{masterCV?'Edit your base CV':'Upload your base CV'}</span>{masterCV&&<span className="cv-preview">{masterCV.slice(0,80)}…</span>}</div>
+   </div>
+   <div className="input-card dash-card new-card" role="button" onClick={onNewApp}>
+    <div className="card-center"><Plus size={28}/><b>New Application</b><span>Tailor your CV to a specific JD and practise</span></div>
+   </div>
+   {apps.map(a=><div key={a.id} className="input-card dash-card">
+    <div className="label"><BriefcaseBusiness size={17}/> {a.role||'General Role'}</div>
+    <p><strong>CV Score:</strong> <span style={{color:a.score>=80?'#22c55e':a.score>=65?'#f59e0b':'#ef4444'}}>{a.score||'—'}/100</span></p>
+    {a.interviewScore&&<p><strong>Interview Score:</strong> <span style={{color:a.interviewScore>=70?'#22c55e':'#f59e0b'}}>{a.interviewScore}/100</span></p>}
+    <p className="sub">Last updated {new Date(a.updated).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</p>
+    <div className="card-actions"><button className="secondary" onClick={()=>onOpen(a)}>Open Workspace</button><button className="ghost-sm danger" onClick={()=>del(a.id)}>Delete</button></div>
+   </div>)}
+  </div>}
+  {tab==='interviews'&&<div className="interview-history">
+   {interviews.length===0&&<div className="empty-state"><p>No interviews yet. Complete your first voice interview to see results here.</p></div>}
+   {interviews.map(iv=><div key={iv.id} className="input-card history-card">
+    <div className="label"><Mic size={17}/> {iv.role||'General Interview'} <span className="sub">· {new Date(iv.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+    <p><strong>Score:</strong> <span style={{color:iv.score>=70?'#22c55e':'#f59e0b'}}>{iv.score||'—'}/100</span></p>
+    {iv.strengths?.length>0&&<p className="sub">✓ {iv.strengths[0]}</p>}
+    {iv.nextAction&&<p className="sub">→ {iv.nextAction}</p>}
+   </div>)}
+  </div>}
+ </div>
 }
 
 function App(){
  const[screen,setScreen]=useState('home'),[career,setCareer]=useState(()=>readSession('gjr_career','job')), [prep,setPrep]=useState(()=>readSession('gjr_cv_mode','general'));
  const[cv,setCv]=useState(()=>readSession('gjr_cv_text','')), [jd,setJd]=useState(()=>readSession('gjr_jd_text','')),[cvFile,setCvFile]=useState(null),[jdFile,setJdFile]=useState(null);
  const[loading,setLoading]=useState(false),[result,setResult]=useState(null),[qIndex,setQIndex]=useState(0),[answers,setAnswers]=useState([]);
- const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null);
+ const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
  const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:fallback(prep).interviewQuestions,[result,prep]);
  const handleLogin=email=>{db.saveProfile(email);setProfile({email});setScreen('home')};
  const handleLogout=()=>{db.logout();setProfile(null);setScreen('home')};
- const startNewApp=()=>{setAppId(Date.now().toString());setCv('');setJd('');setCvFile(null);setJdFile(null);setPrep('specific');saveSession('gjr_cv_mode','specific');setScreen('resume')};
- const openApp=a=>{setAppId(a.id);setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
+ const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
+ const confirmNewApp=name=>{const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=localStorage.getItem('gjr_master_cv')||'';setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);setPrep(masterCV?'general':'specific');saveSession('gjr_cv_mode',masterCV?'general':'specific');setShowRoleModal(false);setScreen('resume')};
+ const openApp=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
+ const openMasterCV=()=>{const masterCV=localStorage.getItem('gjr_master_cv')||'';setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setScreen('resume')};
  const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
  const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text.trim())throw new Error('The file contains no readable text. Please paste the text instead.');if(kind==='cv'){setCvFile(file);setCv(text);saveSession('gjr_cv_text',text)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error(e);alert(`We could not read that file. ${e.message||'Please paste the text instead.'}`)}};
  const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
  const analyze=async()=>{if(!cv.trim())return alert('Upload your CV or paste your CV text.');if(prep==='specific'&&!jd.trim())return alert('Upload or paste the job description for a role-specific preparation.');setLoading(true);try{let data;try{data=await post('/api/analyze',{cv,jd:prep==='general'?'':jd,career,mode:prep})}catch(e){console.warn('AI review unavailable; using local review',e);data=localReview(cv,jd,prep)}setResult(data);saveSession('gjr_cv_mode',prep);saveSession('gjr_cv_text',cv);saveSession('gjr_jd_text',prep==='general'?'':jd);setScreen('cvstudio')}finally{setLoading(false)}};
- const saveFinal=text=>{setCv(text);saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',text);saveSession('gjr_cv_text',text);if(profile)db.saveApplication({id:appId,role:jd?'Custom Role':'General CV',cv:text,score:result?.score,jd,result})};
+ const saveFinal=text=>{setCv(text);saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',text);saveSession('gjr_cv_text',text);if(appId==='master'){localStorage.setItem('gjr_master_cv',text)}else if(profile){db.saveApplication({id:appId,role:roleName||'General CV',cv:text,score:result?.score,jd,result})}};
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
+ const saveInterviewResult=d=>{if(profile){db.saveInterview({role:roleName||'General Interview',score:d.score,strengths:d.strengths,nextAction:d.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:d.score})}; setResult(r=>({...r,feedback:d}));setScreen('feedback')};
  const goHome=()=>setScreen('home');
- if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Manage your CVs and interviews." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile}onLogout={handleLogout}onNewApp={startNewApp}onOpen={openApp}/></Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
+ if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW APPLICATION</span><h2>What role are you applying for?</h2><p>Name this workspace so you can find it later. Your master CV will be pre-loaded.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
  if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}mode={prep}onSave={saveFinal}onContinue={startInterview}/></Workspace>;
- if(screen==='interview')return <Workspace title="AI Audio Interview" subtitle={prep==='general'?'General interview grounded in your final CV.':'Role-specific interview grounded in your final CV + JD.'} icon={<Mic/>} back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}question={questions[qIndex]}turn={qIndex+1}maxTurns={7}history={answers}onTurn={(d,a)=>{setAnswers(x=>[...x,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}]);if(!d.done&&d.nextQuestion){setResult(r=>({...r,interviewQuestions:[...(r?.interviewQuestions||questions),d.nextQuestion]}));setQIndex(i=>i+1)}}}onDone={d=>{setResult(r=>({...r,feedback:d}));setScreen('feedback')}}/></Workspace>;
+ if(screen==='interview')return <Workspace title="AI Audio Interview" subtitle={prep==='general'?'General interview grounded in your final CV.':'Role-specific interview grounded in your final CV + JD.'} icon={<Mic/>} back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}question={questions[qIndex]}turn={qIndex+1}maxTurns={7}history={answers}onTurn={(d,a)=>{setAnswers(x=>[...x,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}]);if(!d.done&&d.nextQuestion){setResult(r=>({...r,interviewQuestions:[...(r?.interviewQuestions||questions),d.nextQuestion]}));setQIndex(i=>i+1)}}}onDone={saveInterviewResult}/></Workspace>;
  if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback}answers={answers}/></Workspace>;
  return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
 }

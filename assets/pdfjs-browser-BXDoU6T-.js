@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/pdf-C1UEBXWx.js","assets/native-DnhPTskT.js","assets/native-CLXD3Bht.css"])))=>i.map(i=>d[i]);
+import{t as e}from"./native-DnhPTskT.js";var t,n=()=>t||=e(()=>import(`./pdf-C1UEBXWx.js`),__vite__mapDeps([0,1,2])),r={workerSrc:`/pdf.worker.mjs`};function i(e={}){return{promise:n().then(t=>{let n=t.default&&t.default.getDocument?t.default:t;return n.GlobalWorkerOptions.workerSrc=`/pdf.worker.mjs`,n.getDocument({...e,disableWorker:!0}).promise})}}export{r as GlobalWorkerOptions,i as getDocument};
