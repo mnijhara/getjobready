@@ -32,9 +32,14 @@ jobs:
         run: npm run build
       - name: Normalize Vite production entrypoint
         run: |
-          test -f dist/native.html
-          cp dist/native.html dist/index.html
-          rm dist/native.html
+          set -euo pipefail
+          if [[ -f dist/native.html ]]; then
+            cp dist/native.html dist/index.html
+            rm dist/native.html
+          elif [[ ! -f dist/index.html ]]; then
+            echo "No production HTML entry was generated" >&2
+            exit 1
+          fi
           test -f dist/index.html
       - name: Verify source to production parity
         shell: bash
