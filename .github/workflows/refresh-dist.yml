@@ -48,6 +48,13 @@ jobs:
           test -f index.html
           test -d assets
           grep -q '/assets/' index.html
+      - name: Preserve legacy PDF worker URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f pdf.worker.mjs
+          printf '%s\n' "// Compatibility entrypoint for the previously deployed PDF.js worker URL." "import '../pdf.worker.mjs';" > assets/pdf.worker-CLesOks4.mjs
+          test -s assets/pdf.worker-CLesOks4.mjs
       - name: Verify source to production parity
         run: node scripts/verify-production-parity.mjs
       - name: Build production server
@@ -60,6 +67,8 @@ jobs:
           test -f index.html
           test -f server.js
           test -f server.cjs
+          test -f pdf.worker.mjs
+          test -f assets/pdf.worker-CLesOks4.mjs
           node --check server.js
           grep -R -q "GetJobReady" dist
           grep -R -q "AI Audio Interview" dist
