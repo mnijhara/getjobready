@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/pdf-6w1hmpOf.js","assets/native-Bl4_Eh_V.js","assets/native-D3FwYWTu.css"])))=>i.map(i=>d[i]);
+import{t as e}from"./native-Bl4_Eh_V.js";var t,n=()=>t||=e(()=>import(`./pdf-6w1hmpOf.js`),__vite__mapDeps([0,1,2])),r={workerSrc:`/pdf.worker.mjs`};function i(e={}){return{promise:n().then(t=>{let n=t.default&&t.default.getDocument?t.default:t;return n.GlobalWorkerOptions.workerSrc=`/pdf.worker.mjs`,n.getDocument({...e,disableWorker:!0}).promise})}}export{r as GlobalWorkerOptions,i as getDocument};

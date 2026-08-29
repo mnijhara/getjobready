@@ -566,31 +566,38 @@ function renderExecutivePDF(p){
 
  const css=`
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  @media print{@page{margin:0;size:A4}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-  *{box-sizing:border-box;margin:0;padding:0;font-variant-ligatures:none}
-  body{font-family:'Inter',Arial,sans-serif;font-size:10.5px;line-height:1.5;color:#1e293b;background:#fff}
-  .cv-wrap{width:100%;max-width:820px;margin:0 auto;background:#fff}
-  .cv-banner{background:#1a2744;padding:28px 36px 16px;position:relative}
-  .cv-banner h1{font-size:28px;font-weight:800;color:#fff;letter-spacing:2px;text-transform:uppercase;margin:0 0 4px}
-  .cv-banner .cv-title{font-size:12px;color:#94a3b8;font-weight:500;margin-bottom:10px}
-  .cv-contact{background:#111d35;padding:7px 36px;font-size:9.5px;color:#cbd5e1;display:flex;flex-wrap:wrap;gap:4px 16px;font-weight:500}
-  .cv-contact .sep{color:#475569;margin:0 4px}
-  .cv-body{padding:20px 36px 24px}
-  .section{margin-bottom:16px;page-break-inside:avoid}
-  h2{font-size:10px;font-weight:700;letter-spacing:2.5px;color:#1a2744;border-bottom:1.5px solid #1a2744;padding-bottom:3px;margin-bottom:10px;text-transform:uppercase}
-  .summary-text{font-size:10.5px;color:#334155;line-height:1.55}
-  .comp-table{width:100%;border-collapse:collapse}
-  .comp-table td{font-size:10px;color:#334155;padding:1.5px 6px 1.5px 0;width:33.3%}
-  .job-block{margin-bottom:12px;page-break-inside:avoid}
-  .job-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;margin-bottom:4px}
-  .job-role{font-weight:700;font-size:11px;color:#0f172a}
-  .job-sep{color:#94a3b8;font-size:11px}
-  .job-company{font-size:11px;color:#2563eb;font-weight:600}
-  .job-dates{margin-left:auto;font-size:9.5px;color:#64748b;font-style:italic;white-space:nowrap}
-  ul{padding-left:14px;margin:3px 0 0}
-  li{font-size:10px;color:#334155;margin-bottom:2.5px;line-height:1.45}
-  .edu-line{font-size:10.5px;color:#334155;margin-bottom:3px}
-  p{font-size:10.5px;color:#334155}
+  @media print {
+   @page { margin: 0; size: A4 portrait; }
+   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+   .cv-wrap { min-height: 100vh; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-variant-ligatures: none; }
+  html, body { height: 100%; background: #fff; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; line-height: 1.55; color: #1e293b; }
+  .cv-wrap { width: 100%; max-width: 820px; min-height: 100%; margin: 0 auto; background: #fff; display: flex; flex-direction: column; justify-content: flex-start; }
+  .cv-banner { background: linear-gradient(135deg, #15213b, #1a2744 60%, #25375c); padding: 32px 40px 20px; position: relative; }
+  .cv-banner h1 { font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 6px; line-height: 1.15; }
+  .cv-banner .cv-title { font-size: 12.5px; color: #cbd5e1; font-weight: 600; margin-bottom: 8px; letter-spacing: 0.3px; }
+  .cv-contact { background: #0f172a; padding: 9px 40px; font-size: 10px; color: #cbd5e1; display: flex; flex-wrap: wrap; gap: 4px 18px; font-weight: 500; border-bottom: 2px solid #2563eb; }
+  .cv-contact .sep { color: #475569; margin: 0 2px; }
+  .cv-body { padding: 28px 40px 36px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+  .section { page-break-inside: avoid; }
+  h2 { font-size: 11px; font-weight: 800; letter-spacing: 2.5px; color: #1a2744; border-bottom: 1.5px solid #1a2744; padding-bottom: 4px; margin-bottom: 12px; text-transform: uppercase; }
+  .summary-text { font-size: 11px; color: #334155; line-height: 1.6; }
+  .comp-table { width: 100%; border-collapse: collapse; margin-top: 2px; }
+  .comp-table td { font-size: 10.5px; font-weight: 500; color: #334155; padding: 4px 8px 4px 0; width: 33.3%; vertical-align: top; }
+  .job-block { margin-bottom: 16px; page-break-inside: avoid; }
+  .job-block:last-child { margin-bottom: 0; }
+  .job-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+  .job-role { font-weight: 700; font-size: 12px; color: #0f172a; }
+  .job-sep { color: #94a3b8; font-size: 11.5px; }
+  .job-company { font-size: 11.5px; color: #2563eb; font-weight: 600; }
+  .job-dates { margin-left: auto; font-size: 10px; color: #64748b; font-style: italic; white-space: nowrap; }
+  ul { padding-left: 16px; margin: 5px 0 0; }
+  li { font-size: 10.5px; color: #334155; margin-bottom: 4px; line-height: 1.5; }
+  li:last-child { margin-bottom: 0; }
+  .edu-line { font-size: 11px; color: #334155; margin-bottom: 5px; line-height: 1.5; }
+  p { font-size: 11px; color: #334155; }
  `;
 
  return `<html><head><meta charset="utf-8"><title>CV – ${name}</title><style>${css}</style></head><body>
@@ -604,6 +611,7 @@ function renderExecutivePDF(p){
   </div>
  </body></html>`;
 }
+
 
 /* ─── CV STUDIO COMPONENT ───────────────────────────────────── */
 function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}){
