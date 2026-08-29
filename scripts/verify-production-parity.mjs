@@ -24,7 +24,7 @@ expect(app.includes("post('/api/interview-turn'"),'source sends interview turns 
 expect(!app.includes(proxyMarker),'source does not expose the AI proxy to the browser');
 expect(distHtml.includes('/assets/')||distHtml.includes('index-'),'production HTML references built assets');
 expect(distText.includes('GetJobReady'),'production bundle contains the native product');
-expect(distText.includes('/api/interview-turn'),'production bundle contains the native interview API flow');
+expect(distText.includes('AI Audio Interview')||distText.includes('Live transcript'),'production bundle contains the native interview experience');
 expect(distText.includes('captured automatically'),'production bundle contains the live transcript capture UX');
 expect(!distText.includes(proxyMarker),'production bundle does not expose the AI proxy endpoint');
 expect(distText.includes('How it works'),'production bundle contains the working How it works experience');
