@@ -129,22 +129,43 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
  const copyDraft=()=>{navigator.clipboard?.writeText(draft);setCopied(true);setTimeout(()=>setCopied(false),2000)};
  
  const getFormattedHTML=()=>{
-  const lines=draft.split('\n');let html='<div class="cv-container">';let inList=false;
-  lines.forEach((line,i)=>{
-   const trimmed=line.trim();if(!trimmed)return;
-   const hasLetters=/[a-zA-Z]/.test(trimmed);const isAllUpper=trimmed.toUpperCase()===trimmed;
-   const isHeading=hasLetters&&isAllUpper&&trimmed.length<60;
-   const isBullet=/^[•\-▪*◆]/.test(trimmed);
-   if(isBullet&&!inList){html+='<ul>';inList=true}else if(!isBullet&&inList){html+='</ul>';inList=false}
-   if(i===0){html+=`<h1>${trimmed}</h1>`}else if(isHeading){html+=`<h2>${trimmed}</h2>`}
-   else if(isBullet){html+=`<li>${trimmed.replace(/^[•\-▪*◆]\s*/,'')}</li>`}
-   else if(trimmed.includes(' · ')||(trimmed.includes(' - ')&&trimmed.length<120)){html+=`<p><strong>${trimmed}</strong></p>`}
-   else{html+=`<p>${trimmed}</p>`}
-  });
-  if(inList)html+='</ul>';html+='</div>';
-  const css=`body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#111;line-height:1.5;margin:0;padding:0;background:#fff}.cv-container{max-width:800px;margin:0 auto;padding:40px}h1{font-size:19px;margin-bottom:5px;text-transform:uppercase;border-bottom:2px solid #222;padding-bottom:8px;text-align:center;font-weight:700}h2{font-size:14px;color:#222;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:20px;margin-bottom:10px;font-weight:700}p{font-size:12px;margin:6px 0}ul{margin:6px 0 16px 0;padding-left:20px}li{font-size:12px;margin-bottom:4px}strong{font-weight:700}`;
-  return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${html}</body></html>`;
- };
+    let text=draft
+     .replace(/(E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y|EXECUTIVE SUMMARY)/gi,'\nEXECUTIVE SUMMARY\n')
+     .replace(/(C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S|CORE COMPETENCIES)/gi,'\nCORE COMPETENCIES\n')
+     .replace(/(P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE)/gi,'\nPROFESSIONAL EXPERIENCE\n')
+     .replace(/(E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N\s*&\s*L\s*A\s*N\s*G\s*U\s*A\s*G\s*E\s*S|EDUCATION & LANGUAGES|EDUCATION)/gi,'\nEDUCATION & LANGUAGES\n')
+     .replace(/(▪|•|◆)/g,'\n$1 ');
+
+    const rawLines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+    let html='<div class="cv-container">';let inList=false;let hasHeader=false;
+
+    rawLines.forEach((trimmed)=>{
+     const hasLetters=/[a-zA-Z]/.test(trimmed);
+     const isAllUpper=hasLetters&&trimmed.toUpperCase()===trimmed;
+     const isHeading=isAllUpper&&trimmed.length>2&&trimmed.length<50&&!/^[•\-▪*◆]/.test(trimmed);
+     const isBullet=/^[•\-▪*◆]/.test(trimmed);
+
+     if(isBullet&&!inList){html+='<ul>';inList=true}
+     else if(!isBullet&&inList){html+='</ul>';inList=false}
+
+     if(!hasHeader&&trimmed.length<120&&!isBullet&&!isHeading){
+      html+=`<div class="cv-header"><h1>${trimmed}</h1></div>`;hasHeader=true;
+     }else if(isHeading){
+      const cleanHeading=trimmed.replace(/\s+/g,' ');
+      html+=`<h2>${cleanHeading}</h2>`;
+     }else if(isBullet){
+      html+=`<li>${trimmed.replace(/^[•\-▪*◆]\s*/,'')}</li>`;
+     }else if(trimmed.includes(' · ')||(trimmed.includes(' - ')&&trimmed.length<120)){
+      html+=`<p class="job-title"><strong>${trimmed}</strong></p>`;
+     }else{
+      html+=`<p>${trimmed}</p>`;
+     }
+    });
+    if(inList)html+='</ul>';html+='</div>';
+
+    const css=`body{font-family:'Arial',sans-serif;color:#1a1a1a;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:2px solid #2563eb;padding-bottom:10px;margin-bottom:16px}.cv-header h1{font-size:18px;color:#1e3a8a;margin:0;font-weight:700}h2{font-size:12px;color:#1e3a8a;text-transform:uppercase;letter-spacing:1.2px;border-bottom:1px solid #93c5fd;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#374151}p.job-title{font-size:11px;color:#111827;margin-top:7px;margin-bottom:2px}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#374151}strong{font-weight:700}`;
+    return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${html}</body></html>`;
+   };
  
  const downloadPDF=()=>{const w=window.open('','_blank');w.document.write(getFormattedHTML());w.document.close();w.focus();setTimeout(()=>{w.print();w.close()},500)};
  const downloadWord=()=>{
