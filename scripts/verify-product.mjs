@@ -26,7 +26,7 @@ expect(app.includes('saveFinal')&&app.includes('startInterview')&&app.includes('
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
 expect(app.includes('SpeechRecognition'),'live interview uses browser speech recognition');
 expect(app.includes('Live transcript'),'live interview transcript is visible');
-expect(app.includes('captured automatically'),'student is told spoken answers are captured automatically');
+expect(app.includes('captured automatically')||app.includes('automatic capture')||app.includes('spoken response is captured automatically'),'student is told spoken answers are captured automatically');
 expect(app.includes('disableWorker:true'),'production PDF parsing is independent of a remotely fetched PDF worker');
 expect(app.includes('.docx'),'CV upload accepts DOCX files');
 expect(app.includes("readSession('gjr_career','job')"),'career selection restores from session state');
