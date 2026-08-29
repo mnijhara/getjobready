@@ -74,9 +74,7 @@ app.post('/api/interview-turn', async (req, res) => {
     return res.json(data);
   } catch (error) {
     console.error('interview-turn:', error.message);
-    const fallbackQuestions = mode === 'general' ? ['Tell me about a project on your CV that you are most proud of.', 'Which achievement on your CV best demonstrates ownership?', 'Tell me about a difficult problem you solved and what you learned.', 'Describe a time you worked with someone who disagreed with you.'] : ['Tell me about a project where you had to influence someone without authority.', 'What would you do if your manager gave you two urgent priorities at the same time?', 'Tell me about a failure or setback and what changed afterwards.', 'Why should we choose you over another candidate with similar academic credentials?'];
-    const next = fallbackQuestions[Math.min(safeTurn - 1, fallbackQuestions.length - 1)];
-    return res.json(safeTurn >= safeMax ? { done: true, nextQuestion: '', evaluation: { score: 70, strengths: ['You communicated your thinking', 'You stayed engaged with the question'], improvement: 'Add sharper evidence and measurable outcomes.' }, finalFeedback: { score: 70, strengths: ['Completed a realistic interview conversation', 'Showed willingness to reflect'], improvements: ['Use specific examples and outcomes', 'Keep answers structured and concise'], nextAction: 'Repeat the interview and strengthen the evidence in every answer.' } } : { done: false, nextQuestion: next, evaluation: { score: 70, strengths: ['You addressed the question'], improvement: 'Add a concrete example or measurable result.' }, finalFeedback: null });
+    return res.status(503).json({ error: 'The AI interviewer is temporarily unavailable. Your answer was not scored. Please retry this turn.' });
   }
 });
 
