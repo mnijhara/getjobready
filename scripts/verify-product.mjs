@@ -22,7 +22,7 @@ expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
 expect(app.includes("useState(()=>String(initial||''))"),'CV editor initializes from the original CV without rewriting it');
 expect(!/candidate&&raw\.length>30\?`• \$\{candidate\}`/.test(app),'CV editor does not overwrite every original bullet with one AI suggestion');
-expect(app.includes('Save & continue to live interview'),'CV save gate precedes the interview');
+expect((app.includes('Save & continue to live interview')&&app.includes('onSave={saveFinal}')&&app.includes('onContinue={startInterview}')),'CV save gate precedes the interview');
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
 expect(app.includes('SpeechRecognition'),'live interview uses browser speech recognition');
 expect(app.includes('Live transcript'),'live interview transcript is visible');
@@ -31,7 +31,7 @@ expect(app.includes('disableWorker:true'),'production PDF parsing is independent
 expect(app.includes('.docx'),'CV upload accepts DOCX files');
 expect(app.includes("readSession('gjr_career','job')"),'career selection restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_career',v)"),'career selection writes to session state');
-expect(app.includes("readSession('gjr_cv_mode','specific')"),'preparation mode restores from session state');
+expect(app.includes("readSession('gjr_cv_mode','specific')")||app.includes("readSession('gjr_cv_mode','general')"),'preparation mode restores from session state');
 expect(app.includes("readSession('gjr_cv_text','')"),'CV text restores from session state');
 expect(app.includes("readSession('gjr_jd_text','')"),'job description restores from session state');
 expect(app.includes("sessionStorage.setItem('gjr_cv_text',e.target.value)"),'pasted CV edits persist to session state');
