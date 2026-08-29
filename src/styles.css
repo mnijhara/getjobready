@@ -196,4 +196,10 @@ button.danger:hover { background: rgba(239,68,68,0.08) !important; }
 .model-tag { color: #6d28d9; }
 .model-answer p { color: #4c1d95; line-height: 1.65; }
 
+/* Score Ring High Contrast Display */
+.score-ring { width: 104px !important; height: 104px !important; flex: none; border-radius: 50% !important; background: rgba(255,255,255,0.14) !important; border: 4px solid rgba(255,255,255,0.85) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; box-shadow: 0 10px 30px rgba(0,0,0,0.35) !important; }
+.score-ring strong { font: 800 36px/1.05 Manrope, sans-serif !important; color: #ffffff !important; opacity: 1 !important; transform: none !important; animation: none !important; }
+.score-ring small { font-size: 11px !important; font-weight: 800 !important; color: #e2e8f0 !important; margin-top: 3px !important; }
+
+
 

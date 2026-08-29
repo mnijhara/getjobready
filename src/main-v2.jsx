@@ -190,9 +190,8 @@ function evaluateInterviewTurnLocal(question,answer,history){
 
  const strengths=[];const improvements=[];
  if(avgScore<30){
-  strengths.push('Microphone and speech input captured successfully');
-  strengths.push('Completed all turns of the practice interview');
-  improvements.push('All submitted answers were too brief or generic (under 10 words). A recruiter will reject these.');
+  strengths.push('None identified — all submitted answers were under 10 words or generic placeholders.');
+  improvements.push('All submitted answers were too brief or generic. A recruiter will reject these immediately.');
   improvements.push('Every answer must use the STAR method: Situation → Task → Action → Result.');
   improvements.push('Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.');
   improvements.push('Review the Model Answers below for each question to see what hiring managers look for.');
@@ -211,6 +210,7 @@ function evaluateInterviewTurnLocal(question,answer,history){
   strengths.push('Demonstrated deep technical mastery and clear business thinking');
   improvements.push('Refine for executive-level 45-second elevator pitch speed.');
  }
+
 
  return{
   done:allTurns.length>=6,
@@ -1147,8 +1147,8 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
  const sc=d.score||10;
  const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
  const scoreLabel=sc>=75?'Interview-ready 🚀':sc>=50?'Keep improving 💪':'Needs more practice 🔥';
- return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript, personalized coaching, and model STAR answers are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div>
- <div className="insights"><div><h3>Strengths</h3>{(d.strengths||[]).map(x=><p key={x}>✓ {x}</p>)}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
+ return <div className="feedback"><div className="score-card"><div><span className="eyebrow" style={{color:'#c4b5fd'}}>CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p style={{color:'#cbd5e1'}}>Overall Score: <strong>{sc}/100</strong> · Full interview transcript, coaching, and model STAR answers below.</p></div><div className="score-ring"><strong>{sc}</strong><small>/100</small></div></div>
+ <div className="insights"><div><h3>Strengths</h3>{(d.strengths||[]).map(x=><p key={x} style={{color:x.startsWith('None')?'#ef4444':'#16a34a',fontWeight:x.startsWith('None')?700:500}}>{x.startsWith('None')?'✕ ':'✓ '}{x}</p>)}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
 
  <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript &amp; model answers</div><div className="report-actions"><button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
   {(answers||[]).map((x,i)=><div className="turn-review" key={i}>
