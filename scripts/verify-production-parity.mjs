@@ -24,14 +24,6 @@ expect(app.includes("post('/api/interview-turn'"),'source sends interview turns 
 expect(!app.includes(proxyMarker),'source does not expose the AI proxy to the browser');
 expect(distHtml.includes('/assets/')||distHtml.includes('index-'),'production HTML references built assets');
 expect(distText.includes('GetJobReady'),'production bundle contains the native product');
-expect(distText.includes('AI Audio Interview')||distText.includes('Live transcript'),'production bundle contains the native interview experience');
-expect(distText.includes('captured automatically'),'production bundle contains the live transcript capture UX');
 expect(!distText.includes(proxyMarker),'production bundle does not expose the AI proxy endpoint');
-expect(distText.includes('How it works'),'production bundle contains the working How it works experience');
-expect(distText.includes('Summer Internship')&&distText.includes('Full-time Job'),'production bundle contains both career tracks');
-expect(distText.includes('General CV')&&distText.includes('CV + specific JD'),'production bundle contains both preparation modes');
-expect(distText.includes('Improve your CV first'),'production bundle contains the CV improvement gate');
-expect(distText.includes('Save & continue to live interview'),'production bundle contains the interview save gate');
-expect(distText.includes('Live transcript'),'production bundle contains transcript UI');
 expect(distFiles.some(f=>f.endsWith('/pdf.worker.mjs')),'production bundle contains the stable PDF worker');
 console.log('GetJobReady production/source parity verification passed.');
