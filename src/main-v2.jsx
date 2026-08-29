@@ -77,8 +77,31 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
  const[improving,setImproving]=useState(false),[improved,setImproved]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);
  const run=async()=>{if(!draft.trim())return;setImproving(true);setError('');try{const r=await post('/api/improve-cv',{cv:draft,review:result,mode});if(r.cv){setDraft(r.cv);setImproved(true)}else throw new Error('No improved draft returned')}catch(e){console.warn(e);setDraft(localImprove(draft));setImproved(true);setError('AI improvement is temporarily unavailable, so a local editing pass was applied. You can keep editing it.')}finally{setImproving(false)}};
  const copyDraft=()=>{navigator.clipboard?.writeText(draft);setCopied(true);setTimeout(()=>setCopied(false),2000)};
- const downloadPDF=()=>{const w=window.open('','_blank');w.document.write(`<html><head><title>CV</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:40px;color:#000;white-space:pre-wrap;font-size:11pt}</style></head><body>${draft.replace(/</g,'&lt;')}</body></html>`);w.document.close();w.focus();setTimeout(()=>{w.print();w.close()},500)};
- const downloadWord=()=>{const html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>CV</title></head><body><div style="font-family:Arial,sans-serif;white-space:pre-wrap;font-size:11pt;line-height:1.5;">${draft.replace(/</g,'&lt;')}</div></body></html>`;const blob=new Blob(['\ufeff',html],{type:'application/msword'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='CV_GetJobReady.doc';a.click();URL.revokeObjectURL(url)};
+ 
+ const getFormattedHTML=()=>{
+  const lines=draft.split('\n');let html='<div class="cv-container">';let inList=false;
+  lines.forEach((line,i)=>{
+   const trimmed=line.trim();if(!trimmed)return;
+   const hasLetters=/[a-zA-Z]/.test(trimmed);const isAllUpper=trimmed.toUpperCase()===trimmed;
+   const isHeading=hasLetters&&isAllUpper&&trimmed.length<60;
+   const isBullet=/^[•\-▪*◆]/.test(trimmed);
+   if(isBullet&&!inList){html+='<ul>';inList=true}else if(!isBullet&&inList){html+='</ul>';inList=false}
+   if(i===0){html+=`<h1>${trimmed}</h1>`}else if(isHeading){html+=`<h2>${trimmed}</h2>`}
+   else if(isBullet){html+=`<li>${trimmed.replace(/^[•\-▪*◆]\s*/,'')}</li>`}
+   else if(trimmed.includes(' · ')||(trimmed.includes(' - ')&&trimmed.length<120)){html+=`<p><strong>${trimmed}</strong></p>`}
+   else{html+=`<p>${trimmed}</p>`}
+  });
+  if(inList)html+='</ul>';html+='</div>';
+  const css=`body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#111;line-height:1.5;margin:0;padding:0;background:#fff}.cv-container{max-width:800px;margin:0 auto;padding:40px}h1{font-size:19px;margin-bottom:5px;text-transform:uppercase;border-bottom:2px solid #222;padding-bottom:8px;text-align:center;font-weight:700}h2{font-size:14px;color:#222;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:20px;margin-bottom:10px;font-weight:700}p{font-size:12px;margin:6px 0}ul{margin:6px 0 16px 0;padding-left:20px}li{font-size:12px;margin-bottom:4px}strong{font-weight:700}`;
+  return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${html}</body></html>`;
+ };
+ 
+ const downloadPDF=()=>{const w=window.open('','_blank');w.document.write(getFormattedHTML());w.document.close();w.focus();setTimeout(()=>{w.print();w.close()},500)};
+ const downloadWord=()=>{
+  const html=getFormattedHTML().replace('<html>',`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>`);
+  const blob=new Blob(['\ufeff',html],{type:'application/msword'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='CV_GetJobReady.doc';a.click();URL.revokeObjectURL(url);
+ };
  const scoreColor=result.score>=80?'#22c55e':result.score>=65?'#f59e0b':'#ef4444';
  return <div className="studio"><div className="score-card"><div><span className="eyebrow">AI CV REVIEW · PLACEMENT READINESS</span><h2>{result.headline}</h2><p>{result.summary}</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{result.score}</strong><small>/100</small></div></div><div className="insights"><div><h3>What to improve</h3>{result.gaps?.map(x=><p key={x}>• {x}</p>)}</div><div><h3>Keep these strengths</h3>{result.highlights?.map(x=><p key={x}>✓ {x}</p>)}</div></div><div className="editor-card"><div className="editor-head"><div className="label"><FileText size={17}/> Your editable CV (STAR Framework Ready)</div><div className="editor-controls"><span>Autosaved</span><button className="ghost-sm"type="button"onClick={copyDraft}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy CV</>}</button><button className="ghost-sm"type="button"onClick={downloadPDF}>Download PDF</button><button className="ghost-sm"type="button"onClick={downloadWord}>Download Word</button></div></div><textarea value={draft}onChange={e=>{setDraft(e.target.value);setImproved(false);saveSession('gjr_cv_text',e.target.value)}}placeholder="Your CV text will appear here. Edit anything you want before your interview."/><div className="editor-actions"><button className="secondary"onClick={run}disabled={improving||!draft.trim()}>{improving?'Improving…':<>✨ Format & improve with AI</>}</button>{improved&&<span className="saved-note"><CheckCircle2 size={15}/> Improved draft ready</span>}</div>{error&&<p className="inline-note">{error}</p>}</div><div className="continue-card"><div><b>Next: live interview</b><span>Save your final CV first. The interviewer will use exactly this version.</span></div><button className="primary"disabled={!draft.trim()}onClick={()=>{onSave(draft);onContinue(draft)}}>Save & continue to live interview <ArrowRight size={18}/></button></div></div>
 }
