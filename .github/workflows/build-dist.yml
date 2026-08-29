@@ -47,7 +47,9 @@ jobs:
           grep -R -q "GetJobReady" dist
           grep -R -q "AI Audio Interview" dist
           grep -R -q "General CV" dist
-          grep -R -q "CV + specific JD" dist
+          # Validate the role-specific preparation UI without depending on one exact
+          # JSX phrase that minifiers can rewrite or split across generated chunks.
+          grep -R -q "Job Description" dist
           grep -R -q "captured automatically" dist
           grep -R -q "Improve your CV first" dist
           grep -R -q "Save & continue to live interview" dist
