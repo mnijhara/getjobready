@@ -88,9 +88,13 @@ function cleanExtractedCVText(raw){
   .replace(/\r\n/g,'\n')
   .replace(/E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y/gi,'\n\nEXECUTIVE SUMMARY\n')
   .replace(/C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S/gi,'\n\nCORE COMPETENCIES\n')
-  .replace(/T\s*E\s*C\s*H\s*N\s*I\s*C\s*A\s*L\s*S\s*K\s*I\s*L\s*L\s*S/gi,'\n\nTECHNICAL SKILLS\n')
-  .replace(/P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|W\s*O\s*R\s*K\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
-  .replace(/\b(EXECUTIVE SUMMARY|CORE COMPETENCIES|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|KEY PROJECTS|PROJECTS|EDUCATION|ACADEMIC BACKGROUND|ACADEMICS|TECHNICAL SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS)\b/g,'\n\n$1\n')
+  .replace(/\b(Technical Skills|Technical Expertise|Key Skills|Skills & Tools|Languages & Frameworks)\b/gi,'\n\nCORE COMPETENCIES\n')
+  .replace(/\b(Work Experience|Professional Experience|Experience|Internships|Employment History)\b/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
+  .replace(/\b(Key Projects|Projects|Academic Projects|Personal Projects)\b/gi,'\n\nKEY PROJECTS\n')
+  .replace(/\b(Education|Academic Details|Academics|Academic Background)\b/gi,'\n\nEDUCATION\n')
+  .replace(/\b(Achievements|Honors & Awards|Awards|Competitive Programming)\b/gi,'\n\nACHIEVEMENTS\n')
+  .replace(/\b(Leadership & Responsibility|Positions of Responsibility|Leadership|Extracurricular)\b/gi,'\n\nLEADERSHIP\n')
+  .replace(/\b(Certifications|Certificates|Courses & Training)\b/gi,'\n\nCERTIFICATIONS\n')
   .replace(/(▪|•|◆|●|\*\s+)/g,'\n• ');
 
  return text.split('\n')
@@ -98,283 +102,6 @@ function cleanExtractedCVText(raw){
   .filter(Boolean)
   .join('\n');
 }
-
-function generateTailoredCVQuestions(cvText,jd,role){
- const cv=cvText||'';
- const lines=cv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
- const companies=[];const bullets=[];
- lines.forEach(l=>{
-  if(l.includes(' · ')||l.includes(' - ')){
-   companies.push(l.split(' · ')[0]||l);
-  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)){
-   bullets.push(l);
-  }
- });
-
- const b1=bullets[0]||'your key achievements';
- const b2=bullets[1]||'a major project';
- const comp=companies[0]||'your previous organisation or project';
- const topContext=lines.slice(0,15).join(' ')+' '+(role||'')+' '+(jd||'');
- const domain=/\b(software|engineer|developer|coding|backend|frontend|fullstack|java|python|golang|go|react|node|c\+\+|computer science|b\.tech|btech|algorithms|git|cloud|aws|docker)\b/i.test(topContext)?'Technology'
-  :/\b(marketing|brand|campaign|consumer|growth|advertising)\b/i.test(topContext)?'Marketing'
-  :/\b(finance|banking|valuation|equity|portfolio|cfa|financial)\b/i.test(topContext)?'Finance'
-  :/\b(human resources|hrbp|talent acquisition|recruitment|people ops)\b/i.test(topContext)?'Human Resources'
-  :/\b(consulting|strategy|operations|business analyst)\b/i.test(topContext)?'Management Consulting'
-  :(role||'your field');
- const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test(topContext);
-
- const q1=`Tell me about yourself — your background in ${domain}, your academic journey, and the one experience or project you're most proud of so far.`;
- const q2=`In your CV, you mention "${b1.slice(0,85)}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
- const q3=isInternship
-  ?`Tell me about your summer internship or key technical project. What was your day-to-day responsibility, what tools or AI did you use, and what's the one number that shows your impact?`
-  :`Tell me about a major project at ${comp.slice(0,40)}. What was your personal ownership, what challenge did you face, and what was the quantifiable outcome?`;
- const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or modern frameworks — in your work or studies? Give me a specific example where it made you faster or more effective.`;
- const q5=`Describe a time when something went wrong, a deadline was missed, or you faced a technical roadblock. How did you debug or resolve it and what would you do differently?`;
- const q6=`If you joined ${role?'the '+role+' team':'this team'} tomorrow, what's your 30-day plan to add real value, build relationships, and prove yourself quickly?`;
-
- return[q1,q2,q3,q4,q5,q6];
-}
-
-
-function evaluateInterviewTurnLocal(question,answer,history){
- const words=answer.trim().split(/\s+/).filter(Boolean);
- const wordCount=words.length;
- const isRepetitive=/(workout|walk|talk|blah|xyz|test)\s+\1/i.test(answer)||(wordCount>4&&new Set(words).size<wordCount*0.5);
- let turnScore=0;let note='';
-
- if(wordCount<6||isRepetitive){
-  turnScore=Math.min(30,Math.max(15,wordCount*4));
-  note=isRepetitive?'Repetitive non-professional text detected. Answer in full STAR sentences.':'Answer is too brief (<6 words). Provide a complete STAR response with context and outcomes.';
- }else if(wordCount<18){
-  turnScore=45;
-  note='Answer is too concise. Elaborate on your personal action and measurable result.';
- }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team)/i.test(answer)){
-  turnScore=60;
-  note='Good context, but lacks concrete metrics or clear personal ownership verbs.';
- }else{
-  turnScore=Math.min(95,75+Math.round(wordCount/3));
-  note='Strong STAR response with clear ownership and measurable outcomes.';
- }
-
- const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note}}];
- const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score||30),0)/allTurns.length);
-
- const strengths=[];const improvements=[];
- if(avgScore<45){
-  strengths.push('Voice captured clearly by microphone');
-  improvements.push('Give full multi-sentence STAR answers instead of 1-line or repetitive phrases');
-  improvements.push('Include specific metrics (% improvement, headcount, revenue) from your CV');
- }else if(avgScore<70){
-  strengths.push('Good basic structure and communication');
-  improvements.push('Quantify results with numbers (% growth, team size, turnaround time)');
-  improvements.push('Elaborate on how you used AI tools or frameworks to solve the challenge');
- }else{
-  strengths.push('Strong articulation of STAR stories with clear personal ownership');
-  strengths.push('Demonstrated quantifiable business impact');
-  improvements.push('Refine conciseness for 60-second executive elevator pitches');
- }
-
- const nextQIndex=allTurns.length;
- return{
-  done:allTurns.length>=6,
-  nextQuestion:allTurns.length<6?undefined:'Interview complete',
-  evaluation:{score:turnScore,notes:note},
-  finalFeedback:{
-   score:avgScore,
-   strengths,
-   improvements,
-   nextAction:avgScore>=75?'Ready for recruiter interviews! Practice 1 more role-specific JD.':'Repeat the interview with structured 45-second STAR answers.'
-  }
- };
-}
-
-function localReview(cv,jd,mode){
- const base=fallback(mode);
- const words=cv.trim().split(/\s+/).filter(Boolean).length;
- const customQs=generateTailoredCVQuestions(cv,jd,'');
- const hasNumbers=/\d+\s*(%|percent|cr|lakh|year|month|team|hire|client)/i.test(cv);
- const hasBullets=(cv.match(/•|▪|●/g)||[]).length;
- return{
-  ...base,
-  interviewQuestions:customQs,
-  score:Math.max(58,Math.min(88,base.score+(words>450?7:words>220?3:0)+(hasNumbers?5:0)+(hasBullets>4?3:0))),
-  summary:mode==='specific'
-   ?`Local CV review complete. Add evidence that directly connects your experience to this JD (${Math.min(3,Math.max(1,Math.round(jd.length/1200)))} priority areas identified).`
-   :`Local CV review complete. Your draft is ready to improve and personalise before the interview.`
- };
-}
-
-function localImprove(cv){
- const lines=cleanExtractedCVText(cv).split(/\n+/).map(x=>x.trim()).filter(Boolean);if(!lines.length)return cv;
- return lines.map((line,i)=>{if(i<3)return line;const clean=line.replace(/^[•●▪-]\s*/,'');if(clean.length<45||/[.!?]$/.test(clean))return line;return `• ${clean.replace(/^I\s+/i,'').replace(/\s+/g,' ')}.`}).join('\n');
-}
-
-function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview}){
- const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
- useEffect(()=>{setApps(db.getApplications());setInterviews(db.getInterviews())},[]);
- const del=id=>{if(!confirm('Delete this application?'))return;db.deleteApplication(id);setApps(db.getApplications())};
- const masterCV=db.getMasterCV();
- const hasMaster=!!masterCV;
-
- return <div className="dashboard">
-  <div className="dash-head">
-   <div><span className="eyebrow">YOUR WORKSPACE</span><h2>Welcome back, <em>{profile.email.split('@')[0]}</em> 👋</h2><p className="sub">Your preparation hub — CVs, interviews, feedback all in one place.</p></div>
-   <button className="ghost-sm" onClick={onLogout}>Sign out</button>
-  </div>
-
-  {/* Step Banner */}
-  <div className="pipeline-steps">
-   <div className={`pipe-step ${hasMaster?'done':''}`} onClick={onMasterCV}>
-    <span className="pipe-num">{hasMaster?'✓':'1'}</span>
-    <div><b>Master CV</b><span>{hasMaster?'Saved ✅ — click to update':'Upload & finalise your base CV'}</span></div>
-   </div>
-   <div className="pipe-arrow">→</div>
-   <div className={`pipe-step ${hasMaster?'active':''}`} onClick={hasMaster?onNewApp:undefined}>
-    <span className="pipe-num">2</span>
-    <div><b>Add a Job Application</b><span>{hasMaster?'Tailored CV + JD-specific interview':'Complete step 1 first'}</span></div>
-   </div>
-   <div className="pipe-arrow">→</div>
-   <div className="pipe-step">
-    <span className="pipe-num">3</span>
-    <div><b>Interview & Improve</b><span>Per-job score + CV updates post-interview</span></div>
-   </div>
-  </div>
-
-  <div className="dash-tabs">
-   <button className={tab==='apps'?'selected':''} onClick={()=>setTab('apps')}>📁 My Applications <span className="tab-count">{apps.length}</span></button>
-   <button className={tab==='interviews'?'selected':''} onClick={()=>setTab('interviews')}>🎙️ Interview History <span className="tab-count">{interviews.length}</span></button>
-  </div>
-
-  {tab==='apps'&&<div className="dash-grid">
-   {/* Master CV card */}
-   <div className={`input-card dash-card master-cv-card ${hasMaster?'ready':''}`} role="button" onClick={onMasterCV}>
-    <div className="card-center"><FileText size={28}/><b>Master CV</b><span>{hasMaster?'Edit your base CV':'Upload your base CV'}</span>{hasMaster&&<span className="cv-preview">{masterCV.slice(0,80)}…</span>}{hasMaster&&<span className="master-badge">✓ Ready</span>}</div>
-   </div>
-   {/* New Application CTA */}
-   <div className={`input-card dash-card new-card ${!hasMaster?'locked':''}`} role="button" onClick={hasMaster?onNewApp:onMasterCV}>
-    <div className="card-center">
-     <Plus size={28}/>
-     <b>{hasMaster?'Apply to a New Job':'Upload Master CV First'}</b>
-     <span>{hasMaster?'Tailored CV + JD-specific AI interview':'Add your base CV before creating job applications'}</span>
-     {hasMaster&&<span className="new-card-hint">Paste JD → tick suggestions → custom CV → interview</span>}
-    </div>
-   </div>
-   {/* Application cards */}
-   {apps.map(a=><div key={a.id} className="input-card dash-card app-card">
-    <div className="app-card-header">
-     <BriefcaseBusiness size={16}/>
-     <span className="app-role">{a.role||'General Role'}</span>
-     <span className="app-date">{new Date(a.updated).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>
-    </div>
-    <div className="app-scores">
-     <div className="app-score-item">
-      <span>CV Score</span>
-      <strong style={{color:a.score>=80?'#22c55e':a.score>=65?'#f59e0b':'#ef4444'}}>{a.score||'—'}/100</strong>
-     </div>
-     {a.interviewScore?<div className="app-score-item">
-      <span>Interview</span>
-      <strong style={{color:a.interviewScore>=70?'#22c55e':'#f59e0b'}}>{a.interviewScore}/100</strong>
-     </div>:<div className="app-score-item not-done"><span>Interview</span><strong>—</strong></div>}
-    </div>
-    <div className="app-jd-tag">{a.jd?<span className="has-jd">🎯 JD attached</span>:<span className="no-jd">📄 General</span>}</div>
-    <div className="card-actions">
-     <button className="secondary" onClick={()=>onEditCV(a)}><FileText size={14}/> Edit CV</button>
-     <button className="primary" style={{padding:'10px 14px',fontSize:'12px'}} onClick={()=>onInterview(a)}><Mic size={14}/> Interview</button>
-     <button className="ghost-sm danger" onClick={()=>del(a.id)}>✕</button>
-    </div>
-   </div>)}
-  </div>}
-  {tab==='interviews'&&<div className="interview-history">
-   {interviews.length===0&&<div className="empty-state"><p>No interviews yet. Complete your first voice interview to see results here.</p></div>}
-   {interviews.map(iv=><div key={iv.id} className="input-card history-card">
-    <div className="label"><Mic size={17}/> {iv.role||'General Interview'} <span className="sub">· {new Date(iv.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span></div>
-    <p><strong>Score:</strong> <span style={{color:iv.score>=70?'#22c55e':'#f59e0b'}}>{iv.score||'—'}/100</span></p>
-    {iv.strengths?.length>0&&<p className="sub">✓ {iv.strengths[0]}</p>}
-    {iv.nextAction&&<p className="sub">→ {iv.nextAction}</p>}
-   </div>)}
-  </div>}
- </div>
-}
-
-
-function App(){
- const[screen,setScreen]=useState('home'),[career,setCareer]=useState(()=>readSession('gjr_career','job')), [prep,setPrep]=useState(()=>readSession('gjr_cv_mode','general'));
- const[cv,setCv]=useState(()=>readSession('gjr_cv_text','')), [jd,setJd]=useState(()=>readSession('gjr_jd_text','')),[cvFile,setCvFile]=useState(null),[jdFile,setJdFile]=useState(null);
- const[loading,setLoading]=useState(false),[result,setResult]=useState(null),[qIndex,setQIndex]=useState(0),[answers,setAnswers]=useState([]);
- const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
- const[masterSaved,setMasterSaved]=useState(false);
- const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
- const handleLogin=email=>{db.saveProfile(email);setProfile({email});setCv(db.getMasterCV());setJd('');setAppId(null);setRoleName('');setScreen('home')};
- const handleLogout=()=>{db.logout();setProfile(null);setCv('');setJd('');setAppId(null);setRoleName('');setScreen('home')};
- const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
- // New Application: ALWAYS go to resume screen with specific/JD mode when master exists
- const confirmNewApp=name=>{const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=db.getMasterCV();setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);const mode=masterCV?'specific':'general';setPrep(mode);saveSession('gjr_cv_mode',mode);setShowRoleModal(false);setScreen('resume')};
- // Open app → go straight to cvstudio
- const openApp=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
- // Edit CV for a specific app
- const editCV=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
- // Start interview directly for a specific app (skip CV studio)
- const directInterview=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
- const openMasterCV=()=>{const masterCV=db.getMasterCV();setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
- const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
- const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
- const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text||!text.trim())throw new Error('The file contains no readable text. Please paste the text into the text box below.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error('File parse exception:',e);if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){window.location.reload();return}alert(e.message||'We could not read that file. Please paste your text into the box instead.')}};
- const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
- const analyze=async()=>{
-  if(!cv.trim())return alert('Upload your CV or paste your CV text.');
-  if(prep==='specific'&&!jd.trim())return alert('Upload or paste the job description for a role-specific preparation.');
-  setLoading(true);
-  try{
-   let data;
-   try{
-    data=await post('/api/analyze',{cv,jd:prep==='general'?'':jd,career,mode:prep});
-   }catch(e){
-    console.warn('AI review unavailable; using local review',e);
-    data=localReview(cv,jd,prep);
-   }
-   setResult(data);
-   saveSession('gjr_cv_mode',prep);
-   saveSession('gjr_cv_text',cv);
-   saveSession('gjr_jd_text',prep==='general'?'':jd);
-   
-   const targetId=appId||Date.now().toString();
-   setAppId(targetId);
-   if(!db.getMasterCV()){
-    db.saveMasterCV(cv);
-   }
-   if(profile){
-    db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':(jd.slice(0,30)+'…')),cv,score:data?.score,jd,result:data});
-   }
-   setScreen('cvstudio');
-  }finally{
-   setLoading(false);
-  }
- };
- const saveFinal=text=>{
-  setCv(text);
-  saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',text);saveSession('gjr_cv_text',text);
-  const targetId=appId||Date.now().toString();
-  setAppId(targetId);
-  if(appId==='master'){
-   db.saveMasterCV(text);
-  }else if(profile){
-   db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':'Custom Application'),cv:text,score:result?.score,jd,result});
-  }
- };
-
- const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
- const saveInterviewResult=d=>{if(profile){db.saveInterview({role:roleName||'General Interview',score:d.score,strengths:d.strengths,nextAction:d.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:d.score})}; setResult(r=>({...r,feedback:d}));setScreen('feedback')};
- const goHome=()=>setScreen('home');
- if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
- if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
- if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}onSave={saveFinal}onContinue={startInterview}/></Workspace>;
-
- if(screen==='interview')return <Workspace title="AI Audio Interview" subtitle={prep==='general'?'General interview grounded in your final CV.':'Role-specific interview grounded in your final CV + JD.'} icon={<Mic/>} back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}question={questions[qIndex]}turn={qIndex+1}maxTurns={7}history={answers}onTurn={(d,a)=>{setAnswers(x=>[...x,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}]);if(!d.done&&d.nextQuestion){setResult(r=>({...r,interviewQuestions:[...(r?.interviewQuestions||questions),d.nextQuestion]}));setQIndex(i=>i+1)}}}onDone={saveInterviewResult}/></Workspace>;
- if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback}answers={answers}onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}}/></Workspace>;
- return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
-}
-
-function Header({onHow,back,onHome}){return <header><div className="header-left">{back&&<button className="back"onClick={back}>← Back</button>}</div><button className="brand"onClick={onHome}style={{background:'none',border:'none',padding:0,cursor:onHome?'pointer':'default'}}><img src="/logo.svg" alt="GetJobReady Logo" style={{width:'42px',height:'42px',borderRadius:'14px',objectFit:'contain',display:'block'}} /><span>GetJobReady<span className="dot">.online</span></span></button>{onHow?<button className="ghost"onClick={onHow}><Sparkles size={15}/> How it works</button>:<div className="header-spacer"/>}</header>}
 
 
 function Home({career,setCareer,choosePrep,openModule,onLogin}){const[how,setHow]=useState(false),[showLogin,setShowLogin]=useState(false),[email,setEmail]=useState('');return <div className="app"><Header onHow={()=>setHow(true)}/><main className="hero"><div><span className="trust-badge"><Sparkles size={13}/> Trusted by students at IIMs, ISBs &amp; top B-schools</span></div><div className="eyebrow">{career==='internship'?'INTERNSHIP TRACK':'FULL-TIME TRACK'} · AI-POWERED CAREER READINESS</div><h1>Your degree got you here.<br/><em>Let's get you hired.</em></h1><p className="lead">{career==='internship'?'Build a strong campus story, sharpen your CV and practise with a real AI voice interviewer before the big day.':'Improve your CV for the exact role, then practise a hands-free AI interview that adapts to your answers.'}</p><div className="career-toggle"><button className={career==='internship'?'active':''}onClick={()=>setCareer('internship')}>☀️ Internship</button><button className={career==='job'?'active':''}onClick={()=>setCareer('job')}>💼 Full-time</button></div><button className="primary hero-btn"onClick={()=>setShowLogin(true)}>Enter Workspace <ArrowRight size={18}/></button><div className="hero-stats"><div className="stat"><span className="stat-num">4</span><span className="stat-label">Prep Steps</span></div><div className="stat"><span className="stat-num">100%</span><span className="stat-label">Voice-powered</span></div><div className="stat"><span className="stat-num">Free</span><span className="stat-label">No sign-up</span></div></div><div className="proof"><span><CheckCircle2 size={16}/> CV review before interview</span><span><CheckCircle2 size={16}/> Hands-free voice interview</span><span><CheckCircle2 size={16}/> Instant feedback &amp; transcript</span></div></main><section className="module-grid">{modules.map(m=><button className="module-card"key={m.id}onClick={()=>m.id==='resume'?setShowLogin(true):m.id==='interview'?setShowLogin(true):openModule(m.id)}><div className="module-top"><span className="module-icon"><m.icon size={21}/></span><span className="pill">{m.tag}</span></div><h3>{m.title}</h3><p>{m.text}</p><span className="card-link">{m.id==='interview'?'Start with your CV':'Open'} <ChevronRight size={16}/></span></button>)}</section><section className="roadmap"><div><span className="eyebrow">THE JOURNEY</span><h2>Prepare → practise → improve.</h2></div><div className="steps"><div><b>01</b><span>Prepare</span><small>CV review + editor</small></div><div><b>02</b><span>Practise</span><small>Hands-free voice</small></div><div><b>03</b><span>Improve</span><small>Transcript + feedback</small></div></div></section><footer>Built for students entering their first internship or corporate role.</footer>{how&&<div className="modal"onClick={e=>e.target===e.currentTarget&&setHow(false)}><div className="modal-card"><button className="modal-x"onClick={()=>setHow(false)}><X size={18}/></button><span className="eyebrow">HOW GETJOBREADY WORKS</span><h2>Prepare → practise → improve.</h2><div className="how-steps"><div><b>01</b><strong>Upload your CV</strong><span>Use General CV mode or add one specific JD.</span></div><div><b>02</b><strong>Improve before interviewing</strong><span>AI reviews your CV and gives you an editable version. If AI is temporarily unavailable, the CV studio still opens with a useful local review.</span></div><div><b>03</b><strong>Have a real voice interview</strong><span>AI asks the question aloud, then your answer is captured into the live transcript automatically.</span></div><div><b>04</b><strong>Get adaptive feedback</strong><span>Review your transcript, strengths and next actions.</span></div></div><button className="primary wide"onClick={()=>{setHow(false);setShowLogin(true)}}>Enter Workspace <ArrowRight size={18}/></button></div></div>}{showLogin&&<div className="modal"onClick={e=>e.target===e.currentTarget&&setShowLogin(false)}><div className="modal-card login-card"><button className="modal-x"onClick={()=>setShowLogin(false)}><X size={18}/></button><span className="eyebrow">ACCESS WORKSPACE</span><h2>Enter your email</h2><p>We'll save your CVs and interview history securely on your device.</p><input type="email"className="login-input"placeholder="student@university.edu"value={email}onChange={e=>setEmail(e.target.value)}onKeyDown={e=>e.key==='Enter'&&email.includes('@')&&onLogin(email)}/><button className="primary wide"onClick={()=>{if(email.includes('@'))onLogin(email);else alert('Please enter a valid email.')}}>Continue <ArrowRight size={18}/></button></div></div>}</div>}
@@ -629,11 +356,10 @@ function buildCV(parsed,checkedSuggestions){
 function renderExecutivePDF(p){
  const{name,title,contact,sections}=p;
 
- // Build competencies grid (3 per row)
- const compRows=[];
- for(let i=0;i<sections.competencies.length;i+=3){
-  compRows.push(sections.competencies.slice(i,i+3));
- }
+ // Competencies (Clean 3x3 grid, max 9 concise skills)
+ const cleanComps=(sections.competencies||[])
+  .filter(c=>c.length>=2&&c.length<=32&&!/^(Languages|Web|Databases|DevOps|Tools|Coursework|Leadership|Spearheaded|Progressed|Solved)/i.test(c))
+  .slice(0,9);
 
  let body='';
 
@@ -643,7 +369,11 @@ function renderExecutivePDF(p){
  }
 
  // Competencies
- if(sections.competencies.length){
+ if(cleanComps.length){
+  const compRows=[];
+  for(let i=0;i<cleanComps.length;i+=3){
+   compRows.push(cleanComps.slice(i,i+3));
+  }
   body+=`<div class="section"><h2>C O R E &nbsp; C O M P E T E N C I E S</h2><table class="comp-table">`;
   compRows.forEach(row=>{
    body+=`<tr>${row.map(c=>`<td>▪ ${c}</td>`).join('')}</tr>`;
