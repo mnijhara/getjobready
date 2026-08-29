@@ -1,0 +1,5 @@
+node_modules
+.DS_Store
+screenshots
+live_audit_report.md
+scripts/live_audit.mjs
