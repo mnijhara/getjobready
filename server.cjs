@@ -8,6 +8,9 @@ const PORT = process.env.PORT || 4173;
 const root = __dirname;
 const allowedOrigin = (process.env.PUBLIC_BASE_URL || 'https://getjobready.online').replace(/\/$/, '');
 app.disable('x-powered-by');
+// GetJobReady is normally behind a single trusted reverse proxy. Trust only that
+// first hop so req.ip uses the real client address for per-student rate limiting.
+app.set('trust proxy', 1);
 app.use(cors({ origin: (origin, callback) => { if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true); return callback(null, false); }, methods: ['GET','POST','OPTIONS'], credentials: false }));
 app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','SAMEORIGIN');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','microphone=(self), camera=(), geolocation=()');if(req.path.startsWith('/api/')){res.setHeader('Cache-Control','no-store, max-age=0');res.setHeader('Pragma','no-cache');}next();});
 app.use(express.json({ limit: '8mb' }));
@@ -89,9 +92,6 @@ app.post('/api/demo', async (req, res) => {
   catch (error) { console.error('demo:', error.message); return res.status(503).json({ error: 'AI prototype generation is temporarily unavailable. Please retry in a moment.' }); }
 });
 
-// PDF.js in the frontend can emit a hashed worker URL. Hostinger serves the committed
-// production artifact from /dist, so expose that worker at both the stable URL and the
-// hashed URL without requiring a rebuild of the browser bundle.
 app.get(/^\/pdf\.worker(?:-[^/]+)?\.mjs$/, (req, res) => {
   const worker = path.join(root, 'dist', 'pdf.worker.mjs');
   if (!fs.existsSync(worker)) return res.status(503).type('text/plain').send('PDF worker is not available in this deployment.');
