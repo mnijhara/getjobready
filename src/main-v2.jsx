@@ -193,7 +193,7 @@ function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,
 function CVStudio({result,initial,mode,onSave,onContinue}){
  const[draft,setDraft]=useState(()=>cleanExtractedCVText(String(initial||'')));
  const[improving,setImproving]=useState(false),[improved,setImproved]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);
- const[theme,setTheme]=useState('career-ops');
+ const[theme,setTheme]=useState('executive');
  const[autoFit,setAutoFit]=useState(true);
  const[showWinsModal,setShowWinsModal]=useState(false);
  const[winQ1,setWinQ1]=useState(''),[winQ2,setWinQ2]=useState(''),[winQ3,setWinQ3]=useState('');
@@ -248,8 +248,48 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
   if(inList)html+='</ul>';html+='</div>';
 
   let css='';
-  const fitCss=autoFit?`@media print{@page{margin:0.4in}body{font-size:10px !important;line-height:1.35 !important}h2{margin-top:10px !important;margin-bottom:4px !important}ul{margin:2px 0 4px 0 !important}li{margin-bottom:1.5px !important}}`:'';
-  if(theme==='consulting'){
+  const fitCss=autoFit?`@media print{@page{margin:0}body{font-size:10px !important;line-height:1.35 !important}h2{margin-top:12px !important;margin-bottom:4px !important}ul{margin:2px 0 4px 0 !important}li{margin-bottom:1.5px !important}}`:'';
+  
+  if(theme==='executive'){
+   let headerHtml='';let bodyHtml='';let inList=false;
+   rawLines.forEach((trimmed,i)=>{
+    const hasLetters=/[a-zA-Z]/.test(trimmed);
+    const isAllUpper=hasLetters&&trimmed.toUpperCase()===trimmed;
+    const isHeading=isAllUpper&&trimmed.length>2&&trimmed.length<50&&!/^[•\-▪*◆]/.test(trimmed);
+    const isBullet=/^[•\-▪*◆]/.test(trimmed);
+
+    if(i===0){
+     headerHtml+=`<h1>${trimmed}</h1>`;
+    }else if(i===1&&!isHeading&&!isBullet){
+     headerHtml+=`<div class="subtitle">${trimmed}</div>`;
+    }else if((i===2||i===3)&&(trimmed.includes('@')||trimmed.includes('|')||trimmed.includes('+91')||trimmed.includes('Delhi'))&&!isHeading){
+     headerHtml+=`<div class="cv-contact-bar">${trimmed.replace(/\|/g,'<span class="sep">|</span>')}</div>`;
+    }else{
+     if(isBullet&&!inList){bodyHtml+='<ul>';inList=true}
+     else if(!isBullet&&inList){bodyHtml+='</ul>';inList=false}
+
+     if(isHeading){
+      bodyHtml+=`<h2>${trimmed.split('').join(' ')}</h2>`;
+     }else if(isBullet){
+      bodyHtml+=`<li>${trimmed.replace(/^[•\-▪*◆]\s*/,'')}</li>`;
+     }else if(trimmed.includes(' · ')||(trimmed.includes(' - ')&&trimmed.length<120)){
+      const parts=trimmed.split(' · ');
+      if(parts.length>=2){
+       bodyHtml+=`<p class="job-title"><strong>${parts[0]}</strong> · <span class="company">${parts[1]}</span>${parts.slice(2).length?' · <span class="dates">'+parts.slice(2).join(' · ')+'</span>':''}</p>`;
+      }else{
+       bodyHtml+=`<p class="job-title"><strong>${trimmed}</strong></p>`;
+      }
+     }else{
+      bodyHtml+=`<p>${trimmed}</p>`;
+     }
+    }
+   });
+   if(inList)bodyHtml+='</ul>';
+
+   const fullHtml=`<div class="cv-container"><div class="cv-header-banner">${headerHtml}</div><div class="cv-body">${bodyHtml}</div></div>`;
+   css=`@media print{@page{margin:0}}* { font-variant-ligatures: none; box-sizing:border-box; margin:0; padding:0; }body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10.5px;line-height:1.45;color:#1e293b;background:#fff}.cv-container{width:100%;max-width:800px;margin:0 auto;background:#fff}.cv-header-banner{background:#1e2e4a;color:#fff;padding:26px 32px 14px 32px;text-align:left}.cv-header-banner h1{font-size:30px;font-weight:800;color:#fff;letter-spacing:1.5px;margin:0 0 6px 0;line-height:1.1;text-transform:uppercase}.cv-header-banner .subtitle{font-size:12.5px;color:#94a3b8;font-weight:500;margin-bottom:8px}.cv-contact-bar{background:#132038;color:#e2e8f0;padding:8px 32px;font-size:10px;display:flex;flex-wrap:wrap;gap:6px 12px;font-weight:500}.cv-contact-bar .sep{color:#64748b;margin:0 4px}.cv-body{padding:22px 32px}h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:#1e2e4a;border-bottom:1.5px solid #1e2e4a;padding-bottom:3px;margin-top:18px;margin-bottom:10px}p{font-size:10.5px;margin:4px 0;color:#334155}p.job-title{font-size:11.5px;color:#0f172a;margin-top:10px;margin-bottom:4px}p.job-title strong{color:#0f172a;font-weight:700}p.job-title .company{color:#2563eb;font-weight:600}p.job-title .dates{color:#64748b;font-style:italic;font-size:10px}ul{margin:4px 0 10px 0;padding-left:18px}li{font-size:10.5px;margin-bottom:3px;color:#334155;line-height:1.45}strong{font-weight:700;color:#0f172a}${fitCss}`;
+   return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${fullHtml}</body></html>`;
+  }else if(theme==='consulting'){
    css=`@media print{@page{margin:0.5in}}* { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }body{font-family:'Georgia','Times New Roman',serif;color:#0f172a;line-height:1.4;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:8px;margin-bottom:14px}.cv-header h1{font-size:22px;color:#0f172a;margin:0;font-weight:700;letter-spacing:0.5px}.header-gradient{display:none}h2{font-size:11.5px;color:#0f172a;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;margin-top:14px;margin-bottom:6px;font-weight:700}p{font-size:10px;margin:3px 0;color:#334155}p.job-title{font-size:10.5px;color:#0f172a;margin-top:6px;margin-bottom:2px;font-weight:700}ul{margin:2px 0 6px 0;padding-left:16px}li{font-size:10px;margin-bottom:2px;color:#334155}strong{font-weight:700}${fitCss}`;
   }else if(theme==='modern'){
    css=`@media print{@page{margin:0.5in}}* { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }body{font-family:'Inter','Segoe UI',sans-serif;color:#1e293b;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:left;border-left:4px solid #2563eb;padding-left:14px;margin-bottom:18px}.cv-header h1{font-size:22px;color:#1e293b;margin:0;font-weight:800}.header-gradient{display:none}h2{font-size:12px;color:#2563eb;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #eff6ff;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#475569}p.job-title{font-size:11px;color:#0f172a;margin-top:7px;margin-bottom:2px;font-weight:700}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#475569}strong{font-weight:700;color:#0f172a}${fitCss}`;
@@ -300,6 +340,7 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
  <div className="editor-card"><div className="editor-head"><div className="label"><FileText size={17}/> Your editable CV (STAR Framework Ready)</div>
  <div className="theme-picker">
   <span>Template:</span>
+  <button className={theme==='executive'?'active':''} onClick={()=>setTheme('executive')}>👑 Executive Banner</button>
   <button className={theme==='career-ops'?'active':''} onClick={()=>setTheme('career-ops')}>🎯 Career-Ops ATS</button>
   <button className={theme==='consulting'?'active':''} onClick={()=>setTheme('consulting')}>💼 Consulting</button>
   <button className={theme==='modern'?'active':''} onClick={()=>setTheme('modern')}>⚡ Tech</button>
