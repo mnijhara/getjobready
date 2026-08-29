@@ -314,6 +314,8 @@ function App(){
  // Start interview directly for a specific app (skip CV studio)
  const directInterview=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
  const openMasterCV=()=>{const masterCV=localStorage.getItem('gjr_master_cv')||'';setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
+ const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
+ const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
  const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text||!text.trim())throw new Error('The file contains no readable text. Please paste the text into the text box below.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error('File parse exception:',e);if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){window.location.reload();return}alert(e.message||'We could not read that file. Please paste your text into the box instead.')}};
  const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
  const analyze=async()=>{
