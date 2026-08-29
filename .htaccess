@@ -9,8 +9,18 @@ DirectoryIndex index.html
   RewriteRule ^$ /dist/index.html [END]
 </IfModule>
 
+# PDF.js uses an ES module worker. LiteSpeed/Apache can otherwise serve .mjs
+# as text/plain, which browsers reject for module execution.
+<IfModule mod_mime.c>
+  AddType application/javascript .mjs
+  AddType application/javascript .js
+</IfModule>
+
 <IfModule mod_headers.c>
   <FilesMatch "^(index\.html|index\.src\.html)$">
     Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
+  <FilesMatch "\.(js|mjs|css)$">
+    Header set X-Content-Type-Options "nosniff"
   </FilesMatch>
 </IfModule>
