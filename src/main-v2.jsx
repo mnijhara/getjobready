@@ -140,27 +140,53 @@ function generateTailoredCVQuestions(cvText,jd,role){
 }
 
 function evaluateInterviewTurnLocal(question,answer,history){
- const words=answer.trim().split(/\s+/).filter(Boolean);
+ const cleanAns=answer.trim();
+ const words=cleanAns.split(/\s+/).filter(Boolean);
  const wordCount=words.length;
- const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$|^build\s*a\s*good\s*job$)/i.test(answer.trim());
- const isRepetitive=wordCount>4&&new Set(words).size<wordCount*0.4;
+ const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$|^build\s*a\s*good\s*job$|^i\s*did\s*a?\s*good\s*job$)/i.test(cleanAns);
+ const isRepetitive=wordCount>4&&new Set(words.map(w=>w.toLowerCase())).size<wordCount*0.35;
  let turnScore=0;let note='';
 
- if(wordCount<=3||isGibberish){
-  turnScore=Math.round(Math.random()*6+4); // 4-10
-  note='This answer is only ' + wordCount + ' word' + (wordCount===1?'':'s') + ' and lacks substantive content. In a real interview, this is an immediate rejection. Use the STAR method (Situation → Task → Action → Result) and speak for at least 45–60 seconds.';
- }else if(wordCount<12||isRepetitive){
-  turnScore=Math.round(Math.random()*8+16); // 16-24
-  note='Answer is too brief (' + wordCount + ' words). It describes a vague statement rather than a complete STAR story. Add details on what YOU personally built or delivered.';
+ if(wordCount<=3||isGibberish||cleanAns.length<12){
+  turnScore=0;
+  note=`0/100 — Immediate Rejection. Spoke only ${wordCount} word${wordCount===1?'':'s'} ("${cleanAns}"). Contains zero STAR structure, project details, or technical metrics. Compare with the strong model answer below.`;
+ }else if(wordCount<10||isRepetitive){
+  turnScore=10;
+  note=`10/100 — Severely Incomplete (${wordCount} words). A single vague statement is not an interview answer. Explain the Situation, your specific Action, and the measurable Result.`;
  }else if(wordCount<25){
-  turnScore=Math.round(Math.random()*10+32); // 32-42
-  note='Decent start but lacks depth. Elaborate on the technical complexity, what obstacles you overcame, and add a specific measurable outcome.';
- }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team|project|solved|completed|delivered|seconds|ms|users|scale)/i.test(answer)){
-  turnScore=Math.round(Math.random()*10+48); // 48-58
-  note='Good structure, but missing quantifiable impact. Recruiters look for numbers: percentage improvement, time saved, lines of code, or business metrics.';
+  turnScore=25;
+  note=`25/100 — Lacks STAR Depth (${wordCount} words). Mentions high-level activities but lacks specific technical decisions, individual ownership ("I architected / I built"), and quantifiable results.`;
+ }else if(wordCount<45){
+  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k))/i.test(cleanAns);
+  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role)\b/i.test(cleanAns);
+  if(!hasMetrics&&!hasOwnership){
+   turnScore=40;
+   note=`40/100 — Needs STAR Structure & Metrics. Missing personal ownership verbs ("I built...") and measurable results (%, latency, scale, time saved).`;
+  }else if(!hasMetrics){
+   turnScore=50;
+   note=`50/100 — Solid structure but missing numbers. Recruiters look for quantifiable proof: % improvement, latency reduction, or scale.`;
+  }else{
+   turnScore=60;
+   note=`60/100 — Good attempt with metrics, but expand on the technical architecture, decisions made, and obstacles overcome.`;
+  }
  }else{
-  turnScore=Math.min(95,Math.round(72+wordCount/4));
-  note='Strong STAR response with clear personal ownership and measurable outcomes. Well articulated.';
+  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k))/i.test(cleanAns);
+  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role|i\s+took\s+ownership)\b/i.test(cleanAns);
+  const hasTechDepth=/(api|database|sql|nosql|cache|redis|node|react|python|cloud|r2|cloudflare|aws|docker|microservice|tracing|middleware|architecture|pipeline)/i.test(cleanAns);
+
+  if(hasMetrics&&hasOwnership&&hasTechDepth){
+   turnScore=Math.min(95,80+Math.min(15,Math.floor((wordCount-45)/5)));
+   note=`Strong STAR Answer (${turnScore}/100). Demonstrates clear Situation, personal Action, deep technical context, and measurable outcomes.`;
+  }else if(hasOwnership&&hasMetrics){
+   turnScore=75;
+   note=`75/100 — Good STAR structure with metrics and ownership. Mention specific technical components/tools to reach 90+.`;
+  }else if(hasMetrics){
+   turnScore=65;
+   note=`65/100 — Includes numbers, but emphasize YOUR direct role ("I built", "I resolved") rather than general team accomplishments.`;
+  }else{
+   turnScore=55;
+   note=`55/100 — Clear explanation, but missing quantifiable impact (percentages, time saved, or scale).`;
+  }
  }
 
  // Generate a model answer based on the specific question type
@@ -186,7 +212,8 @@ function evaluateInterviewTurnLocal(question,answer,history){
  }
 
  const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note,modelAnswer}}];
- const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score||5),0)/allTurns.length);
+ const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score!==undefined?t.evaluation.score:0),0)/allTurns.length);
+
 
  const strengths=[];const improvements=[];
  if(avgScore<30){
@@ -401,7 +428,7 @@ function App(){
 
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
  const saveInterviewResult=d=>{
-  const fb=d||{score:10,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the Model Answers below and practise again with real STAR answers from your CV.'};
+  const fb=d||{score:0,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the Model Answers below and practise again with real STAR answers from your CV.'};
   if(profile){db.saveInterview({role:roleName||'General Interview',score:fb.score,strengths:fb.strengths,nextAction:fb.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:fb.score})}
   setResult(r=>({...r,feedback:fb}));setScreen('feedback');
  };
@@ -1144,7 +1171,7 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
   });
   if(onSyncSpokenWins){onSyncSpokenWins(spokenBullets.join('\n'));setSynced(true);}
  };
- const sc=d.score||10;
+  const sc=d.score!==undefined?d.score:0;
  const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
  const scoreLabel=sc>=75?'Interview-ready 🚀':sc>=50?'Keep improving 💪':'Needs more practice 🔥';
  return <div className="feedback"><div className="score-card" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'20px'}}><div><span className="eyebrow" style={{color:'#c4b5fd'}}>CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p style={{color:'#cbd5e1',margin:'4px 0 0'}}>Overall Score: <b style={{color:'#ffffff',fontSize:'18px'}}>{sc}/100</b> · Full interview transcript, coaching, and model STAR answers below.</p></div><div className="score-ring" style={{width:'96px',height:'96px',borderRadius:'50%',background:'rgba(255,255,255,0.15)',border:'3px solid #ffffff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}><strong style={{fontSize:'34px',fontWeight:800,color:'#ffffff',lineHeight:1}}>{sc}</strong><small style={{fontSize:'11px',fontWeight:700,color:'#e2e8f0',marginTop:'3px'}}>/ 100</small></div></div>
