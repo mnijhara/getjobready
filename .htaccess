@@ -1,0 +1,16 @@
+# GetJobReady production entrypoint
+# Hostinger/LiteSpeed may deploy the repository root while the Vite app lives in dist/.
+# Always serve the verified production bundle at the site root.
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^$ dist/index.html [L]
+  RewriteRule ^$ /dist/index.html [END]
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|index\.src\.html)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
+</IfModule>
