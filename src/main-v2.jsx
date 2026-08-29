@@ -136,63 +136,73 @@ function generateTailoredCVQuestions(cvText,jd,role){
  const q5=`Describe a time when something went wrong, a deadline was missed, or you faced a technical roadblock. How did you debug or resolve it and what would you do differently?`;
  const q6=`If you joined ${role?'the '+role+' team':'this team'} tomorrow, what's your 30-day plan to add real value, build relationships, and prove yourself quickly?`;
 
- return[q1,q2,q3,q4,q5,q6];
+  return[q1,q2,q3,q4,q5,q6];
 }
 
-
 function evaluateInterviewTurnLocal(question,answer,history){
+
  const words=answer.trim().split(/\s+/).filter(Boolean);
  const wordCount=words.length;
- const isRepetitive=/(workout|walk|talk|blah|xyz|test)\s+\1/i.test(answer)||(wordCount>4&&new Set(words).size<wordCount*0.5);
+ const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(answer.trim());
+ const isRepetitive=wordCount>4&&new Set(words).size<wordCount*0.4;
  let turnScore=0;let note='';
 
- if(wordCount<6||isRepetitive){
-  turnScore=Math.min(30,Math.max(15,wordCount*4));
-  note=isRepetitive?'Repetitive non-professional text detected. Answer in full STAR sentences.':'Answer is too brief (<6 words). Provide a complete STAR response with context and outcomes.';
- }else if(wordCount<18){
-  turnScore=45;
-  note='Answer is too concise. Elaborate on your personal action and measurable result.';
- }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team)/i.test(answer)){
-  turnScore=60;
-  note='Good context, but lacks concrete metrics or clear personal ownership verbs.';
+ if(wordCount<=3||isGibberish){
+  turnScore=Math.round(Math.random()*8+5);// 5-12
+  note=isGibberish?'This is not a real interview answer. A recruiter will reject this immediately. Use the STAR method: Situation → Task → Action → Result.':'Answer too brief. Give a full structured answer with context, actions you took, and outcomes.';
+ }else if(wordCount<10||isRepetitive){
+  turnScore=Math.round(Math.random()*10+18);// 18-28
+  note='Answer is too short or repetitive. Expand with specific examples: what YOU did, what challenge you solved, and the measurable outcome.';
+ }else if(wordCount<25){
+  turnScore=Math.round(Math.random()*10+35);// 35-45
+  note='Decent start but lacks depth. Add a specific metric or outcome (e.g. "reduced load time by 30%") and explain your personal contribution.';
+ }else if(!/(because|result|achieved|led|built|managed|increased|reduced|impact|percent|%|rs|cr|lakh|team|project|solved|completed|delivered)/i.test(answer)){
+  turnScore=Math.round(Math.random()*10+50);// 50-60
+  note='Good structure but no measurable result. Always end with a number: how much, how many, how fast, or what changed.';
  }else{
-  turnScore=Math.min(95,75+Math.round(wordCount/3));
-  note='Strong STAR response with clear ownership and measurable outcomes.';
+  turnScore=Math.min(95,Math.round(70+wordCount/4));
+  note='Strong STAR response with clear ownership and measurable outcomes. Well done.';
  }
 
  const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note}}];
- const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score||30),0)/allTurns.length);
+ const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score||5),0)/allTurns.length);
 
  const strengths=[];const improvements=[];
- if(avgScore<45){
-  strengths.push('Voice captured clearly by microphone');
-  improvements.push('Give full multi-sentence STAR answers instead of 1-line or repetitive phrases');
-  improvements.push('Include specific metrics (% improvement, headcount, revenue) from your CV');
- }else if(avgScore<70){
-  strengths.push('Good basic structure and communication');
-  improvements.push('Quantify results with numbers (% growth, team size, turnaround time)');
-  improvements.push('Elaborate on how you used AI tools or frameworks to solve the challenge');
+ if(avgScore<30){
+  strengths.push('You attempted all questions — that is a start');
+  improvements.push('None of your answers used the STAR method. Practise with real examples from your CV');
+  improvements.push('Every answer needs: Situation, Task, Action, Result — practise out loud daily');
+  improvements.push('Aim for at least 30–60 seconds per answer with a specific metric');
+ }else if(avgScore<55){
+  strengths.push('Some answers showed awareness of structure');
+  improvements.push('Quantify every result: %, Rs, users, days, team size');
+  improvements.push('Include your personal actions, not just "we did" — say "I built", "I led", "I designed"');
+  improvements.push('Use AI tools (ChatGPT, Copilot) in answers to show tech awareness');
+ }else if(avgScore<75){
+  strengths.push('Good basic structure and relevant examples');
+  strengths.push('Communication was clear and on-topic');
+  improvements.push('Add stronger numbers and metrics to each STAR story');
+  improvements.push('Trim answers to 45–60 seconds — conciseness impresses recruiters');
  }else{
   strengths.push('Strong articulation of STAR stories with clear personal ownership');
-  strengths.push('Demonstrated quantifiable business impact');
-  improvements.push('Refine conciseness for 60-second executive elevator pitches');
+  strengths.push('Demonstrated quantifiable business impact — exactly what recruiters look for');
+  improvements.push('Refine for 60-second executive elevator pitch delivery');
  }
 
- const nextQIndex=allTurns.length;
  return{
   done:allTurns.length>=6,
-  nextQuestion:allTurns.length<6?undefined:'Interview complete',
   evaluation:{score:turnScore,notes:note},
   finalFeedback:{
    score:avgScore,
    strengths,
    improvements,
-   nextAction:avgScore>=75?'Ready for recruiter interviews! Practice 1 more role-specific JD.':'Repeat the interview with structured 45-second STAR answers.'
+   nextAction:avgScore>=75?'Ready for recruiter interviews! Practice 1 more role-specific JD.':avgScore>=50?'Repeat with real STAR examples from your CV — aim for 30-60 seconds per answer.':'Start over with real answers. Use your CV to craft STAR examples before the next attempt.'
   }
  };
 }
 
 function localReview(cv,jd,mode){
+
  const base=fallback(mode);
  const words=cv.trim().split(/\s+/).filter(Boolean).length;
  const customQs=generateTailoredCVQuestions(cv,jd,'');
@@ -382,7 +392,9 @@ function App(){
 
 
 
- if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback}answers={answers}onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}}/></Workspace>;
+
+ if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback} answers={answers} onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}} onHome={goHome} onPractiseAgain={()=>{setAnswers([]);setQIndex(0);setScreen('interview')}}/></Workspace>;
+
  return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
 }
 
@@ -1053,9 +1065,11 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
  },[question,turn]);
 
  return <div className="interview">
-  <div className="interview-progress">{Array.from({length:maxTurns}).map((_,i)=><div key={i} className={`dot ${i<turn-1?'done':i===turn-1?'active':''}`}/>)}</div>
-  <div className="question-card"aria-live="polite">
-   <span className="eyebrow">QUESTION {turn} OF {maxTurns}</span>
+  <div className="interview-header">
+   <span className="q-number">QUESTION {turn} OF {maxTurns}</span>
+   <div className="interview-progress">{Array.from({length:maxTurns}).map((_,i)=><div key={i} className={`dot ${i<turn-1?'done':i===turn-1?'active':''}`}/>)}</div>
+  </div>
+  <div className="question-card" aria-live="polite">
    <h2>{question}</h2>
    <p>{status==='starting'?'AI Interviewer is speaking the question aloud…':status==='thinking'?'AI is evaluating your answer…':status==='listening'?'Listening to your answer — finish speaking and it will capture automatically.':'Hands-free mode active. Question is spoken out loud.'}</p>
   </div>
@@ -1074,62 +1088,58 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
  </div>
 }
 
-function Feedback({data,answers,onSyncSpokenWins,onHome}){
- const d=data||{score:65,strengths:['You completed the interview — that takes courage'],improvements:['Build a full 45-second STAR answer for each question','Quantify at least one result with a number','Practice one question per day until interview day'],nextAction:'Record a 60-second STAR answer for your strongest experience and review it.'};
+function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
+ useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[]);
+ const d=data||{score:10,strengths:['You completed all questions'],improvements:['Use the STAR method for every answer','Give at least 30-60 seconds per answer','Quantify every result with a number'],nextAction:'Start over with real STAR answers using examples from your CV.'};
  const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
  const copyReport=()=>{
-  const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score||65}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nA: ${a.answer}${a.evaluation?.score?'\nScore: '+a.evaluation.score+'/100':''}`).join('\n\n')}`;
+  const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nA: ${a.answer}${a.evaluation?.score?'\nScore: '+a.evaluation.score+'/100':''}${a.evaluation?.notes?'\nCoaching: '+a.evaluation.notes:''}`).join('\n\n')}`;
   navigator.clipboard?.writeText(text);
-  setCopied(true);
-  setTimeout(()=>setCopied(false),2000);
+  setCopied(true);setTimeout(()=>setCopied(false),2000);
  };
  const downloadReport=()=>{
-  const text=`GETJOBREADY CAMPUS PLACEMENT READINESS REPORT\nScore: ${d.score||65}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nDETAILED TRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nYour Answer: ${a.answer}${a.evaluation?.score?'\nTurn Score: '+a.evaluation.score+'/100':''}`).join('\n\n')}`;
+  const text=`GETJOBREADY CAMPUS PLACEMENT READINESS REPORT\nScore: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nDETAILED TRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nYour Answer: ${a.answer}${a.evaluation?.score?'\nTurn Score: '+a.evaluation.score+'/100':''}${a.evaluation?.notes?'\nCoaching: '+a.evaluation.notes:''}`).join('\n\n')}`;
   const blob=new Blob([text],{type:'text/plain'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;a.download='GetJobReady_Interview_Report.txt';a.click();
   URL.revokeObjectURL(url);
  };
+ const goodAnswers=(answers||[]).filter(a=>a.answer&&a.answer.split(/\s+/).filter(Boolean).length>20);
  const handleSync=()=>{
-  if(!answers?.length)return;
-  // Format spoken answers as STAR bullets, not raw dumps
-  const spokenBullets=answers.filter(a=>a.answer&&a.answer.length>20).map((a,i)=>{
+  if(!goodAnswers.length){alert('Your answers were too brief to sync. Practise again with full STAR answers first.');return;}
+  const spokenBullets=goodAnswers.map((a,i)=>{
    const clean=a.answer.replace(/[\r\n]+/g,' ').trim();
    return `• [Interview STAR ${i+1}] ${clean.charAt(0).toUpperCase()+clean.slice(1)}${clean.endsWith('.')?'':'.'}`;
   });
-  if(spokenBullets.length>0&&onSyncSpokenWins){
-   onSyncSpokenWins(spokenBullets.join('\n'));
-   setSynced(true);
-  }
+  if(onSyncSpokenWins){onSyncSpokenWins(spokenBullets.join('\n'));setSynced(true);}
  };
- const sc=d.score||65;
- const scoreColor=sc>=80?'#22c55e':sc>=65?'#f59e0b':'#ef4444';
- const scoreLabel=sc>=80?'Interview-ready 🚀':sc>=65?'On track — keep going 💪':'Keep practising — you got this 🔥';
- return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript and personalised feedback are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div><div className="insights"><div><h3>Strengths</h3>{d.strengths?.map(x=><p key={x}>✓ {x}</p>)}</div><div><h3>Next improvements</h3>{d.improvements?.map(x=><p key={x}>• {x}</p>)}</div></div>
+ const sc=d.score||10;
+ const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
+ const scoreLabel=sc>=75?'Interview-ready 🚀':sc>=50?'Keep improving 💪':'Needs more practice 🔥';
+ return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript and personalised coaching are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div>
+ <div className="insights"><div><h3>Strengths</h3>{(d.strengths||[]).map(x=><p key={x}>✓ {x}</p>)}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
 
- <div className="input-card sync-wins-card">
-  <div><b>✨ Sync Spoken Achievements to Your CV</b><span>You spoke real examples in your answers. Click to add them as STAR bullets to your CV draft.</span></div>
-  <button type="button" className="secondary" disabled={synced} onClick={handleSync}>{synced?<><Check size={16}/> Spoken wins added to CV!</>:<>✨ Add Spoken Points to My CV</>}</button>
- </div>
-
- <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript</div><div className="report-actions"><button className="ghost-sm"type="button"onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm"type="button"onClick={downloadReport}><Upload size={14}style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
-  {(answers||[]).map((x,i)=><div className="turn-review"key={i}>
-   <div className="turn-review-header"><b>Q{i+1}. {x.question}</b>{x.evaluation?.score&&<span className="turn-score" style={{color:x.evaluation.score>=70?'#22c55e':x.evaluation.score>=50?'#f59e0b':'#ef4444'}}>{x.evaluation.score}/100</span>}</div>
-   <p>{x.answer}</p>
-   {x.evaluation?.notes&&<span className="turn-note">{x.evaluation.notes}</span>}
+ <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript</div><div className="report-actions"><button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
+  {(answers||[]).map((x,i)=><div className="turn-review" key={i}>
+   <div className="turn-review-header"><b>Q{i+1}. {x.question}</b>{x.evaluation?.score&&<span className="turn-score" style={{color:x.evaluation.score>=70?'#22c55e':x.evaluation.score>=45?'#f59e0b':'#ef4444'}}>{x.evaluation.score}/100</span>}</div>
+   <p style={{color:'#374151',fontWeight:500}}>{x.answer}</p>
+   {x.evaluation?.notes&&<div className="turn-coaching"><span>💡 Coach: </span>{x.evaluation.notes}</div>}
   </div>)}
  </div>
+
  <div className="continue-card">
   <div><b>Next action</b><span>{d.nextAction}</span></div>
   <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
-   <button className="secondary" onClick={onHome||undefined}><RefreshCw size={16}/> Back to Dashboard</button>
-   <button className="primary" onClick={()=>{setAnswers&&setAnswers([]);window.scrollTo(0,0);onHome&&onHome()}}><Mic size={16}/> Practise Again</button>
+   <button className="secondary" onClick={()=>{if(onHome)onHome();}}><RefreshCw size={16}/> Back to Dashboard</button>
+   <button className="primary" onClick={()=>{if(onPractiseAgain)onPractiseAgain();else if(onHome)onHome();}}><Mic size={16}/> Practise Again</button>
   </div>
  </div>
 </div>
 }
-function Module({id,career}){const[loading,setLoading]=useState(false),[data,setData]=useState(null),[error,setError]=useState('');const[company,setCompany]=useState(''),[problem,setProblem]=useState(''),[idea,setIdea]=useState('');const cv=readSession('gjr_cv_text','');const runCoach=async()=>{setLoading(true);setError('');try{let d;try{d=await post('/api/coach',{module:id==='ai'?'ai':'corporate',context:cv,career})}catch(e){d={diagnosis:'Start with one practical habit this week.',score:70,weeklyHabit:'Write one concise outcome-led update every day.',sevenDayPlan:['Audit one communication habit','Practise a concise update','Ask for one feedback point','Rewrite one weak CV bullet with evidence','Use AI to structure one task','Reflect on what improved','Repeat the strongest habit']}}setData(d)}finally{setLoading(false)}};const runDemo=async()=>{if(!problem.trim()){setError('Describe the company problem first.');return}setLoading(true);setError('');try{setData(await post('/api/demo',{company,problem,idea}))}catch(e){setData({title:'Focused solution concept',tagline:'A simple workflow that reduces friction and creates measurable value.',impact:'Explain the user, problem, workflow and one measurable outcome in your interview.'})}finally{setLoading(false)}};if(id==='readiness'||id==='ai')return <div className="module-panel"><span className="eyebrow">{career==='internship'?'INTERNSHIP':'FULL-TIME'} TRACK</span><h2>{id==='readiness'?'Corporate Ready':'AI at Work'}</h2><p>{id==='readiness'?'Build practical habits for communication, feedback, priorities and resilience.':'Learn practical AI workflows for research, writing, analysis, meetings and responsible automation.'}</p><button className="primary"disabled={loading}onClick={runCoach}>{loading?'Building your plan…':<>Build my 7-day plan <ArrowRight size={18}/></>}</button>{error&&<p role="alert">{error}</p>}{data&&<div className="module-result"><h3>{data.diagnosis||'Your personalised plan'}</h3>{data.score&&<p><b>Readiness score:</b> {data.score}/100</p>}{data.weeklyHabit&&<p><b>Weekly habit:</b> {data.weeklyHabit}</p>}{data.sevenDayPlan&&<><h4>7-day plan</h4>{data.sevenDayPlan.map((x,i)=><p key={i}><b>Day {i+1}:</b> {x}</p>)}</>}</div>}</div>;
+
+function Module({id,career}){
+const[loading,setLoading]=useState(false),[data,setData]=useState(null),[error,setError]=useState('');const[company,setCompany]=useState(''),[problem,setProblem]=useState(''),[idea,setIdea]=useState('');const cv=readSession('gjr_cv_text','');const runCoach=async()=>{setLoading(true);setError('');try{let d;try{d=await post('/api/coach',{module:id==='ai'?'ai':'corporate',context:cv,career})}catch(e){d={diagnosis:'Start with one practical habit this week.',score:70,weeklyHabit:'Write one concise outcome-led update every day.',sevenDayPlan:['Audit one communication habit','Practise a concise update','Ask for one feedback point','Rewrite one weak CV bullet with evidence','Use AI to structure one task','Reflect on what improved','Repeat the strongest habit']}}setData(d)}finally{setLoading(false)}};const runDemo=async()=>{if(!problem.trim()){setError('Describe the company problem first.');return}setLoading(true);setError('');try{setData(await post('/api/demo',{company,problem,idea}))}catch(e){setData({title:'Focused solution concept',tagline:'A simple workflow that reduces friction and creates measurable value.',impact:'Explain the user, problem, workflow and one measurable outcome in your interview.'})}finally{setLoading(false)}};if(id==='readiness'||id==='ai')return <div className="module-panel"><span className="eyebrow">{career==='internship'?'INTERNSHIP':'FULL-TIME'} TRACK</span><h2>{id==='readiness'?'Corporate Ready':'AI at Work'}</h2><p>{id==='readiness'?'Build practical habits for communication, feedback, priorities and resilience.':'Learn practical AI workflows for research, writing, analysis, meetings and responsible automation.'}</p><button className="primary"disabled={loading}onClick={runCoach}>{loading?'Building your plan…':<>Build my 7-day plan <ArrowRight size={18}/></>}</button>{error&&<p role="alert">{error}</p>}{data&&<div className="module-result"><h3>{data.diagnosis||'Your personalised plan'}</h3>{data.score&&<p><b>Readiness score:</b> {data.score}/100</p>}{data.weeklyHabit&&<p><b>Weekly habit:</b> {data.weeklyHabit}</p>}{data.sevenDayPlan&&<><h4>7-day plan</h4>{data.sevenDayPlan.map((x,i)=><p key={i}><b>Day {i+1}:</b> {x}</p>)}</>}</div>}</div>;
  return <div className="module-panel"><span className="eyebrow">STAND OUT IN THE INTERVIEW</span><h2>Build a credible product concept</h2><p>Turn a real company problem into a focused solution you can explain to an interviewer.</p><div className="input-card"><div className="label"><BriefcaseBusiness size={17}/> Company</div><input value={company}onChange={e=>setCompany(e.target.value)}placeholder="e.g. a target employer"/><div className="label"><Target size={17}/> Business problem</div><textarea value={problem}onChange={e=>setProblem(e.target.value)}placeholder="What problem should the company solve?"/><div className="label"><Sparkles size={17}/> Your idea <span>(optional)</span></div><textarea value={idea}onChange={e=>setIdea(e.target.value)}placeholder="Your initial solution idea…"/><button className="primary"disabled={loading||!problem.trim()}onClick={runDemo}>{loading?'Building concept…':<>Build my interview demo <ArrowRight size={18}/></>}</button></div>{error&&<p role="alert">{error}</p>}{data&&<div className="module-result"><span className="eyebrow">PROTOTYPE CONCEPT</span><h3>{data.title}</h3><p><b>{data.tagline}</b></p><p>{data.impact}</p></div>}</div>}
 
 class ErrorBoundary extends React.Component {
