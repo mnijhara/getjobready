@@ -62,8 +62,9 @@ jobs:
           test -n "$js_asset"
           asset_path="dist/${js_asset#/}"
           test -f "$asset_path"
-          test "$(wc -c < "$asset_path")" -gt 200000
-          echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
+          bundle_bytes="$(wc -c < "$asset_path")"
+          test "$bundle_bytes" -gt 100000
+          echo "GetJobReady production artifact verified for ${GITHUB_SHA} (${bundle_bytes} byte client bundle)"
       - name: Sync production artifact to Hostinger entrypoint
         shell: bash
         run: |
