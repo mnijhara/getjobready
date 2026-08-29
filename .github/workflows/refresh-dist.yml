@@ -58,7 +58,8 @@ jobs:
       - name: Verify source to production parity
         shell: bash
         run: |
-          node scripts/verify-production-parity.mjs || echo "Parity checker warning recorded; artifact validation remains authoritative."
+          set -euo pipefail
+          node scripts/verify-production-parity.mjs
       - name: Build production server
         run: npx esbuild server.cjs --bundle --platform=node --format=cjs --outfile=server.js --packages=external
       - name: Verify production artifacts
@@ -73,7 +74,7 @@ jobs:
           test -f assets/pdf.worker-CLesOks4.mjs
           node --check server.js
           for marker in "GetJobReady" "AI Audio Interview" "General CV" "CV + specific JD" "captured automatically" "Improve your CV first" "Save & continue to live interview" "Live transcript" "How it works" "Impress the Interviewer"; do
-            if grep -R -q "$marker" dist; then echo "PASS: $marker"; else echo "WARN: marker not found in generated artifact: $marker"; fi
+            grep -R -q "$marker" dist || { echo "FAIL: marker not found in generated artifact: $marker"; exit 1; }
           done
           grep -q '/assets/' index.html
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
