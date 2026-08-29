@@ -92,8 +92,47 @@ function App(){
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
  const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text.trim())throw new Error('The file contains no readable text. Please paste the text instead.');if(kind==='cv'){setCvFile(file);setCv(text);saveSession('gjr_cv_text',text)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error(e);alert(`We could not read that file. ${e.message||'Please paste the text instead.'}`)}};
  const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
- const analyze=async()=>{if(!cv.trim())return alert('Upload your CV or paste your CV text.');if(prep==='specific'&&!jd.trim())return alert('Upload or paste the job description for a role-specific preparation.');setLoading(true);try{let data;try{data=await post('/api/analyze',{cv,jd:prep==='general'?'':jd,career,mode:prep})}catch(e){console.warn('AI review unavailable; using local review',e);data=localReview(cv,jd,prep)}setResult(data);saveSession('gjr_cv_mode',prep);saveSession('gjr_cv_text',cv);saveSession('gjr_jd_text',prep==='general'?'':jd);setScreen('cvstudio')}finally{setLoading(false)}};
- const saveFinal=text=>{setCv(text);saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',text);saveSession('gjr_cv_text',text);if(appId==='master'){localStorage.setItem('gjr_master_cv',text)}else if(profile){db.saveApplication({id:appId,role:roleName||'General CV',cv:text,score:result?.score,jd,result})}};
+ const analyze=async()=>{
+  if(!cv.trim())return alert('Upload your CV or paste your CV text.');
+  if(prep==='specific'&&!jd.trim())return alert('Upload or paste the job description for a role-specific preparation.');
+  setLoading(true);
+  try{
+   let data;
+   try{
+    data=await post('/api/analyze',{cv,jd:prep==='general'?'':jd,career,mode:prep});
+   }catch(e){
+    console.warn('AI review unavailable; using local review',e);
+    data=localReview(cv,jd,prep);
+   }
+   setResult(data);
+   saveSession('gjr_cv_mode',prep);
+   saveSession('gjr_cv_text',cv);
+   saveSession('gjr_jd_text',prep==='general'?'':jd);
+   
+   const targetId=appId||Date.now().toString();
+   setAppId(targetId);
+   if(!localStorage.getItem('gjr_master_cv')){
+    localStorage.setItem('gjr_master_cv',cv);
+   }
+   if(profile){
+    db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':(jd.slice(0,30)+'…')),cv,score:data?.score,jd,result:data});
+   }
+   setScreen('cvstudio');
+  }finally{
+   setLoading(false);
+  }
+ };
+ const saveFinal=text=>{
+  setCv(text);
+  saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',text);saveSession('gjr_cv_text',text);
+  const targetId=appId||Date.now().toString();
+  setAppId(targetId);
+  if(appId==='master'){
+   localStorage.setItem('gjr_master_cv',text);
+  }else if(profile){
+   db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':'Custom Application'),cv:text,score:result?.score,jd,result});
+  }
+ };
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
  const saveInterviewResult=d=>{if(profile){db.saveInterview({role:roleName||'General Interview',score:d.score,strengths:d.strengths,nextAction:d.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:d.score})}; setResult(r=>({...r,feedback:d}));setScreen('feedback')};
  const goHome=()=>setScreen('home');
@@ -125,7 +164,7 @@ function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,
 function CVStudio({result,initial,mode,onSave,onContinue}){
  const[draft,setDraft]=useState(()=>String(initial||''));
  const[improving,setImproving]=useState(false),[improved,setImproved]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);
- const[theme,setTheme]=useState('executive');
+ const[theme,setTheme]=useState('career-ops');
  const[showWinsModal,setShowWinsModal]=useState(false);
  const[winQ1,setWinQ1]=useState(''),[winQ2,setWinQ2]=useState(''),[winQ3,setWinQ3]=useState('');
  
@@ -169,7 +208,7 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
    else if(!isBullet&&inList){html+='</ul>';inList=false}
 
    if(!hasHeader&&trimmed.length<120&&!isBullet&&!isHeading){
-    html+=`<div class="cv-header"><h1>${trimmed}</h1></div>`;hasHeader=true;
+    html+=`<div class="cv-header"><h1>${trimmed}</h1><div class="header-gradient"></div></div>`;hasHeader=true;
    }else if(isHeading){
     const cleanHeading=trimmed.replace(/\s+/g,' ');
     html+=`<h2>${cleanHeading}</h2>`;
@@ -185,12 +224,12 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
 
   let css='';
   if(theme==='consulting'){
-   css=`@media print{@page{margin:12mm}}body{font-family:'Georgia','Times New Roman',serif;color:#0f172a;line-height:1.4;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:8px;margin-bottom:14px}.cv-header h1{font-size:19px;color:#0f172a;margin:0;font-weight:700;letter-spacing:0.5px}h2{font-size:11.5px;color:#0f172a;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;margin-top:14px;margin-bottom:6px;font-weight:700}p{font-size:10px;margin:3px 0;color:#334155}p.job-title{font-size:10.5px;color:#0f172a;margin-top:6px;margin-bottom:2px;font-weight:700}ul{margin:2px 0 6px 0;padding-left:16px}li{font-size:10px;margin-bottom:2px;color:#334155}strong{font-weight:700}`;
+   css=`@media print{@page{margin:0.5in}}* { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }body{font-family:'Georgia','Times New Roman',serif;color:#0f172a;line-height:1.4;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:8px;margin-bottom:14px}.cv-header h1{font-size:22px;color:#0f172a;margin:0;font-weight:700;letter-spacing:0.5px}.header-gradient{display:none}h2{font-size:11.5px;color:#0f172a;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;margin-top:14px;margin-bottom:6px;font-weight:700}p{font-size:10px;margin:3px 0;color:#334155}p.job-title{font-size:10.5px;color:#0f172a;margin-top:6px;margin-bottom:2px;font-weight:700}ul{margin:2px 0 6px 0;padding-left:16px}li{font-size:10px;margin-bottom:2px;color:#334155}strong{font-weight:700}`;
   }else if(theme==='modern'){
-   css=`@media print{@page{margin:12mm}}body{font-family:'Inter','Segoe UI',sans-serif;color:#1e293b;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:left;border-left:4px solid #2563eb;padding-left:14px;margin-bottom:18px}.cv-header h1{font-size:20px;color:#1e293b;margin:0;font-weight:800}h2{font-size:12px;color:#2563eb;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #eff6ff;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#475569}p.job-title{font-size:11px;color:#0f172a;margin-top:7px;margin-bottom:2px;font-weight:700}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#475569}strong{font-weight:700;color:#0f172a}`;
+   css=`@media print{@page{margin:0.5in}}* { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }body{font-family:'Inter','Segoe UI',sans-serif;color:#1e293b;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:left;border-left:4px solid #2563eb;padding-left:14px;margin-bottom:18px}.cv-header h1{font-size:22px;color:#1e293b;margin:0;font-weight:800}.header-gradient{display:none}h2{font-size:12px;color:#2563eb;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #eff6ff;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#475569}p.job-title{font-size:11px;color:#0f172a;margin-top:7px;margin-bottom:2px;font-weight:700}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#475569}strong{font-weight:700;color:#0f172a}`;
   }else{
-   // Executive (IIM / Wharton Style)
-   css=`@media print{@page{margin:12mm}}body{font-family:'Garamond','Georgia',serif;color:#111827;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:2.5px double #1e3a8a;padding-bottom:10px;margin-bottom:16px}.cv-header h1{font-size:21px;color:#1e3a8a;margin:0;font-weight:700;letter-spacing:0.8px}h2{font-size:12px;color:#1e3a8a;text-transform:uppercase;letter-spacing:1.3px;border-bottom:1px solid #bfdbfe;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#374151}p.job-title{font-size:11px;color:#111827;margin-top:7px;margin-bottom:2px;font-style:italic}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#374151}strong{font-weight:700}`;
+   // Santifer / Career-Ops Signature ATS Template
+   css=`@media print{@page{margin:0.5in}}* { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }body{font-family:"Liberation Sans",'Helvetica Neue',Arial,sans-serif;font-size:11px;line-height:1.5;color:#1a1a2e;background:#ffffff;padding:0;margin:0}.cv-container{width:100%;max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:left;margin-bottom:12px}.cv-header h1{font-size:26px;font-weight:700;color:#1a1a2e;letter-spacing:-0.02em;margin:0 0 6px 0;line-height:1.1}.header-gradient{height:3px;background:linear-gradient(to right, hsl(187, 74%, 32%), hsl(270, 70%, 45%));border-radius:2px;margin-bottom:10px}h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:hsl(187, 74%, 32%);border-bottom:1.5px solid #e2e2e2;padding-bottom:4px;margin-top:16px;margin-bottom:8px;line-height:1.2}p{font-size:11px;margin:4px 0;color:#2f2f2f}p.job-title{font-size:11.5px;color:#1a1a2e;margin-top:8px;margin-bottom:2px;font-weight:700}ul{margin:4px 0 10px 0;padding-left:18px}li{font-size:10.5px;margin-bottom:3px;color:#2f2f2f;line-height:1.45}strong{font-weight:700;color:#1a1a1a}`;
   }
   return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${html}</body></html>`;
  };
@@ -233,7 +272,7 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
  <div className="editor-card"><div className="editor-head"><div className="label"><FileText size={17}/> Your editable CV (STAR Framework Ready)</div>
  <div className="theme-picker">
   <span>Template:</span>
-  <button className={theme==='executive'?'active':''} onClick={()=>setTheme('executive')}>🏛️ Executive</button>
+  <button className={theme==='career-ops'?'active':''} onClick={()=>setTheme('career-ops')}>🎯 Career-Ops ATS</button>
   <button className={theme==='consulting'?'active':''} onClick={()=>setTheme('consulting')}>💼 Consulting</button>
   <button className={theme==='modern'?'active':''} onClick={()=>setTheme('modern')}>⚡ Tech</button>
  </div>
