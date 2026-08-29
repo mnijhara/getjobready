@@ -18,8 +18,6 @@ const RATE_MAX_BUCKETS = 5_000;
 const cleanupRateBuckets = (now) => { if (rateBuckets.size <= RATE_MAX_BUCKETS) return; for (const [key, bucket] of rateBuckets) { if (now - bucket.start > RATE_WINDOW_MS) rateBuckets.delete(key); if (rateBuckets.size <= RATE_MAX_BUCKETS) break; } };
 app.use('/api', (req,res,next)=>{if(req.path==='/health'||req.path==='/ai-status')return next();const now=Date.now();const key=req.ip||req.socket.remoteAddress||'unknown';const bucket=rateBuckets.get(key)||{start:now,count:0};if(now-bucket.start>RATE_WINDOW_MS){bucket.start=now;bucket.count=0;}bucket.count+=1;rateBuckets.set(key,bucket);cleanupRateBuckets(now);if(bucket.count>RATE_LIMIT)return res.status(429).json({error:'Too many requests. Please try again shortly.'});next();});
 
-const fallback = { score: 58, headline: 'You have a base — now make it role-specific.', summary: 'Use the role requirements to sharpen your story, evidence and interview practice.', highlights: ['Your profile has transferable strengths', 'Academic and project work can become strong evidence', 'Focused practice will improve interview confidence'], gaps: ['Add measurable outcomes to important CV bullets', 'Prepare STAR stories mapped to the role', 'Research the company and role before interviewing'], cvImprovements: ['Lead bullets with action + outcome', 'Quantify scope, impact or scale wherever possible', 'Move the most relevant skills and projects higher'], rewrittenBullets: ['Led a project that improved a measurable business outcome by using a structured approach.', 'Collaborated with a cross-functional team to deliver a project within the agreed timeline.'], plan: ['Rewrite your top 3 CV bullets around outcomes', 'Prepare a 90-second introduction', 'Build 3 STAR stories from projects or internships', 'Research the company and role', 'Practise 5 role-specific questions', 'Complete a timed mock interview', 'Review feedback and repeat'], interviewQuestions: ['Tell me about yourself and why this role?', 'Walk me through a project where you solved a difficult problem.', 'What is your strongest evidence that you can succeed in this role?', 'Tell me about a time you received difficult feedback.', 'What would you do in your first 30 days?'] };
-
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'getjobready', ai: publicStatus() }));
 app.get('/api/ai-status', (req, res) => res.json(publicStatus()));
 
@@ -35,7 +33,7 @@ app.post('/api/analyze', async (req, res) => {
 });
 
 app.post('/api/analyze-upload', async (req, res) => {
-  const { data = '', mime = 'application/pdf', name = 'CV', jd = '', career = 'job', mode = 'specific' } = req.body || {};
+  const { data = '', mime = 'application/pdf', jd = '', career = 'job', mode = 'specific' } = req.body || {};
   if (!data) return res.status(400).json({ error: 'CV file data is required.' });
   if (data.length > 7_000_000) return res.status(413).json({ error: 'CV file is too large. Please keep it under 5 MB.' });
   const allowedMimes = ['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -81,14 +79,14 @@ app.post('/api/interview-turn', async (req, res) => {
 app.post('/api/coach', async (req, res) => {
   const { module = 'corporate', context = '', career = 'job' } = req.body || {};
   const prompt = module === 'ai' ? `Create a practical AI-at-work learning sprint for a student entering a ${career === 'internship' ? 'summer internship' : 'corporate role'}. Focus on research, writing, analysis, meetings, automation, verification and responsible use. Return ONLY JSON with diagnosis, workflows (5), promptExamples (5), guardrails (5), sevenDayPlan (7). Context: ${String(context).slice(0,12000)}` : `Create a practical corporate-readiness micro-plan for a student entering a ${career === 'internship' ? 'summer internship' : 'first full-time role'}. Focus on resilience, stress management, feedback, communication, priorities, boundaries and asking for help. Return ONLY JSON with score, diagnosis, actions (5), weeklyHabit, reflectionQuestion. Student context: ${String(context).slice(0,12000)}`;
-  try { return res.json(await generate(prompt)); } catch { return res.json({ diagnosis: 'Start small: choose one recurring task and make it easier with a repeatable workflow.', actions: ['Plan tomorrow before logging off', 'Clarify priorities with your manager', 'Use a simple task list', 'Ask for feedback early', 'Protect recovery time'], weeklyHabit: '15-minute weekly review', reflectionQuestion: 'What did I learn this week that makes next week easier?' }); }
+  try { return res.json(await generate(prompt)); } catch (error) { console.error('coach:', error.message); return res.status(503).json({ error: 'AI coaching is temporarily unavailable. Please retry in a moment.' }); }
 });
 
 app.post('/api/demo', async (req, res) => {
   const { company = 'Target company', problem = '', idea = '' } = req.body || {};
   if (!problem.trim()) return res.status(400).json({ error: 'Describe the company problem first.' });
   try { return res.json(await generate(`You are a product strategist helping a student impress a corporate interviewer. Analyse the company problem and create a credible product concept. Return ONLY valid JSON with: title, tagline, users, impact, pitch (array of 4 bullets), html. The html must be a complete self-contained polished HTML document, inline CSS only, responsive, no external assets. Company: ${String(company).slice(0,500)}. Problem: ${String(problem).slice(0,12000)}. Candidate idea: ${String(idea).slice(0,5000)}`)); }
-  catch { return res.json({ title: `${company} — ${idea || 'A focused solution'}`, tagline: 'A candidate-built prototype around a real business problem.', users: 'Customers, frontline teams and business owners', impact: 'Reduce friction, improve visibility and create a measurable workflow.', pitch: ['Clear problem-to-solution narrative', 'Designed around a specific user', 'Focused on measurable business impact', 'Ready to discuss with an interviewer.'], html: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui;margin:0;padding:32px;background:#f6f7fb;color:#171e31}main{max-width:760px;margin:auto;background:white;border-radius:24px;padding:32px;box-shadow:0 12px 40px #0001}h1{margin-top:0}p{line-height:1.6}</style></head><body><main><h1>Prototype preview</h1><p>A focused concept around the stated business problem.</p></main></body></html>' }); }
+  catch (error) { console.error('demo:', error.message); return res.status(503).json({ error: 'AI prototype generation is temporarily unavailable. Please retry in a moment.' }); }
 });
 
 // PDF.js in the frontend can emit a hashed worker URL. Hostinger serves the committed
