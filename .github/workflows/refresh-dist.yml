@@ -35,9 +35,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f dist/native.html
-          cp dist/native.html dist/index.html
-          rm dist/native.html
+          if [[ -f dist/native.html ]]; then
+            cp dist/native.html dist/index.html
+            rm dist/native.html
+          elif [[ ! -f dist/index.html ]]; then
+            echo "No production HTML entry was generated" >&2
+            exit 1
+          fi
           test -f dist/index.html
       - name: Mirror Vite build to deployment root
         shell: bash
