@@ -1029,6 +1029,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
    setTurns(x=>[...x,{question,answer,evaluation:data.evaluation}]);
    setTranscript('');
    latestTranscript.current='';
+   setStatus('starting');
    if(data.done){
     onDone(data.finalFeedback||{score:data.score||65,strengths:data.strengths||['Completed all interview questions'],improvements:data.improvements||['Add more specific STAR examples'],nextAction:data.nextAction||'Practise one more time with stronger metrics.'});
    }else{
