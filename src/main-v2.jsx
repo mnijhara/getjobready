@@ -393,50 +393,110 @@ function parseCV(raw){
  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
 
  let name='',title='',contact='';
- for(let i=0;i<Math.min(7,lines.length);i++){
+
+ // Step 1: Scan first 8 lines for candidate name & header contact info
+ for(let i=0;i<Math.min(8,lines.length);i++){
   const l=lines[i];
-  // Name: not a section heading, not contact info, reasonable length
-  if(!name&&l.length>1&&l.length<80&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|EXECUTIVE|PROFILE)/i.test(l)&&!/[@+\d{4}]/.test(l)&&!/[|·,]/.test(l)){name=l;continue}
-  if(name&&!title&&l.length<140&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION)/i.test(l)&&!l.includes('@')&&!l.includes('+91')){title=l;continue}
-  if(name&&(l.includes('@')||l.includes('+91')||l.includes('|'))){contact=l;continue}
+
+  // If line contains email, phone, or portfolio links
+  if(l.includes('@')||/\+?\d[\d\s\-]{8,}/.test(l)||/(LinkedIn|GitHub|Codeforces|CodeChef|LeetCode)/i.test(l)){
+   if(!contact)contact=l;
+   else if(!contact.includes(l))contact+=' | '+l;
+
+   // Try extracting candidate name from mixed header lines (e.g. "Vijit Vishnoi | +91 8209287464 | vishnoivijit@gmail.com")
+   const stripped=l
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,'')
+    .replace(/\+?\d[\d\s\-\(\)]{8,}\d/g,'')
+    .replace(/(github|linkedin|leetcode|codechef|codeforces)(\.com|\.in)?(\/[^\s]*)?/gi,'')
+    .replace(/(backend|frontend|full\s*stack|software|engineer|developer|intern|analyst|associate|student)/gi,'')
+    .replace(/[|•·,]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+
+   if(!name&&stripped.length>=3&&stripped.length<=50&&/^[A-Za-z\s.'-]+$/.test(stripped)&&!/(EDUCATION|EXPERIENCE|PROJECTS|SKILLS|SUMMARY)/i.test(stripped)){
+    name=stripped;
+   }
+   continue;
+  }
+
+  // Pure name line
+  if(!name&&l.length>=2&&l.length<=60&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS|ACHIEVEMENTS|LEADERSHIP|PROFILE|EXECUTIVE)/i.test(l)){
+   const cleanName=l.replace(/[^A-Za-z\s.'-]/g,'').replace(/\s+/g,' ').trim();
+   if(cleanName.length>=2&&cleanName.split(' ').length<=4){
+    name=cleanName;
+    continue;
+   }
+  }
+
+  if(name&&!title&&l.length<140&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)){
+   title=l;
+  }
  }
 
- const sections={summary:[],competencies:[],experience:[],education:[],certifications:[],others:[]};
+ // Fallback name extraction using Title Case capitalized words match in top 5 lines
+ if(!name||name==='Your Name'){
+  for(let i=0;i<Math.min(5,lines.length);i++){
+   const match=lines[i].match(/^([A-Z][a-zA-Z'-]+\s+[A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)/);
+   if(match&&!/(Education|Experience|Projects|Skills|Summary|Achievements|Leadership|Backend|Frontend|Full|Software)/i.test(match[1])){
+    name=match[1];
+    break;
+   }
+  }
+ }
+
+ const sections={summary:[],competencies:[],experience:[],projects:[],education:[],certifications:[],achievements:[],leadership:[],others:[]};
  let currentSection='others';
  let currentJob=null;
 
+ const finishBlock=()=>{
+  if(currentJob){
+   if(currentSection==='projects')sections.projects.push(currentJob);
+   else if(currentSection==='achievements')sections.achievements.push(currentJob);
+   else if(currentSection==='leadership')sections.leadership.push(currentJob);
+   else sections.experience.push(currentJob);
+   currentJob=null;
+  }
+ };
+
  lines.forEach(l=>{
-  if(/(EXECUTIVE SUMMARY|PROFESSIONAL SUMMARY)/i.test(l)&&l.length<40){currentSection='summary';return}
-  if(/(CORE COMPETENCIES|KEY SKILLS|SKILLS)/i.test(l)&&l.length<40){currentSection='competencies';return}
-  if(/(PROFESSIONAL EXPERIENCE|WORK EXPERIENCE)/i.test(l)&&l.length<40){currentSection='experience';if(currentJob)sections.experience.push(currentJob);currentJob=null;return}
-  if(/(EDUCATION|ACADEMIC)/i.test(l)&&l.length<40){currentSection='education';if(currentJob){sections.experience.push(currentJob);currentJob=null}return}
-  if(/(CERTIFICATIONS|COURSES|TRAINING)/i.test(l)&&l.length<40){currentSection='certifications';return}
+  if(/(EXECUTIVE SUMMARY|PROFESSIONAL SUMMARY|SUMMARY|PROFILE|OBJECTIVE|ABOUT ME)/i.test(l)&&l.length<40){finishBlock();currentSection='summary';return}
+  if(/(CORE COMPETENCIES|TECHNICAL SKILLS|SKILLS|KEY SKILLS|TECHNOLOGIES|COURSEWORK)/i.test(l)&&l.length<40){finishBlock();currentSection='competencies';return}
+  if(/(PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|INTERNSHIPS|EMPLOYMENT)/i.test(l)&&l.length<40){finishBlock();currentSection='experience';return}
+  if(/(PROJECTS|KEY PROJECTS|ACADEMIC PROJECTS|PERSONAL PROJECTS)/i.test(l)&&l.length<40){finishBlock();currentSection='projects';return}
+  if(/(EDUCATION|ACADEMIC BACKGROUND|ACADEMIC DETAILS|ACADEMICS)/i.test(l)&&l.length<40){finishBlock();currentSection='education';return}
+  if(/(CERTIFICATIONS|COURSES|TRAINING|LICENSES)/i.test(l)&&l.length<40){finishBlock();currentSection='certifications';return}
+  if(/(ACHIEVEMENTS|HONORS|AWARDS|COMPETITIVE PROGRAMMING)/i.test(l)&&l.length<40){finishBlock();currentSection='achievements';return}
+  if(/(LEADERSHIP|POSITIONS OF RESPONSIBILITY|VOLUNTEERING)/i.test(l)&&l.length<40){finishBlock();currentSection='leadership';return}
 
   if(currentSection==='summary'){sections.summary.push(l);return}
-  if(currentSection==='competencies'){sections.competencies.push(...l.split(/[|,·•]/).map(s=>s.trim()).filter(Boolean));return}
+  if(currentSection==='competencies'){sections.competencies.push(...l.split(/[|,·•:]/).map(s=>s.trim()).filter(Boolean));return}
   if(currentSection==='education'){sections.education.push(l);return}
   if(currentSection==='certifications'){sections.certifications.push(l);return}
 
-  if(currentSection==='experience'){
-   const isBullet=/^•/.test(l);
-   const isJobLine=l.includes(' · ')||(l.includes(' - ')&&l.length<100&&!isBullet);
-   if(isJobLine&&!isBullet){
-    if(currentJob)sections.experience.push(currentJob);
-    const parts=l.split(' · ');
-    currentJob={role:toSentenceCase(parts[0]||''),company:parts[1]||'',dates:parts.slice(2).join(' · ')||'',bullets:[]};
-   }else if(isBullet&&currentJob){
-    currentJob.bullets.push(toSentenceCase(l.replace(/^•\s*/,'')));
-   }else if(isBullet&&!currentJob){
-    currentJob={role:'',company:'',dates:'',bullets:[toSentenceCase(l.replace(/^•\s*/,''))]};
+  if(['experience','projects','achievements','leadership'].includes(currentSection)){
+   const isBullet=/^[•▪*-]\s*/.test(l);
+   const cleanText=l.replace(/^[•▪*-]\s*/,'').trim();
+   if(isBullet){
+    if(!currentJob){
+     currentJob={role:currentSection.toUpperCase(),company:'',dates:'',bullets:[toSentenceCase(cleanText)]};
+    }else{
+     currentJob.bullets.push(toSentenceCase(cleanText));
+    }
+   }else{
+    finishBlock();
+    const parts=l.split(/\s+[·|]\s+/);
+    currentJob={role:toSentenceCase(parts[0]||l),company:parts[1]||'',dates:parts.slice(2).join(' · ')||'',bullets:[]};
    }
    return;
   }
+
   sections.others.push(l);
  });
- if(currentJob)sections.experience.push(currentJob);
+ finishBlock();
 
  return{name:name||'Your Name',title:title||'',contact:contact||'',sections};
 }
+
 
 function generateSuggestions(parsed,jd){
  const sugg=[];let id=0;
@@ -578,12 +638,25 @@ function renderExecutivePDF(p){
  }
 
  // Experience
- if(sections.experience.length){
+ if(sections.experience?.length){
   body+=`<div class="section"><h2>P R O F E S S I O N A L &nbsp; E X P E R I E N C E</h2>`;
   sections.experience.forEach(e=>{
-   if(e.role||e.company){
-    body+=`<div class="job-block"><div class="job-header"><span class="job-role">${e.role}</span>${e.company?`<span class="job-sep"> · </span><span class="job-company">${e.company}</span>`:''}${e.dates?`<span class="job-dates">${e.dates}</span>`:''}</div>`;
-    if(e.bullets.length){body+=`<ul>${e.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
+   if(e.role||e.company||e.bullets?.length){
+    body+=`<div class="job-block"><div class="job-header">${e.role?`<span class="job-role">${e.role}</span>`:''}${e.company?`<span class="job-sep"> · </span><span class="job-company">${e.company}</span>`:''}${e.dates?`<span class="job-dates">${e.dates}</span>`:''}</div>`;
+    if(e.bullets?.length){body+=`<ul>${e.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
+    body+=`</div>`;
+   }
+  });
+  body+=`</div>`;
+ }
+
+ // Projects
+ if(sections.projects?.length){
+  body+=`<div class="section"><h2>K E Y &nbsp; P R O J E C T S</h2>`;
+  sections.projects.forEach(p=>{
+   if(p.role||p.company||p.bullets?.length){
+    body+=`<div class="job-block"><div class="job-header">${p.role?`<span class="job-role">${p.role}</span>`:''}${p.company?`<span class="job-sep"> · </span><span class="job-company">${p.company}</span>`:''}${p.dates?`<span class="job-dates">${p.dates}</span>`:''}</div>`;
+    if(p.bullets?.length){body+=`<ul>${p.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
     body+=`</div>`;
    }
   });
@@ -591,9 +664,29 @@ function renderExecutivePDF(p){
  }
 
  // Education
- if(sections.education.length){
+ if(sections.education?.length){
   body+=`<div class="section"><h2>E D U C A T I O N</h2>`;
   sections.education.forEach(l=>{body+=`<p class="edu-line">${l}</p>`});
+  body+=`</div>`;
+ }
+
+ // Achievements
+ if(sections.achievements?.length){
+  body+=`<div class="section"><h2>A C H I E V E M E N T S</h2>`;
+  sections.achievements.forEach(a=>{
+   if(a.bullets?.length){body+=`<ul>${a.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
+   else if(a.role){body+=`<p class="edu-line">${a.role}</p>`}
+  });
+  body+=`</div>`;
+ }
+
+ // Leadership
+ if(sections.leadership?.length){
+  body+=`<div class="section"><h2>L E A D E R S H I P &nbsp; &amp; &nbsp; R E S P O N S I B I L I T Y</h2>`;
+  sections.leadership.forEach(l=>{
+   if(l.bullets?.length){body+=`<ul>${l.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
+   else if(l.role){body+=`<p class="edu-line">${l.role}</p>`}
+  });
   body+=`</div>`;
  }
 
