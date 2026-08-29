@@ -140,6 +140,7 @@ var PORT = process.env.PORT || 4173;
 var root = __dirname;
 var allowedOrigin = (process.env.PUBLIC_BASE_URL || "https://getjobready.online").replace(/\/$/, "");
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(cors({ origin: (origin, callback) => {
   if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true);
   return callback(null, false);
