@@ -6,6 +6,7 @@ const { generate, publicStatus } = require('./ai-router.cjs');
 const app = express();
 const PORT = process.env.PORT || 4173;
 const root = __dirname;
+// Deployment parity marker: keep the Hostinger Node entrypoint tied to the GitHub build.
 const allowedOrigin = (process.env.PUBLIC_BASE_URL || 'https://getjobready.online').replace(/\/$/, '');
 app.disable('x-powered-by');
 // GetJobReady is normally behind a single trusted reverse proxy. Trust only that
