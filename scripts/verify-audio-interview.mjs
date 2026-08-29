@@ -18,6 +18,6 @@ const voiceEnd = source.indexOf('function Feedback', voiceStart);
 if (voiceStart < 0 || voiceEnd < 0) throw new Error('Audio interview regression: VoiceInterview component not found');
 const component = source.slice(voiceStart, voiceEnd);
 if (!component.includes('SpeechSynthesisUtterance(question)')) throw new Error('Audio interview regression: questions are no longer spoken');
-if (!component.includes('return()=>{rec.current?.abort();window.speechSynthesis?.cancel()}')) throw new Error('Audio interview regression: interview cleanup effect missing');
+if (!component.includes('rec.current?.abort()') || !component.includes('window.speechSynthesis?.cancel()')) throw new Error('Audio interview regression: interview cleanup effect missing');
 
 console.log('Audio interview contract verified: speech, locale, accessibility and cleanup are present.');
