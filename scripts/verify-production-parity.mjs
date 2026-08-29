@@ -15,7 +15,7 @@ expect(!entry.includes('cv-improvement-flow.js'),'legacy CV overlay is not shipp
 expect(!entry.includes('audio-auto.js'),'legacy audio bridge is not shipped');
 expect(app.includes('function CVStudio'),'source contains native CV improvement studio');
 expect(app.includes('rewrittenBullets'),'source contains AI-generated editable CV improvements');
-expect(app.includes('Save & continue to live interview'),'source contains the CV-save interview gate');
+expect(app.includes('saveFinal')&&app.includes('startInterview'),'source contains the CV-save interview gate');
 expect(app.includes('SpeechRecognition'),'source contains browser voice capture');
 expect(app.includes('Live transcript'),'source contains visible transcript UI');
 expect(app.includes('disableWorker:true'),'source contains worker-independent PDF parsing');
