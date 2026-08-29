@@ -58,9 +58,11 @@ jobs:
           grep -q '/assets/' dist/index.html
           grep -q 'interview-turn' server.js
           grep -q 'ai-status' server.js
-          js_asset="$(grep -oE '/assets/[^" ]+\.js' dist/index.html | head -1)"
+          js_asset="$(grep -oE '/assets/[^\" ]+\.js' dist/index.html | head -1)"
           test -n "$js_asset"
-          test "$(wc -c < "dist${js_asset#*/assets}")" -gt 200000
+          asset_path="dist/${js_asset#/}"
+          test -f "$asset_path"
+          test "$(wc -c < "$asset_path")" -gt 200000
           echo "GetJobReady production artifact verified for ${GITHUB_SHA}"
       - name: Sync production artifact to Hostinger entrypoint
         shell: bash
