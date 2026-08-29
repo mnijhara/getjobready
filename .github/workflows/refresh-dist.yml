@@ -101,10 +101,20 @@ jobs:
           grep -q '"ok":true' /tmp/health.json
           curl -fsS http://127.0.0.1:4173/api/ai-status | grep -q '"configured"'
       - name: Commit refreshed production artifacts
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html assets dist server.cjs server.js
-          if git diff --cached --quiet; then echo "production artifacts are already current"; exit 0; fi
+          if git diff --cached --quiet; then
+            echo "production artifacts are already current"
+            exit 0
+          fi
           git commit -m "build: refresh production artifacts"
+          # The source branch can move while the build runs. Rebase the generated
+          # artifact commit onto the latest main so concurrent source pushes do not
+          # leave a successful build stranded locally.
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
