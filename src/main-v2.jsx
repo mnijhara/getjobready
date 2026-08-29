@@ -1060,6 +1060,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
   setTranscript('');
   latestTranscript.current='';
   window.speechSynthesis?.cancel();
+  window.scrollTo({top:0,behavior:'instant'});
   const t=setTimeout(()=>{if(!started.current)startJourney()},600);
   return()=>{clearTimeout(t);rec.current?.abort();window.speechSynthesis?.cancel()}
  },[question,turn]);
