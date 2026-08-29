@@ -48,3 +48,36 @@ button.danger:hover { background: rgba(239,68,68,0.08) !important; }
 /* Dashboard head sub */
 .dash-head p.sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
 .dash-head h2 em { font-style: normal; color: #6855e8; }
+
+/* Theme Picker in Editor Head */
+.theme-picker { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; margin-right: 12px; }
+.theme-picker button { padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 99px; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; transition: all 0.2s; }
+.theme-picker button.active { background: rgba(104,85,232,0.1); border-color: #6855e8; color: #6855e8; }
+
+/* AI Booster Card */
+.ai-booster-card { background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(243,244,246,0.8)) !important; border: 1px solid rgba(104,85,232,0.15) !important; margin-bottom: 16px; }
+.booster-alert p { font-size: 13px; color: #374151; margin-bottom: 10px; }
+.booster-alert.success p { color: #16a34a; font-weight: 600; margin: 0; }
+.bullet-chips { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.bullet-chips button { text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 600; }
+
+.free-courses { margin-top: 16px; border-top: 1px dashed rgba(104,85,232,0.15); padding-top: 12px; }
+.course-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.course-chip { padding: 6px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 99px; font-size: 11px; font-weight: 600; color: #4b5563; text-decoration: none; transition: all 0.2s; }
+.course-chip:hover { border-color: #6855e8; color: #6855e8; background: rgba(104,85,232,0.05); }
+
+/* Hidden Wins Trigger Card */
+.wins-trigger-card { display: flex; justify-content: space-between; align-items: center; background: rgba(104,85,232,0.03) !important; border: 1px solid rgba(104,85,232,0.12) !important; margin-bottom: 16px; gap: 16px; }
+.wins-trigger-card b { display: block; font-size: 14px; color: #12182a; margin-bottom: 2px; }
+.wins-trigger-card span { font-size: 12px; color: #6b7280; }
+
+/* Wins Modal */
+.wins-modal { max-width: 540px !important; text-align: left; }
+.wins-form { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.wins-form label { font-size: 12.5px; font-weight: 700; color: #374151; margin-top: 4px; }
+.wins-form input { margin: 2px 0 10px 0 !important; }
+
+/* Sync Wins Card */
+.sync-wins-card { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(240,253,244,0.8), rgba(220,252,231,0.5)) !important; border: 1px solid rgba(34,197,94,0.2) !important; margin-bottom: 16px; gap: 16px; }
+.sync-wins-card b { display: block; font-size: 14px; color: #15803d; margin-bottom: 2px; }
+.sync-wins-card span { font-size: 12px; color: #166534; }

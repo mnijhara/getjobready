@@ -101,7 +101,7 @@ function App(){
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
  if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}mode={prep}onSave={saveFinal}onContinue={startInterview}/></Workspace>;
  if(screen==='interview')return <Workspace title="AI Audio Interview" subtitle={prep==='general'?'General interview grounded in your final CV.':'Role-specific interview grounded in your final CV + JD.'} icon={<Mic/>} back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}question={questions[qIndex]}turn={qIndex+1}maxTurns={7}history={answers}onTurn={(d,a)=>{setAnswers(x=>[...x,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}]);if(!d.done&&d.nextQuestion){setResult(r=>({...r,interviewQuestions:[...(r?.interviewQuestions||questions),d.nextQuestion]}));setQIndex(i=>i+1)}}}onDone={saveInterviewResult}/></Workspace>;
- if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback}answers={answers}/></Workspace>;
+ if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback}answers={answers}onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}}/></Workspace>;
  return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
 }
 
@@ -125,48 +125,76 @@ function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,
 function CVStudio({result,initial,mode,onSave,onContinue}){
  const[draft,setDraft]=useState(()=>String(initial||''));
  const[improving,setImproving]=useState(false),[improved,setImproved]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);
+ const[theme,setTheme]=useState('executive');
+ const[showWinsModal,setShowWinsModal]=useState(false);
+ const[winQ1,setWinQ1]=useState(''),[winQ2,setWinQ2]=useState(''),[winQ3,setWinQ3]=useState('');
+ 
  const run=async()=>{if(!draft.trim())return;setImproving(true);setError('');try{const r=await post('/api/improve-cv',{cv:draft,review:result,mode});if(r.cv){setDraft(r.cv);setImproved(true)}else throw new Error('No improved draft returned')}catch(e){console.warn(e);setDraft(localImprove(draft));setImproved(true);setError('AI improvement is temporarily unavailable, so a local editing pass was applied. You can keep editing it.')}finally{setImproving(false)}};
  const copyDraft=()=>{navigator.clipboard?.writeText(draft);setCopied(true);setTimeout(()=>setCopied(false),2000)};
  
+ const hasAI=/ai|chatgpt|claude|llm|copilot|prompt|python|analytics|sql/i.test(draft);
+
+ const addAIBullet=(bulletText)=>{
+  setDraft(prev=>prev+'\n• '+bulletText);
+  setImproved(true);
+ };
+
+ const addUncoveredWin=()=>{
+  if(!winQ1.trim())return alert('Please enter your internship or project achievement.');
+  const bullet=`• ${winQ1.trim()}${winQ2.trim() ? ` using ${winQ2.trim()}` : ''}${winQ3.trim() ? `, resulting in ${winQ3.trim()}` : ''}.`;
+  setDraft(prev=>prev+'\n'+bullet);
+  setWinQ1('');setWinQ2('');setWinQ3('');
+  setShowWinsModal(false);
+  setImproved(true);
+ };
+
  const getFormattedHTML=()=>{
-    let text=draft
-     .replace(/(E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y|EXECUTIVE SUMMARY)/gi,'\nEXECUTIVE SUMMARY\n')
-     .replace(/(C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S|CORE COMPETENCIES)/gi,'\nCORE COMPETENCIES\n')
-     .replace(/(P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE)/gi,'\nPROFESSIONAL EXPERIENCE\n')
-     .replace(/(E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N\s*&\s*L\s*A\s*N\s*G\s*U\s*A\s*G\s*E\s*S|EDUCATION & LANGUAGES|EDUCATION)/gi,'\nEDUCATION & LANGUAGES\n')
-     .replace(/(▪|•|◆)/g,'\n$1 ');
+  let text=draft
+   .replace(/(E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y|EXECUTIVE SUMMARY)/gi,'\nEXECUTIVE SUMMARY\n')
+   .replace(/(C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S|CORE COMPETENCIES)/gi,'\nCORE COMPETENCIES\n')
+   .replace(/(P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE)/gi,'\nPROFESSIONAL EXPERIENCE\n')
+   .replace(/(E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N\s*&\s*L\s*A\s*N\s*G\s*U\s*A\s*G\s*E\s*S|EDUCATION & LANGUAGES|EDUCATION)/gi,'\nEDUCATION & LANGUAGES\n')
+   .replace(/(▪|•|◆)/g,'\n$1 ');
 
-    const rawLines=text.split('\n').map(l=>l.trim()).filter(Boolean);
-    let html='<div class="cv-container">';let inList=false;let hasHeader=false;
+  const rawLines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  let html='<div class="cv-container">';let inList=false;let hasHeader=false;
 
-    rawLines.forEach((trimmed)=>{
-     const hasLetters=/[a-zA-Z]/.test(trimmed);
-     const isAllUpper=hasLetters&&trimmed.toUpperCase()===trimmed;
-     const isHeading=isAllUpper&&trimmed.length>2&&trimmed.length<50&&!/^[•\-▪*◆]/.test(trimmed);
-     const isBullet=/^[•\-▪*◆]/.test(trimmed);
+  rawLines.forEach((trimmed)=>{
+   const hasLetters=/[a-zA-Z]/.test(trimmed);
+   const isAllUpper=hasLetters&&trimmed.toUpperCase()===trimmed;
+   const isHeading=isAllUpper&&trimmed.length>2&&trimmed.length<50&&!/^[•\-▪*◆]/.test(trimmed);
+   const isBullet=/^[•\-▪*◆]/.test(trimmed);
 
-     if(isBullet&&!inList){html+='<ul>';inList=true}
-     else if(!isBullet&&inList){html+='</ul>';inList=false}
+   if(isBullet&&!inList){html+='<ul>';inList=true}
+   else if(!isBullet&&inList){html+='</ul>';inList=false}
 
-     if(!hasHeader&&trimmed.length<120&&!isBullet&&!isHeading){
-      html+=`<div class="cv-header"><h1>${trimmed}</h1></div>`;hasHeader=true;
-     }else if(isHeading){
-      const cleanHeading=trimmed.replace(/\s+/g,' ');
-      html+=`<h2>${cleanHeading}</h2>`;
-     }else if(isBullet){
-      html+=`<li>${trimmed.replace(/^[•\-▪*◆]\s*/,'')}</li>`;
-     }else if(trimmed.includes(' · ')||(trimmed.includes(' - ')&&trimmed.length<120)){
-      html+=`<p class="job-title"><strong>${trimmed}</strong></p>`;
-     }else{
-      html+=`<p>${trimmed}</p>`;
-     }
-    });
-    if(inList)html+='</ul>';html+='</div>';
+   if(!hasHeader&&trimmed.length<120&&!isBullet&&!isHeading){
+    html+=`<div class="cv-header"><h1>${trimmed}</h1></div>`;hasHeader=true;
+   }else if(isHeading){
+    const cleanHeading=trimmed.replace(/\s+/g,' ');
+    html+=`<h2>${cleanHeading}</h2>`;
+   }else if(isBullet){
+    html+=`<li>${trimmed.replace(/^[•\-▪*◆]\s*/,'')}</li>`;
+   }else if(trimmed.includes(' · ')||(trimmed.includes(' - ')&&trimmed.length<120)){
+    html+=`<p class="job-title"><strong>${trimmed}</strong></p>`;
+   }else{
+    html+=`<p>${trimmed}</p>`;
+   }
+  });
+  if(inList)html+='</ul>';html+='</div>';
 
-    const css=`body{font-family:'Arial',sans-serif;color:#1a1a1a;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:2px solid #2563eb;padding-bottom:10px;margin-bottom:16px}.cv-header h1{font-size:18px;color:#1e3a8a;margin:0;font-weight:700}h2{font-size:12px;color:#1e3a8a;text-transform:uppercase;letter-spacing:1.2px;border-bottom:1px solid #93c5fd;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#374151}p.job-title{font-size:11px;color:#111827;margin-top:7px;margin-bottom:2px}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#374151}strong{font-weight:700}`;
-    return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${html}</body></html>`;
-   };
- 
+  let css='';
+  if(theme==='consulting'){
+   css=`@media print{@page{margin:12mm}}body{font-family:'Georgia','Times New Roman',serif;color:#0f172a;line-height:1.4;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:8px;margin-bottom:14px}.cv-header h1{font-size:19px;color:#0f172a;margin:0;font-weight:700;letter-spacing:0.5px}h2{font-size:11.5px;color:#0f172a;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;margin-top:14px;margin-bottom:6px;font-weight:700}p{font-size:10px;margin:3px 0;color:#334155}p.job-title{font-size:10.5px;color:#0f172a;margin-top:6px;margin-bottom:2px;font-weight:700}ul{margin:2px 0 6px 0;padding-left:16px}li{font-size:10px;margin-bottom:2px;color:#334155}strong{font-weight:700}`;
+  }else if(theme==='modern'){
+   css=`@media print{@page{margin:12mm}}body{font-family:'Inter','Segoe UI',sans-serif;color:#1e293b;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:left;border-left:4px solid #2563eb;padding-left:14px;margin-bottom:18px}.cv-header h1{font-size:20px;color:#1e293b;margin:0;font-weight:800}h2{font-size:12px;color:#2563eb;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #eff6ff;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#475569}p.job-title{font-size:11px;color:#0f172a;margin-top:7px;margin-bottom:2px;font-weight:700}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#475569}strong{font-weight:700;color:#0f172a}`;
+  }else{
+   // Executive (IIM / Wharton Style)
+   css=`@media print{@page{margin:12mm}}body{font-family:'Garamond','Georgia',serif;color:#111827;line-height:1.45;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:2.5px double #1e3a8a;padding-bottom:10px;margin-bottom:16px}.cv-header h1{font-size:21px;color:#1e3a8a;margin:0;font-weight:700;letter-spacing:0.8px}h2{font-size:12px;color:#1e3a8a;text-transform:uppercase;letter-spacing:1.3px;border-bottom:1px solid #bfdbfe;padding-bottom:3px;margin-top:16px;margin-bottom:6px;font-weight:700}p{font-size:10.5px;margin:3px 0;color:#374151}p.job-title{font-size:11px;color:#111827;margin-top:7px;margin-bottom:2px;font-style:italic}ul{margin:3px 0 8px 0;padding-left:16px}li{font-size:10.5px;margin-bottom:2.5px;color:#374151}strong{font-weight:700}`;
+  }
+  return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${html}</body></html>`;
+ };
+
  const downloadPDF=()=>{const w=window.open('','_blank');w.document.write(getFormattedHTML());w.document.close();w.focus();setTimeout(()=>{w.print();w.close()},500)};
  const downloadWord=()=>{
   const html=getFormattedHTML().replace('<html>',`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>`);
@@ -174,7 +202,61 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
   const a=document.createElement('a');a.href=url;a.download='CV_GetJobReady.doc';a.click();URL.revokeObjectURL(url);
  };
  const scoreColor=result.score>=80?'#22c55e':result.score>=65?'#f59e0b':'#ef4444';
- return <div className="studio"><div className="score-card"><div><span className="eyebrow">AI CV REVIEW · PLACEMENT READINESS</span><h2>{result.headline}</h2><p>{result.summary}</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{result.score}</strong><small>/100</small></div></div><div className="insights"><div><h3>What to improve</h3>{result.gaps?.map(x=><p key={x}>• {x}</p>)}</div><div><h3>Keep these strengths</h3>{result.highlights?.map(x=><p key={x}>✓ {x}</p>)}</div></div><div className="editor-card"><div className="editor-head"><div className="label"><FileText size={17}/> Your editable CV (STAR Framework Ready)</div><div className="editor-controls"><span>Autosaved</span><button className="ghost-sm"type="button"onClick={copyDraft}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy CV</>}</button><button className="ghost-sm"type="button"onClick={downloadPDF}>Download PDF</button><button className="ghost-sm"type="button"onClick={downloadWord}>Download Word</button></div></div><textarea value={draft}onChange={e=>{setDraft(e.target.value);setImproved(false);saveSession('gjr_cv_text',e.target.value)}}placeholder="Your CV text will appear here. Edit anything you want before your interview."/><div className="editor-actions"><button className="secondary"onClick={run}disabled={improving||!draft.trim()}>{improving?'Improving…':<>✨ Format & improve with AI</>}</button>{improved&&<span className="saved-note"><CheckCircle2 size={15}/> Improved draft ready</span>}</div>{error&&<p className="inline-note">{error}</p>}</div><div className="continue-card"><div><b>Next: live interview</b><span>Save your final CV first. The interviewer will use exactly this version.</span></div><button className="primary"disabled={!draft.trim()}onClick={()=>{onSave(draft);onContinue(draft)}}>Save & continue to live interview <ArrowRight size={18}/></button></div></div>
+ return <div className="studio"><div className="score-card"><div><span className="eyebrow">AI CV REVIEW · PLACEMENT READINESS</span><h2>{result.headline}</h2><p>{result.summary}</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{result.score}</strong><small>/100</small></div></div><div className="insights"><div><h3>What to improve</h3>{result.gaps?.map(x=><p key={x}>• {x}</p>)}</div><div><h3>Keep these strengths</h3>{result.highlights?.map(x=><p key={x}>✓ {x}</p>)}</div></div>
+
+ {/* AI & Skills Booster Section */}
+ <div className="input-card ai-booster-card">
+  <div className="label"><Sparkles size={17}/> AI & Technology Skills Booster</div>
+  {!hasAI?<div className="booster-alert"><p>💡 <b>Recruiters expect AI fluency in 2026.</b> Your CV doesn't mention how you use AI or modern data tools. Click below to add pre-formatted STAR impact bullets:</p>
+   <div className="bullet-chips">
+    <button type="button" className="preset-pill" onClick={()=>addAIBullet('Leveraged AI research assistants (ChatGPT & Claude) to synthesize 40+ competitor reports, accelerating market mapping turnaround by 35%.')}>+ Add LLM / ChatGPT Research Bullet</button>
+    <button type="button" className="preset-pill" onClick={()=>addAIBullet('Utilised GitHub Copilot & Python automation scripts to audit and clean 5,000+ data records with 99.4% precision.')}>+ Add AI Automation & Python Bullet</button>
+    <button type="button" className="preset-pill" onClick={()=>addAIBullet('Implemented AI prompt engineering workflows to streamline team documentation and customer query responses.')}>+ Add Prompt Engineering Bullet</button>
+   </div>
+  </div>:<div className="booster-alert success"><p>✓ Great! Your CV highlights modern AI or analytical tools.</p></div>}
+  <div className="free-courses">
+   <span className="preset-title">🎓 Recommended Free AI Certifications to Boost Your CV:</span>
+   <div className="course-links">
+    <a href="https://www.coursera.org/learn/google-ai-essentials" target="_blank" rel="noreferrer" className="course-chip">Google AI Essentials (Free) ↗</a>
+    <a href="https://www.deeplearning.ai/courses/ai-for-everyone/" target="_blank" rel="noreferrer" className="course-chip">DeepLearning.AI – AI for Everyone ↗</a>
+    <a href="https://online.wharton.upenn.edu/ai-for-business-specialization/" target="_blank" rel="noreferrer" className="course-chip">Wharton AI for Business ↗</a>
+   </div>
+  </div>
+ </div>
+
+ {/* Uncover Hidden Achievements CTA */}
+ <div className="input-card wins-trigger-card">
+  <div><b>🔍 Did you forget to include key achievements?</b><span>Students frequently leave out real wins from summer internships or college projects. Answer 3 quick prompts to extract them.</span></div>
+  <button type="button" className="secondary" onClick={()=>setShowWinsModal(true)}><Sparkles size={16}/> Extract Hidden Achievements</button>
+ </div>
+
+ <div className="editor-card"><div className="editor-head"><div className="label"><FileText size={17}/> Your editable CV (STAR Framework Ready)</div>
+ <div className="theme-picker">
+  <span>Template:</span>
+  <button className={theme==='executive'?'active':''} onClick={()=>setTheme('executive')}>🏛️ Executive</button>
+  <button className={theme==='consulting'?'active':''} onClick={()=>setTheme('consulting')}>💼 Consulting</button>
+  <button className={theme==='modern'?'active':''} onClick={()=>setTheme('modern')}>⚡ Tech</button>
+ </div>
+ <div className="editor-controls"><span>Autosaved</span><button className="ghost-sm"type="button"onClick={copyDraft}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy CV</>}</button><button className="ghost-sm"type="button"onClick={downloadPDF}>Download PDF</button><button className="ghost-sm"type="button"onClick={downloadWord}>Download Word</button></div></div><textarea value={draft}onChange={e=>{setDraft(e.target.value);setImproved(false);saveSession('gjr_cv_text',e.target.value)}}placeholder="Your CV text will appear here. Edit anything you want before your interview."/><div className="editor-actions"><button className="secondary"onClick={run}disabled={improving||!draft.trim()}>{improving?'Improving…':<>✨ Format & improve with AI</>}</button>{improved&&<span className="saved-note"><CheckCircle2 size={15}/> Improved draft ready</span>}</div>{error&&<p className="inline-note">{error}</p>}</div><div className="continue-card"><div><b>Next: live interview</b><span>Save your final CV first. The interviewer will use exactly this version.</span></div><button className="primary"disabled={!draft.trim()}onClick={()=>{onSave(draft);onContinue(draft)}}>Save & continue to live interview <ArrowRight size={18}/></button></div>
+
+ {showWinsModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowWinsModal(false)}>
+  <div className="modal-card wins-modal">
+   <button className="modal-x" onClick={()=>setShowWinsModal(false)}><X size={18}/></button>
+   <span className="eyebrow">UNCOVER HIDDEN ACHIEVEMENTS</span>
+   <h2>What did you accomplish in your internship or project?</h2>
+   <p>Fill in what you actually did — AI will format it into a high-impact STAR bullet for your CV.</p>
+   <div className="wins-form">
+    <label>1. What was your main task or project responsibility?</label>
+    <input type="text" className="login-input" placeholder="e.g. Conducted market research for client onboarding" value={winQ1} onChange={e=>setWinQ1(e.target.value)}/>
+    <label>2. What tools, AI tech, or methods did you use?</label>
+    <input type="text" className="login-input" placeholder="e.g. ChatGPT, Excel pivot tables, SQL, Figma" value={winQ2} onChange={e=>setWinQ2(e.target.value)}/>
+    <label>3. What was the outcome or measurable result?</label>
+    <input type="text" className="login-input" placeholder="e.g. Reduced turnaround time by 30% / Onboarded 50+ clients" value={winQ3} onChange={e=>setWinQ3(e.target.value)}/>
+    <button className="primary wide" type="button" onClick={addUncoveredWin}><Sparkles size={16}/> Format & Insert into My CV</button>
+   </div>
+  </div>
+ </div>}
+ </div>
 }
 
  function VoiceInterview({cv,jd,mode,career,question,turn,maxTurns,history,onTurn,onDone}){
@@ -189,9 +271,9 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
  return <div className="interview"><div className="interview-progress">{Array.from({length:maxTurns}).map((_,i)=><div key={i} className={`dot ${i<turn-1?'done':i===turn-1?'active':''}`}/>)}</div><div className="question-card"aria-live="polite"><span className="eyebrow">QUESTION {turn} OF {maxTurns}</span><h2>{question}</h2><p>{status==='thinking'?'Evaluating your answer…':status==='listening'?'I’m listening. Finish naturally — I’ll capture it automatically.':'The question will be spoken aloud. Tap the mic once to begin; after that the interview runs hands-free.'}</p></div><div className={`voice-card handsfree ${status}`}onClick={status==='idle'||status==='permission'||status==='error'?startJourney:undefined}role="button"tabIndex={0}onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startJourney()}}}><div className={`mic ${status}`}><Mic size={38}/>{status==='listening'&&<i/>}</div><div className="voice-state"><b>{status==='listening'?'Listening…':status==='thinking'?'AI is evaluating…':status==='permission'?'Tap to allow microphone':'Tap mic to begin'}</b><span>{supported?'No submit button. Your answer is captured when you finish speaking.':'Use Chrome on Android or desktop for voice input.'}</span></div></div><div className="transcript-card"><div className="transcript-head"><div className="label"><Headphones size={17}/> Live transcript</div><span>{transcript?'Capturing':'Waiting for your answer'}</span></div><p className={transcript?'live':''}>{transcript||'Your spoken answer will appear here in real time.'}</p></div>{permission&&<div className="interview-hint"><Volume2 size={15}/> Question audio · automatic answer capture · no manual submit</div>}</div>
 }
 
-function Feedback({data,answers}){
+function Feedback({data,answers,onSyncSpokenWins}){
  const d=data||{score:70,strengths:['You completed the interview with genuine experience'],improvements:['Add measurable outcomes and STAR structure'],nextAction:'Repeat the interview with a sharper STAR story.'};
- const[copied,setCopied]=useState(false);
+ const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
  const copyReport=()=>{
   const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score||70}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nA: ${a.answer}`).join('\n\n')}`;
   navigator.clipboard?.writeText(text);
@@ -206,8 +288,23 @@ function Feedback({data,answers}){
   a.href=url;a.download='GetJobReady_Report.txt';a.click();
   URL.revokeObjectURL(url);
  };
+ const handleSync=()=>{
+  if(!answers?.length)return;
+  const spokenBullets=answers.filter(a=>a.answer&&a.answer.length>15).map(a=>`• [Interview Insight] ${a.answer}`);
+  if(spokenBullets.length>0&&onSyncSpokenWins){
+   onSyncSpokenWins(spokenBullets.join('\n'));
+   setSynced(true);
+  }
+ };
  const sc=d.score||70;const scoreColor=sc>=80?'#22c55e':sc>=65?'#f59e0b':'#ef4444';const scoreLabel=sc>=80?'Interview-ready 🚀':sc>=65?'On track — keep going 💪':'Keep practising — you got this 🔥';
- return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript and personalised feedback are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div><div className="insights"><div><h3>Strengths</h3>{d.strengths?.map(x=><p key={x}>✓ {x}</p>)}</div><div><h3>Next improvements</h3>{d.improvements?.map(x=><p key={x}>• {x}</p>)}</div></div><div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript</div><div className="report-actions"><button className="ghost-sm"type="button"onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm"type="button"onClick={downloadReport}><Upload size={14}style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>{(answers||[]).map((x,i)=><div className="turn-review"key={i}><b>Q{i+1}. {x.question}</b><p>{x.answer}</p></div>)}</div><div className="continue-card"><div><b>Next action</b><span>{d.nextAction}</span></div><button className="primary"onClick={()=>location.reload()}><RefreshCw size={17}/> Practise again</button></div></div>
+ return <div className="feedback"><div className="score-card"><div><span className="eyebrow">CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p>Your full interview transcript and personalised feedback are below.</p></div><div className="score-ring" style={{'--score-color':scoreColor}}><strong style={{color:scoreColor}}>{sc}</strong><small>/100</small></div></div><div className="insights"><div><h3>Strengths</h3>{d.strengths?.map(x=><p key={x}>✓ {x}</p>)}</div><div><h3>Next improvements</h3>{d.improvements?.map(x=><p key={x}>• {x}</p>)}</div></div>
+ 
+ <div className="input-card sync-wins-card">
+  <div><b>✨ Sync Spoken Achievements to Your CV</b><span>You spoke great details in your answers that might be missing from your written CV draft. Click below to add your spoken STAR points back to your CV draft!</span></div>
+  <button type="button" className="secondary" disabled={synced} onClick={handleSync}>{synced?<><Check size={16}/> Spoken wins added to CV!</>:<>✨ Add Spoken Points to My CV</>}</button>
+ </div>
+
+ <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript</div><div className="report-actions"><button className="ghost-sm"type="button"onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm"type="button"onClick={downloadReport}><Upload size={14}style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>{(answers||[]).map((x,i)=><div className="turn-review"key={i}><b>Q{i+1}. {x.question}</b><p>{x.answer}</p></div>)}</div><div className="continue-card"><div><b>Next action</b><span>{d.nextAction}</span></div><button className="primary"onClick={()=>location.reload()}><RefreshCw size={17}/> Practise again</button></div></div>
 }
 
 function Module({id,career}){const[loading,setLoading]=useState(false),[data,setData]=useState(null),[error,setError]=useState('');const[company,setCompany]=useState(''),[problem,setProblem]=useState(''),[idea,setIdea]=useState('');const cv=readSession('gjr_cv_text','');const runCoach=async()=>{setLoading(true);setError('');try{let d;try{d=await post('/api/coach',{module:id==='ai'?'ai':'corporate',context:cv,career})}catch(e){d={diagnosis:'Start with one practical habit this week.',score:70,weeklyHabit:'Write one concise outcome-led update every day.',sevenDayPlan:['Audit one communication habit','Practise a concise update','Ask for one feedback point','Rewrite one weak CV bullet with evidence','Use AI to structure one task','Reflect on what improved','Repeat the strongest habit']}}setData(d)}finally{setLoading(false)}};const runDemo=async()=>{if(!problem.trim()){setError('Describe the company problem first.');return}setLoading(true);setError('');try{setData(await post('/api/demo',{company,problem,idea}))}catch(e){setData({title:'Focused solution concept',tagline:'A simple workflow that reduces friction and creates measurable value.',impact:'Explain the user, problem, workflow and one measurable outcome in your interview.'})}finally{setLoading(false)}};if(id==='readiness'||id==='ai')return <div className="module-panel"><span className="eyebrow">{career==='internship'?'INTERNSHIP':'FULL-TIME'} TRACK</span><h2>{id==='readiness'?'Corporate Ready':'AI at Work'}</h2><p>{id==='readiness'?'Build practical habits for communication, feedback, priorities and resilience.':'Learn practical AI workflows for research, writing, analysis, meetings and responsible automation.'}</p><button className="primary"disabled={loading}onClick={runCoach}>{loading?'Building your plan…':<>Build my 7-day plan <ArrowRight size={18}/></>}</button>{error&&<p role="alert">{error}</p>}{data&&<div className="module-result"><h3>{data.diagnosis||'Your personalised plan'}</h3>{data.score&&<p><b>Readiness score:</b> {data.score}/100</p>}{data.weeklyHabit&&<p><b>Weekly habit:</b> {data.weeklyHabit}</p>}{data.sevenDayPlan&&<><h4>7-day plan</h4>{data.sevenDayPlan.map((x,i)=><p key={i}><b>Day {i+1}:</b> {x}</p>)}</>}</div>}</div>;
