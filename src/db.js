@@ -65,7 +65,12 @@ export const db = {
   saveInterview: (interview) => {
     const key = `gjr_interviews_${getEmailKey()}`;
     const interviews = db.getInterviews();
-    interviews.push({ ...interview, id: Date.now().toString(), date: new Date().toISOString() });
+    interviews.unshift({ ...interview, id: Date.now().toString(), date: new Date().toISOString() });
+    localStorage.setItem(key, JSON.stringify(interviews));
+  },
+  deleteInterview: (id) => {
+    const key = `gjr_interviews_${getEmailKey()}`;
+    const interviews = db.getInterviews().filter(x => x.id !== id);
     localStorage.setItem(key, JSON.stringify(interviews));
   }
 };

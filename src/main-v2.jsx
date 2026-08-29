@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
-import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,RefreshCw,Check,Folder,Plus}from'lucide-react';
+import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,RefreshCw,Check,Folder,Plus,Trash2}from'lucide-react';
+
 import'./styles.css';import'./voice.css';import'./mode-tabs.css';
 import { db } from './db.js';
 
@@ -273,10 +274,11 @@ function localImprove(cv){
  return lines.map((line,i)=>{if(i<3)return line;const clean=line.replace(/^[•●▪-]\s*/,'');if(clean.length<45||/[.!?]$/.test(clean))return line;return `• ${clean.replace(/^I\s+/i,'').replace(/\s+/g,' ')}.`}).join('\n');
 }
 
-function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview}){
+function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview,onViewInterview}){
  const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
  useEffect(()=>{setApps(db.getApplications());setInterviews(db.getInterviews())},[]);
  const del=id=>{if(!confirm('Delete this application?'))return;db.deleteApplication(id);setApps(db.getApplications())};
+ const delIv=id=>{if(!confirm('Delete this interview report?'))return;db.deleteInterview(id);setInterviews(db.getInterviews())};
  const masterCV=db.getMasterCV();
  const hasMaster=!!masterCV;
 
@@ -350,12 +352,34 @@ function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInter
   </div>}
   {tab==='interviews'&&<div className="interview-history">
    {interviews.length===0&&<div className="empty-state"><p>No interviews yet. Complete your first voice interview to see results here.</p></div>}
-   {interviews.map(iv=><div key={iv.id} className="input-card history-card">
-    <div className="label"><Mic size={17}/> {iv.role||'General Interview'} <span className="sub">· {new Date(iv.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span></div>
-    <p><strong>Score:</strong> <span style={{color:iv.score>=70?'#22c55e':'#f59e0b'}}>{iv.score||'—'}/100</span></p>
-    {iv.strengths?.length>0&&<p className="sub">✓ {iv.strengths[0]}</p>}
-    {iv.nextAction&&<p className="sub">→ {iv.nextAction}</p>}
-   </div>)}
+   {interviews.map(iv=>{
+    const sc=iv.score!==undefined?iv.score:0;
+    const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
+    const qCount=iv.answers?.length||6;
+    return <div key={iv.id} className="input-card history-card clickable-history-card" onClick={()=>onViewInterview&&onViewInterview(iv)}>
+     <div className="history-card-top">
+      <div className="history-info">
+       <div className="label" style={{marginBottom:'4px'}}><Mic size={17}/> {iv.role||'General Interview'} <span className="sub">· {new Date(iv.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+       <div className="history-sub-meta">
+        <span className="history-q-count">🎙️ {qCount} Questions &amp; Audio Transcripts</span>
+        {iv.nextAction&&<span className="history-action-hint">→ {iv.nextAction}</span>}
+       </div>
+      </div>
+      <div className="history-score-badge" style={{borderColor:scoreColor}}>
+       <strong style={{color:scoreColor}}>{sc}</strong>
+       <small>/100</small>
+      </div>
+     </div>
+     <div className="history-card-footer">
+      <button className="primary" style={{padding:'8px 14px',fontSize:'12px'}} onClick={e=>{e.stopPropagation();onViewInterview&&onViewInterview(iv);}}>
+       <FileText size={14}/> View Full Report &amp; Audio →
+      </button>
+      <button className="ghost-sm danger" title="Delete interview" onClick={e=>{e.stopPropagation();delIv(iv.id);}}>
+       <Trash2 size={14}/>
+      </button>
+     </div>
+    </div>;
+   })}
   </div>}
  </div>
 }
@@ -427,13 +451,21 @@ function App(){
  };
 
  const startInterview=text=>{if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')};
- const saveInterviewResult=d=>{
+ const saveInterviewResult=(d,finalAnswers)=>{
+  const activeAnswers=finalAnswers||answers;
   const fb=d||{score:0,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the Model Answers below and practise again with real STAR answers from your CV.'};
-  if(profile){db.saveInterview({role:roleName||'General Interview',score:fb.score,strengths:fb.strengths,nextAction:fb.nextAction,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:fb.score})}
+  if(profile){db.saveInterview({role:roleName||'General Interview',score:fb.score,strengths:fb.strengths,improvements:fb.improvements,nextAction:fb.nextAction,answers:activeAnswers,appId});db.saveApplication({id:appId,role:roleName||'General CV',cv,score:result?.score,jd,result,interviewScore:fb.score})}
   setResult(r=>({...r,feedback:fb}));setScreen('feedback');
  };
+ const viewInterviewReport=iv=>{
+  setRoleName(iv.role||'');
+  setAppId(iv.appId||null);
+  setResult({feedback:{score:iv.score!==undefined?iv.score:0,strengths:iv.strengths||[],improvements:iv.improvements||[],nextAction:iv.nextAction||''}});
+  setAnswers(iv.answers||[]);
+  setScreen('feedback');
+ };
  const goHome=()=>setScreen('home');
- if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
+ if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
  if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}onSave={saveFinal}onContinue={startInterview}/></Workspace>;
 
@@ -441,8 +473,9 @@ function App(){
  if(screen==='interview'){
   const totalQs=questions.length||6;
   const isLastTurn=qIndex>=totalQs-1;
-  return <Workspace title="AI Audio Interview" compact back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[Math.min(qIndex,totalQs-1)]}turn={qIndex+1}maxTurns={totalQs}history={answers}onTurn={(d,a)=>{const newAnswers=[...answers,{question:questions[qIndex],answer:a,evaluation:d?.evaluation}];setAnswers(newAnswers);const nextIdx=qIndex+1;if(nextIdx>=totalQs||d.done){saveInterviewResult(d.finalFeedback);}else{setQIndex(nextIdx);}}}onDone={saveInterviewResult}/></Workspace>;
+  return <Workspace title="AI Audio Interview" compact back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[Math.min(qIndex,totalQs-1)]}turn={qIndex+1}maxTurns={totalQs}history={answers}onTurn={(d,a,audioUrl)=>{const newAnswers=[...answers,{question:questions[qIndex],answer:a,audioUrl,evaluation:d?.evaluation}];setAnswers(newAnswers);const nextIdx=qIndex+1;if(nextIdx>=totalQs||d.done){saveInterviewResult(d.finalFeedback,newAnswers);}else{setQIndex(nextIdx);}}}onDone={saveInterviewResult}/></Workspace>;
  }
+
 
 
 
@@ -1018,9 +1051,9 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
 
 
 function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,history,onTurn,onDone}){
-
  const[status,setStatus]=useState('starting'),[transcript,setTranscript]=useState(''),[turns,setTurns]=useState(history||[]),[permission,setPermission]=useState(false);
  const rec=useRef(null),started=useRef(false),submitting=useRef(false),latestTranscript=useRef('');
+ const mediaRecorderRef=useRef(null),audioChunksRef=useRef([]);
  const supported=typeof window!=='undefined'&&('webkitSpeechRecognition'in window||'SpeechRecognition'in window);
  useEffect(()=>{setTurns(history||[])},[history]);
 
@@ -1047,19 +1080,49 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const r=new SR();
   r.lang='en-IN';r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
-  r.onstart=()=>{setStatus('listening');setPermission(true)};
+  r.onstart=()=>{
+   setStatus('listening');setPermission(true);
+   try{
+    if(navigator.mediaDevices?.getUserMedia){
+     navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+      try{
+       const mr=new MediaRecorder(stream);
+       audioChunksRef.current=[];
+       mr.ondataavailable=e=>{if(e.data.size>0)audioChunksRef.current.push(e.data)};
+       mr.start();
+       mediaRecorderRef.current=mr;
+      }catch(e){}
+     }).catch(()=>{});
+    }
+   }catch(e){}
+  };
   r.onresult=e=>{
    let text='';
    for(let i=0;i<e.results.length;i++){text+=e.results[i][0].transcript+' '}
    latestTranscript.current=text.trim();
    setTranscript(text.trim());
   };
-  r.onend=()=>{
+  r.onend=async()=>{
    const answer=latestTranscript.current.trim();
+   let audioDataUrl='';
+   if(mediaRecorderRef.current&&mediaRecorderRef.current.state!=='inactive'){
+    try{
+     mediaRecorderRef.current.stop();
+     mediaRecorderRef.current.stream?.getTracks()?.forEach(t=>t.stop());
+     if(audioChunksRef.current.length>0){
+      const blob=new Blob(audioChunksRef.current,{type:'audio/webm'});
+      audioDataUrl=await new Promise(res=>{
+       const reader=new FileReader();
+       reader.onloadend=()=>res(reader.result);
+       reader.readAsDataURL(blob);
+      });
+     }
+    }catch(e){}
+   }
    if(answer&&!submitting.current){
     setStatus('thinking');
     submitting.current=true;
-    submit(answer).finally(()=>{submitting.current=false});
+    submit(answer,audioDataUrl).finally(()=>{submitting.current=false});
    }else if(!answer&&!submitting.current){
     setStatus('idle');
    }
@@ -1074,7 +1137,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
 
  const startJourney=()=>{started.current=false;speakAndListen()};
 
- const submit=async(answer)=>{
+ const submit=async(answer,audioUrl='')=>{
   try{
    let data;
    const allQuestions=generateTailoredCVQuestions(cv,jd,roleName||'');
@@ -1097,11 +1160,11 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
    }
    const finalEval=(data&&data.evaluation)?{...localEval.evaluation,...data.evaluation,modelAnswer:data.evaluation.modelAnswer||localEval.evaluation.modelAnswer,notes:data.evaluation.notes||localEval.evaluation.notes}:localEval.evaluation;
    const finalFeedback=localEval.finalFeedback;
-   setTurns(x=>[...x,{question,answer,evaluation:finalEval}]);
+   setTurns(x=>[...x,{question,answer,audioUrl,evaluation:finalEval}]);
    setTranscript('');
    latestTranscript.current='';
    setStatus('starting');
-   onTurn({...data, evaluation:finalEval, finalFeedback, done:(data&&data.done)||localEval.done}, answer);
+   onTurn({...data, evaluation:finalEval, finalFeedback, done:(data&&data.done)||localEval.done}, answer, audioUrl);
    started.current=false;
   }catch(e){
    setStatus('error');
@@ -1147,8 +1210,30 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
 
 function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[]);
- const d=data||{score:10,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
+ const d=data||{score:0,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
  const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
+ const[activeAudio,setActiveAudio]=useState(null);
+
+ const playVoice=(text,id)=>{
+  if(!text)return;
+  if(activeAudio===id){
+   window.speechSynthesis?.cancel();
+   setActiveAudio(null);
+   return;
+  }
+  window.speechSynthesis?.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const voices=window.speechSynthesis?.getVoices()||[];
+  let best=voices.find(v=>v.lang.startsWith('en')&&(v.name.includes('Google')||v.name.includes('Natural')||v.name.includes('Premium')));
+  if(!best)best=voices.find(v=>v.lang.startsWith('en-IN')||v.lang.startsWith('en-GB')||v.lang.startsWith('en-US'));
+  if(best)u.voice=best;
+  u.rate=1;
+  u.onend=()=>setActiveAudio(null);
+  u.onerror=()=>setActiveAudio(null);
+  setActiveAudio(id);
+  window.speechSynthesis?.speak(u);
+ };
+
  const copyReport=()=>{
   const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${a.evaluation?.score||'N/A'}/100\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer: ${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
   navigator.clipboard?.writeText(text);
@@ -1177,9 +1262,18 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
  return <div className="feedback"><div className="score-card" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'20px'}}><div><span className="eyebrow" style={{color:'#c4b5fd'}}>CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p style={{color:'#cbd5e1',margin:'4px 0 0'}}>Overall Score: <b style={{color:'#ffffff',fontSize:'18px'}}>{sc}/100</b> · Full interview transcript, coaching, and model STAR answers below.</p></div><div className="score-ring" style={{width:'96px',height:'96px',borderRadius:'50%',background:'rgba(255,255,255,0.15)',border:'3px solid #ffffff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}><strong style={{fontSize:'34px',fontWeight:800,color:'#ffffff',lineHeight:1}}>{sc}</strong><small style={{fontSize:'11px',fontWeight:700,color:'#e2e8f0',marginTop:'3px'}}>/ 100</small></div></div>
  <div className="insights"><div><h3>Strengths</h3>{(d.strengths||[]).map(x=><p key={x} style={{color:x.startsWith('None')?'#dc2626':'#16a34a',fontWeight:x.startsWith('None')?700:500}}>{x.startsWith('None')?'✕ ':'✓ '}{x}</p>)}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
 
- <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript &amp; model answers</div><div className="report-actions"><button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
+ <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript, audio &amp; model answers</div><div className="report-actions"><button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
+  {(answers||[]).length===0&&<div className="empty-state" style={{padding:'30px 20px',textAlign:'center',background:'#f8f9fc',borderRadius:'14px',margin:'15px 0'}}><p style={{color:'#64748b',fontSize:'14px'}}>Detailed turn transcript was not recorded for this earlier session. Start a new voice interview to record real-time audio and STAR evaluation!</p></div>}
   {(answers||[]).map((x,i)=><div className="turn-review" key={i}>
    <div className="turn-review-header"><b>Q{i+1}. {x.question}</b>{x.evaluation?.score!==undefined&&<span className="turn-score" style={{color:x.evaluation.score>=70?'#22c55e':x.evaluation.score>=45?'#f59e0b':'#ef4444'}}>{x.evaluation.score}/100</span>}</div>
+
+   {/* Audio Controls */}
+   {x.audioUrl&&<div className="turn-audio-player"><span className="audio-tag">🎙️ Recorded Voice Audio:</span><audio controls src={x.audioUrl} preload="none"/></div>}
+   <div className="turn-tts-row">
+    <button type="button" className={`tts-pill ${activeAudio==='q'+i?'playing':''}`} onClick={()=>playVoice(x.question,'q'+i)}><Volume2 size={13}/> {activeAudio==='q'+i?'⏹ Stop Question':'🔊 Hear Question'}</button>
+    {x.answer&&<button type="button" className={`tts-pill ${activeAudio==='a'+i?'playing':''}`} onClick={()=>playVoice(x.answer,'a'+i)}><Volume2 size={13}/> {activeAudio==='a'+i?'⏹ Stop Answer':'🔊 Hear Your Answer'}</button>}
+    {x.evaluation?.modelAnswer&&<button type="button" className={`tts-pill model-tts-pill ${activeAudio==='m'+i?'playing':''}`} onClick={()=>playVoice(x.evaluation.modelAnswer,'m'+i)}><Volume2 size={13}/> {activeAudio==='m'+i?'⏹ Stop Model':'🌟 Hear Model STAR'}</button>}
+   </div>
    
    <div className="turn-section candidate-answer">
     <span className="turn-tag your-answer-tag">Your Spoken Answer:</span>
