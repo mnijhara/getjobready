@@ -2,7 +2,8 @@
   "name": "getjobready",
   "version": "1.0.0",
   "private": true,
-  "scripts": {"dev": "vite", "build": "node scripts/prepare-pdf-worker.mjs && vite build --config vite.native.config.js && cp dist/native.html dist/index.html && cp dist/native.html index.html && cp share-card.png dist/share-card.png && cp logo.svg dist/logo.svg && cp logo.png dist/logo.png && cp favicon.svg dist/favicon.svg && cp favicon.png dist/favicon.png && cp favicon.ico dist/favicon.ico && cp apple-touch-icon.png dist/apple-touch-icon.png && rsync -a --delete dist/assets/ assets/", "start": "node server.cjs", "lint": "node --check server.cjs", "verify": "node scripts/verify-product.mjs"},
+  "scripts": {"dev": "vite", "build": "node scripts/prepare-pdf-worker.mjs && vite build --config vite.native.config.js && cp dist/native.html dist/index.html && cp dist/native.html index.html && cp .htaccess dist/.htaccess && cp share-card.png dist/share-card.png && cp logo.svg dist/logo.svg && cp logo.png dist/logo.png && cp favicon.svg dist/favicon.svg && cp favicon.png dist/favicon.png && cp favicon.ico dist/favicon.ico && cp apple-touch-icon.png dist/apple-touch-icon.png && rsync -a --delete dist/assets/ assets/", "start": "node server.cjs", "lint": "node --check server.cjs", "verify": "node scripts/verify-product.mjs"},
+
 
   "dependencies": {"@vitejs/plugin-react":"latest","vite":"latest","react":"latest","react-dom":"latest","lucide-react":"latest","express":"^4.21.2","cors":"latest","pdfjs-dist":"latest","mammoth":"^1.10.0"},
   "devDependencies": {}
