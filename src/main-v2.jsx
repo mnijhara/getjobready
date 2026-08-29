@@ -45,12 +45,12 @@ function toSentenceCase(text){
 function cleanExtractedCVText(raw){
  if(!raw)return'';
  let text=raw
-  .replace(/E\s+X\s+E\s+C\s+U\s+T\s+I\s+V\s+E\s+S\s+U\s+M\s+M\s+A\s+R\s+Y/gi,'EXECUTIVE SUMMARY')
-  .replace(/C\s+O\s+R\s+E\s+C\s+O\s+M\s+P\s+E\s+T\s+E\s+N\s+C\s+I\s+E\s+S/gi,'CORE COMPETENCIES')
-  .replace(/P\s+R\s+O\s+F\s+E\s+S\s+S\s+I\s+O\s+N\s+A\s+L\s+E\s+X\s+P\s+R\s+I\s+E\s+N\s+C\s+E|P\s+R\s+O\s+F\s+E\s+S\s+S\s+I\s+O\s+N\s+A\s+L\s+E\s+X\s+P\s+E\s+R\s+I\s+E\s+N\s+C\s+E|W\s+O\s+R\s+K\s+E\s+X\s+P\s+E\s+R\s+I\s+E\s+N\s+C\s+E/gi,'PROFESSIONAL EXPERIENCE')
-  .replace(/E\s+D\s+U\s+C\s+A\s+T\s+I\s+O\s+N\s+&\s+L\s+A\s+N\s+G\s+U\s+A\s+G\s+E\s+S|E\s+D\s+U\s+C\s+A\s+T\s+I\s+O\s+N/gi,'EDUCATION & LANGUAGES')
+  .replace(/E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y/gi,'\n\nEXECUTIVE SUMMARY\n')
+  .replace(/C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S/gi,'\n\nCORE COMPETENCIES\n')
+  .replace(/P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|W\s*O\s*R\s*K\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
+  .replace(/E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N\s*&\s*L\s*A\s*N\s*G\s*U\s*A\s*G\s*E\s*S|E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N/gi,'\n\nEDUCATION & LANGUAGES\n')
   .replace(/(EXECUTIVE SUMMARY|CORE COMPETENCIES|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EDUCATION & LANGUAGES|EDUCATION|PROJECTS|CERTIFICATIONS)/gi,'\n\n$1\n')
-  .replace(/(▪|•|◆)/g,'\n$1 ');
+  .replace(/(▪|•|◆|●)/g,'\n• ');
 
  return text.split('\n')
   .map(line=>toSentenceCase(line.trim()))
@@ -284,11 +284,7 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
      }
     }
    });
-   if(inList)bodyHtml+='</ul>';
-
-   const fullHtml=`<div class="cv-container"><div class="cv-header-banner">${headerHtml}</div><div class="cv-body">${bodyHtml}</div></div>`;
-   css=`@media print{@page{margin:0}}* { font-variant-ligatures: none; box-sizing:border-box; margin:0; padding:0; }body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10.5px;line-height:1.45;color:#1e293b;background:#fff}.cv-container{width:100%;max-width:800px;margin:0 auto;background:#fff}.cv-header-banner{background:#1e2e4a;color:#fff;padding:26px 32px 14px 32px;text-align:left}.cv-header-banner h1{font-size:30px;font-weight:800;color:#fff;letter-spacing:1.5px;margin:0 0 6px 0;line-height:1.1;text-transform:uppercase}.cv-header-banner .subtitle{font-size:12.5px;color:#94a3b8;font-weight:500;margin-bottom:8px}.cv-contact-bar{background:#132038;color:#e2e8f0;padding:8px 32px;font-size:10px;display:flex;flex-wrap:wrap;gap:6px 12px;font-weight:500}.cv-contact-bar .sep{color:#64748b;margin:0 4px}.cv-body{padding:22px 32px}h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:#1e2e4a;border-bottom:1.5px solid #1e2e4a;padding-bottom:3px;margin-top:18px;margin-bottom:10px}p{font-size:10.5px;margin:4px 0;color:#334155}p.job-title{font-size:11.5px;color:#0f172a;margin-top:10px;margin-bottom:4px}p.job-title strong{color:#0f172a;font-weight:700}p.job-title .company{color:#2563eb;font-weight:600}p.job-title .dates{color:#64748b;font-style:italic;font-size:10px}ul{margin:4px 0 10px 0;padding-left:18px}li{font-size:10.5px;margin-bottom:3px;color:#334155;line-height:1.45}strong{font-weight:700;color:#0f172a}${fitCss}`;
-   return `<html><head><meta charset="utf-8"><title>CV</title><style>${css}</style></head><body>${fullHtml}</body></html>`;
+   return `<html><head><meta charset="utf-8"><title>CV</title><style>body{font-family:'Helvetica',sans-serif;margin:40px}.cv-contact-bar{text-align:center;font-size:10px;margin:10px 0}h1{text-align:center;font-size:24px;text-transform:uppercase}h2{text-align:center;font-size:12px;border-bottom:1px solid #000;margin:10px 0}ul{margin:5px 0}li{font-size:10px}p{font-size:10px}</style></head><body>${headerHtml}<div class="cv-container">${bodyHtml}</div></body></html>`;
   }else if(theme==='consulting'){
    css=`@media print{@page{margin:0.5in}}* { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }body{font-family:'Georgia','Times New Roman',serif;color:#0f172a;line-height:1.4;margin:0;padding:0;background:#fff}.cv-container{max-width:750px;margin:0 auto;padding:25px 30px}.cv-header{text-align:center;border-bottom:1.5px solid #0f172a;padding-bottom:8px;margin-bottom:14px}.cv-header h1{font-size:22px;color:#0f172a;margin:0;font-weight:700;letter-spacing:0.5px}.header-gradient{display:none}h2{font-size:11.5px;color:#0f172a;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;margin-top:14px;margin-bottom:6px;font-weight:700}p{font-size:10px;margin:3px 0;color:#334155}p.job-title{font-size:10.5px;color:#0f172a;margin-top:6px;margin-bottom:2px;font-weight:700}ul{margin:2px 0 6px 0;padding-left:16px}li{font-size:10px;margin-bottom:2px;color:#334155}strong{font-weight:700}${fitCss}`;
   }else if(theme==='modern'){
