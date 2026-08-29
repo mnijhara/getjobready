@@ -15,14 +15,14 @@ const contracts = [
     nextRoute: "app.post('/api/demo'",
     name: 'coach',
     required: "res.status(503).json({ error: 'AI coaching is temporarily unavailable. Please retry in a moment.' })",
-    forbidden: ['weeklyHabit:', 'reflectionQuestion:', 'actions: ['],
+    forbidden: ['Start small: choose one recurring task', '15-minute weekly review', 'What did I learn this week that makes next week easier?'],
   },
   {
     route: "app.post('/api/demo'",
     nextRoute: "// PDF.js in the frontend",
     name: 'demo',
     required: "res.status(503).json({ error: 'AI prototype generation is temporarily unavailable. Please retry in a moment.' })",
-    forbidden: ['title: `${company}', 'A candidate-built prototype around a real business problem.', 'html: \'<!doctype html>'],
+    forbidden: ['A candidate-built prototype around a real business problem.', 'Clear problem-to-solution narrative', '<h1>Prototype preview</h1>'],
   },
 ];
 
@@ -33,7 +33,7 @@ for (const contract of contracts) {
   const route = server.slice(start, end);
   if (!route.includes(contract.required)) throw new Error(`AI failure contract: ${contract.name} must return an explicit 503 response when AI fails`);
   for (const marker of contract.forbidden) {
-    if (route.includes(marker)) throw new Error(`AI failure contract: ${contract.name} must never return synthetic AI output after failure (${marker})`);
+    if (route.includes(marker)) throw new Error(`AI failure contract: ${contract.name} must never return synthetic AI output after provider failure (${marker})`);
   }
   for (const marker of ['res.status(503)', 'catch (error)']) {
     if (!route.includes(marker)) throw new Error(`AI failure contract: ${contract.name} missing ${marker}`);
