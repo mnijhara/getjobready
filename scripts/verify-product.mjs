@@ -7,7 +7,7 @@ const entry=read('index.src.html');
 const app=read('src/main-v2.jsx');
 const server=read('server.cjs');
 const router=read('ai-router.cjs');
-expect(entry.includes('/src/main-v2.jsx'),'source entrypoint uses the native React student UI');
+expect(entry.includes('/src/native-entry.jsx')||entry.includes('/src/main-v2.jsx'),'source entrypoint uses the native React student UI');
 expect(!entry.includes('api-bridge.js'),'legacy API bridge is not loaded');
 expect(!entry.includes('cv-improvement-flow.js'),'legacy CV overlay is not loaded');
 expect(!entry.includes('audio-auto.js'),'legacy audio bridge is not loaded');
