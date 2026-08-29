@@ -29,9 +29,38 @@ async function pdfText(file){
 async function docxText(file){const mammoth=await import('mammoth');const result=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});return String(result.value||'').trim()}
 async function readFile(file){if(file.type==='text/plain')return file.text();if(/\.pdf$/i.test(file.name))return pdfText(file);if(/\.docx$/i.test(file.name))return docxText(file);throw new Error('Unsupported file type')}
 
+function toSentenceCase(text){
+ if(!text||typeof text!=='string')return text;
+ const letters=text.replace(/[^a-zA-Z]/g,'');
+ if(!letters.length)return text;
+ const upperCount=text.replace(/[^A-Z]/g,'').length;
+ if(upperCount/letters.length>0.65){
+  return text.toLowerCase()
+   .replace(/(^\s*|[.!?]\s+|\n\s*)([a-z])/g,(m,p1,p2)=>p1+p2.toUpperCase())
+   .replace(/\b(hr|hrbp|hris|ai|llm|sql|dcf|mena|b2b|b2c|ceo|cfo|cto|vp|dvp|imt|hcl|byju's|cars24|fedex|gpa|mba|bcom|b\.com|delhi|india|cr|lakh|lakhs|crore|crores)\b/gi,s=>s.toUpperCase());
+ }
+ return text;
+}
+
+function cleanExtractedCVText(raw){
+ if(!raw)return'';
+ let text=raw
+  .replace(/E\s+X\s+E\s+C\s+U\s+T\s+I\s+V\s+E\s+S\s+U\s+M\s+M\s+A\s+R\s+Y/gi,'EXECUTIVE SUMMARY')
+  .replace(/C\s+O\s+R\s+E\s+C\s+O\s+M\s+P\s+E\s+T\s+E\s+N\s+C\s+I\s+E\s+S/gi,'CORE COMPETENCIES')
+  .replace(/P\s+R\s+O\s+F\s+E\s+S\s+S\s+I\s+O\s+N\s+A\s+L\s+E\s+X\s+P\s+R\s+I\s+E\s+N\s+C\s+E|P\s+R\s+O\s+F\s+E\s+S\s+S\s+I\s+O\s+N\s+A\s+L\s+E\s+X\s+P\s+E\s+R\s+I\s+E\s+N\s+C\s+E|W\s+O\s+R\s+K\s+E\s+X\s+P\s+E\s+R\s+I\s+E\s+N\s+C\s+E/gi,'PROFESSIONAL EXPERIENCE')
+  .replace(/E\s+D\s+U\s+C\s+A\s+T\s+I\s+O\s+N\s+&\s+L\s+A\s+N\s+G\s+U\s+A\s+G\s+E\s+S|E\s+D\s+U\s+C\s+A\s+T\s+I\s+O\s+N/gi,'EDUCATION & LANGUAGES')
+  .replace(/(EXECUTIVE SUMMARY|CORE COMPETENCIES|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EDUCATION & LANGUAGES|EDUCATION|PROJECTS|CERTIFICATIONS)/gi,'\n\n$1\n')
+  .replace(/(▪|•|◆)/g,'\n$1 ');
+
+ return text.split('\n')
+  .map(line=>toSentenceCase(line.trim()))
+  .filter(Boolean)
+  .join('\n');
+}
+
 function localReview(cv,jd,mode){const base=fallback(mode);const words=cv.trim().split(/\s+/).filter(Boolean).length;return {...base,score:Math.max(62,Math.min(88,base.score+(words>450?7:words>220?3:0))),summary:mode==='specific'?`Local CV review is ready. Add evidence that directly connects your experience to this job description (${Math.min(3,Math.max(1,Math.round(jd.length/1200)))} priority areas identified).`:`Local CV review is ready. Your draft is editable below and can be improved before the interview.`}}
 function localImprove(cv){
- const lines=cv.split(/\n+/).map(x=>x.trim()).filter(Boolean);if(!lines.length)return cv;
+ const lines=cleanExtractedCVText(cv).split(/\n+/).map(x=>x.trim()).filter(Boolean);if(!lines.length)return cv;
  return lines.map((line,i)=>{if(i<3)return line;const clean=line.replace(/^[•●▪-]\s*/,'');if(clean.length<45||/[.!?]$/.test(clean))return line;return `• ${clean.replace(/^I\s+/i,'').replace(/\s+/g,' ')}.`}).join('\n');
 }
 
@@ -90,7 +119,7 @@ function App(){
  const openMasterCV=()=>{const masterCV=localStorage.getItem('gjr_master_cv')||'';setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setScreen('resume')};
  const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
- const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text.trim())throw new Error('The file contains no readable text. Please paste the text instead.');if(kind==='cv'){setCvFile(file);setCv(text);saveSession('gjr_cv_text',text)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error(e);alert(`We could not read that file. ${e.message||'Please paste the text instead.'}`)}};
+ const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text.trim())throw new Error('The file contains no readable text. Please paste the text instead.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error(e);alert(`We could not read that file. ${e.message||'Please paste the text instead.'}`)}};
  const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
  const analyze=async()=>{
   if(!cv.trim())return alert('Upload your CV or paste your CV text.');
@@ -162,7 +191,7 @@ function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,
 }
 
 function CVStudio({result,initial,mode,onSave,onContinue}){
- const[draft,setDraft]=useState(()=>String(initial||''));
+ const[draft,setDraft]=useState(()=>cleanExtractedCVText(String(initial||'')));
  const[improving,setImproving]=useState(false),[improved,setImproved]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false);
  const[theme,setTheme]=useState('career-ops');
  const[autoFit,setAutoFit]=useState(true);
@@ -189,12 +218,7 @@ function CVStudio({result,initial,mode,onSave,onContinue}){
  };
 
  const getFormattedHTML=()=>{
-  let text=draft
-   .replace(/(E\s*X\s*E\s*C\s*U\s*T\s*I\s*V\s*E\s*S\s*U\s*M\s*M\s*A\s*R\s*Y|EXECUTIVE SUMMARY)/gi,'\nEXECUTIVE SUMMARY\n')
-   .replace(/(C\s*O\s*R\s*E\s*C\s*O\s*M\s*P\s*E\s*T\s*E\s*N\s*C\s*I\s*E\s*S|CORE COMPETENCIES)/gi,'\nCORE COMPETENCIES\n')
-   .replace(/(P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s*E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE)/gi,'\nPROFESSIONAL EXPERIENCE\n')
-   .replace(/(E\s*D\s*U\s*C\s*A\s*T\s*I\s*O\s*N\s*&\s*L\s*A\s*N\s*G\s*U\s*A\s*G\s*E\s*S|EDUCATION & LANGUAGES|EDUCATION)/gi,'\nEDUCATION & LANGUAGES\n')
-   .replace(/(▪|•|◆)/g,'\n$1 ');
+  let text=cleanExtractedCVText(draft);
 
   const rawLines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   let html='<div class="cv-container">';let inList=false;let hasHeader=false;
