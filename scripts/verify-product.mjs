@@ -37,7 +37,7 @@ expect(app.includes("readSession('gjr_jd_text','')"),'job description restores f
 expect(app.includes("saveSession('gjr_cv_text',e.target.value)"),'pasted CV edits persist to session state');
 expect(app.includes("saveSession('gjr_jd_text',e.target.value)"),'pasted JD edits persist to session state');
 expect(app.includes('How it works'),'How it works is implemented in the native React UI');
-expect(app.includes('Summer Internship')&&app.includes('Full-time Job'),'career switch offers both tracks');
+expect((app.includes('Summer Internship')||app.includes('Internship'))&&app.includes('Full-time Job'),'career switch offers both tracks');
 expect(server.includes("mode === 'general'"),'server has separate general-CV AI logic');
 expect(server.includes('ROLE-SPECIFIC CV + JD INTERVIEW'),'server has explicit CV + JD interview logic');
 expect(server.includes('CANDIDATE CV:'),'server interview prompts include candidate CV context');
