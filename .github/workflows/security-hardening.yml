@@ -20,5 +20,7 @@ jobs:
           set -euo pipefail
           grep -q "process.env.PUBLIC_BASE_URL || 'https://getjobready.online'" server.cjs
           node --check server.cjs
+      - name: Verify AI failure contract
+        run: node scripts/verify-ai-failure-contract.mjs
       - name: Exercise CORS policy
         run: node scripts/security-smoke.mjs
