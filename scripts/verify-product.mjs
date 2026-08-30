@@ -20,7 +20,12 @@ expect(!app.includes('setResult(fallback(prep))'),'AI analysis failures do not m
 expect(app.includes('function CVStudio'),'native CV improvement studio exists');
 expect(app.includes('rewrittenBullets'),'AI CV analysis supplies editable bullet improvements');
 expect(app.includes('initial={cv}'),'uploaded CV is passed into the review studio');
-expect(app.includes("useState(()=>String(initial||''))"),'CV editor initializes from the original CV without rewriting it');
+// Allow normal formatting differences (spaces, multiline JSX, or a direct initial-value state).
+// The semantic contract is that CVStudio's editable state is initialized from `initial`, not
+// from an AI rewrite or fallback string.
+const cvInitializesFromOriginal=/useState\s*\(\s*(?:\(\s*\)\s*=>\s*)?(?:String\s*\(\s*)?initial\s*\|\|\s*['"]['"]\s*\)?\s*\)/.test(app)
+  || /useState\s*\(\s*(?:\(\s*\)\s*=>\s*)?String\s*\(\s*initial\s*\|\|\s*['"]['"]\s*\)\s*\)/.test(app);
+expect(cvInitializesFromOriginal,'CV editor initializes from the original CV without rewriting it');
 expect(!/candidate&&raw\.length>30\?`• \$\{candidate\}`/.test(app),'CV editor does not overwrite every original bullet with one AI suggestion');
 expect(app.includes('saveFinal')&&app.includes('startInterview')&&app.includes('CVStudio'),'CV save gate precedes the interview');
 expect(app.includes("post('/api/interview-turn'"),'voice turns go through the server API');
