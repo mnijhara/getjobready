@@ -427,7 +427,12 @@ function App(){
    setCv(cleaned);
    saveSession('gjr_cv_text',cleaned);
   };
-  return ()=>{delete window.__gjrSetCv;window.removeEventListener('gjr_cloud_synced',handleSync)};
+  window.__gjrSetJd=(text,file)=>{
+   if(file)setJdFile(file);
+   setJd(text);
+   saveSession('gjr_jd_text',text);
+  };
+  return ()=>{delete window.__gjrSetCv;delete window.__gjrSetJd;window.removeEventListener('gjr_cloud_synced',handleSync)};
  },[cv]);
  const parseFile=async(kind,file)=>{
   if(!file)return;
@@ -470,13 +475,15 @@ function App(){
    saveSession('gjr_cv_text',cv);
    saveSession('gjr_jd_text',prep==='general'?'':jd);
    
-   const targetId=appId||Date.now().toString();
-   setAppId(targetId);
-   if(!db.getMasterCV()){
+   if(appId==='master'||!db.getMasterCV()){
     db.saveMasterCV(cv);
    }
-   if(profile){
-    db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':(jd.slice(0,30)+'…')),cv,score:data?.score,jd,result:data});
+   if(appId!=='master'){
+    const targetId=appId||Date.now().toString();
+    setAppId(targetId);
+    if(profile){
+     db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':(jd.slice(0,30)+'…')),cv,score:data?.score,jd,result:data});
+    }
    }
    setScreen('cvstudio');
   }finally{
@@ -512,7 +519,7 @@ function App(){
  const goHome=()=>setScreen('home');
  if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
- if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}onSave={saveFinal}onContinue={startInterview}/></Workspace>;
+ if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}isMasterCV={appId==='master'}onSave={saveFinal}onContinue={startInterview}onGoHome={goHome}/></Workspace>;
 
 
  if(screen==='interview'){
@@ -1086,7 +1093,7 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
       ?<><div><b>✅ Master CV saved!</b><span>Now create job-specific applications and add each JD to practise a tailored interview.</span></div>
         <button className="primary" onClick={()=>{onSave(editText);onGoHome&&onGoHome()}}>Go to My Applications <ArrowRight size={18}/></button></>
       :<><div><b>Next: live interview</b><span>Your improved CV will be used by the AI interviewer for this role.</span></div>
-        <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>Save &amp; start interview <ArrowRight size={18}/></button></>
+        <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>Save & start interview <ArrowRight size={18}/></button></>
      }
     </div>
    </div>
