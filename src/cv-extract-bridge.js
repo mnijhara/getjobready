@@ -23,6 +23,14 @@
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : (input?.url || '');
     if (url === '/api/extract-cv' && (init.method || 'GET').toUpperCase() === 'POST') {
+      let body = null;
+      try { body = typeof init.body === 'string' ? JSON.parse(init.body) : (init.body || {}); } catch {}
+      if (body && typeof body === 'object' && body.data) {
+        const normalizedMime = inferMime(body.mime, String(body.data));
+        if (normalizedMime !== body.mime) {
+          init = { ...init, body: JSON.stringify({ ...body, mime: normalizedMime }) };
+        }
+      }
       try {
         const serverResponse = await nativeFetch(input, init);
         const contentType = serverResponse.headers.get('content-type') || '';
@@ -33,7 +41,7 @@
       }
 
       try {
-        const body = typeof init.body === 'string' ? JSON.parse(init.body) : (init.body || {});
+        body = body || (typeof init.body === 'string' ? JSON.parse(init.body) : (init.body || {}));
         const data = String(body.data || '');
         const mime = inferMime(body.mime, data);
         if (!data) return new Response(JSON.stringify({ error: 'CV file data is required.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
