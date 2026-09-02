@@ -1,6 +1,7 @@
 (() => {
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
   const CV_ACCEPT = '.pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain';
+  const SUPPORTED = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
   const clean = (s) => String(s || '').replace(/\r\n/g, '\n').split('\n').map(x => x.trim()).filter(Boolean).join('\n');
   const setReactTextarea = (el, value) => {
@@ -11,13 +12,13 @@
   };
   const inferMime = async (file) => {
     const reported = String(file?.type || '').toLowerCase().split(';')[0].trim();
-    if (reported === 'application/pdf' || reported === 'text/plain' || reported === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return reported;
     try {
       const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
       const ascii = String.fromCharCode(...head);
       if (ascii.startsWith('%PDF-')) return 'application/pdf';
       if (ascii.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     } catch {}
+    if (SUPPORTED.includes(reported)) return reported;
     if (/\.pdf$/i.test(file?.name || '')) return 'application/pdf';
     if (/\.txt$/i.test(file?.name || '')) return 'text/plain';
     if (/\.docx$/i.test(file?.name || '')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -41,13 +42,11 @@
     const cardLabel = input.closest('.input-card')?.querySelector('.label')?.textContent || '';
     return /your\s*cv/i.test(cardLabel) || input.dataset.gjrCvInput === '1';
   };
-
   const patchCvInput = (input) => {
     if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !isCvInput(input)) return;
     input.dataset.gjrCvInput = '1';
     input.accept = CV_ACCEPT;
   };
-
   const patchExistingInputs = () => document.querySelectorAll('input[type="file"]').forEach(patchCvInput);
   patchExistingInputs();
   new MutationObserver(patchExistingInputs).observe(document.documentElement, { childList: true, subtree: true });
@@ -65,37 +64,25 @@
         out += content.items.map(x => x.str || '').join(' ') + '\n';
       }
       return clean(out);
-    } catch (e) {
-      console.warn('CV PDF.js extraction failed; using server AI fallback.', e);
-      return '';
-    }
+    } catch (e) { console.warn('CV PDF.js extraction failed; using server AI fallback.', e); return ''; }
   }
-
   async function parseDocx(file) {
     try {
       const mammoth = await import('mammoth');
       const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
       return clean(result.value);
-    } catch (e) {
-      console.warn('CV DOCX extraction failed; using server AI fallback.', e);
-      return '';
-    }
+    } catch (e) { console.warn('CV DOCX extraction failed; using server AI fallback.', e); return ''; }
   }
-
-  async function aiExtract(file) {
+  async function aiExtract(file, mime) {
     if (file.size > MAX_FILE_BYTES) throw new Error('CV file is over 5 MB.');
     const bytes = new Uint8Array(await file.arrayBuffer());
     let binary = '';
     const chunk = 0x8000;
     for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
     const data = btoa(binary);
-    const mime = await inferMime(file);
-    if (!['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(mime)) throw new Error('Unsupported CV file type.');
-    const r = await fetch('/api/extract-cv', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data, mime })
-    });
+    const resolvedMime = mime || await inferMime(file);
+    if (!SUPPORTED.includes(resolvedMime)) throw new Error('Unsupported CV file type.');
+    const r = await fetch('/api/extract-cv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, mime: resolvedMime }) });
     const raw = await r.text();
     let obj = null;
     try { obj = JSON.parse(raw); } catch {}
@@ -107,23 +94,20 @@
 
   async function handle(input, file) {
     if (!file || !isCvInput(input)) return;
-    const allowed = /\.(pdf|docx|txt)$/i.test(file.name) || file.type === 'application/pdf' || file.type === 'text/plain' || file.type?.includes('wordprocessingml');
-    if (!allowed) { toast('Please choose a PDF, DOCX or TXT CV.', true); return; }
     if (file.size > MAX_FILE_BYTES) { toast('Please keep your CV under 5 MB.', true); return; }
-
+    const mime = await inferMime(file);
+    const allowed = SUPPORTED.includes(mime) || /\.(pdf|docx|txt)$/i.test(file.name);
+    if (!allowed) { toast('Please choose a PDF, DOCX or TXT CV.', true); return; }
     input.dataset.gjrMobileHandled = '1';
     const textarea = input.closest('.input-card')?.querySelector('textarea') || document.querySelector('textarea');
     if (!textarea) { toast('CV editor is not ready. Please try again.', true); return; }
     toast('Reading your CV…');
     try {
       let text = '';
-      if (/\.txt$/i.test(file.name) || file.type === 'text/plain') text = await file.text();
-      else if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') text = await parsePdf(file);
-      else if (/\.docx$/i.test(file.name) || file.type?.includes('wordprocessingml')) text = await parseDocx(file);
-      if (!text.trim()) {
-        toast('Reading the document securely with AI…');
-        text = await aiExtract(file);
-      }
+      if (mime === 'text/plain') text = await file.text();
+      else if (mime === 'application/pdf') text = await parsePdf(file);
+      else if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') text = await parseDocx(file);
+      if (!text.trim()) { toast('Reading the document securely with AI…'); text = await aiExtract(file, mime); }
       text = clean(text);
       if (!text) throw new Error('No readable CV content was found.');
       setReactTextarea(textarea, text);
