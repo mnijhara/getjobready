@@ -83,25 +83,28 @@
     if (!file) return;
     const isCvInput = input.accept?.includes('.docx');
     if (!isCvInput) return;
-    const allowed = /\.(pdf|docx|txt)$/i.test(file.name);
+    const allowed = /\.(pdf|docx|txt)$/i.test(file.name) || file.type === 'application/pdf' || file.type === 'text/plain' || file.type?.includes('wordprocessingml');
     if (!allowed) return;
 
     input.dataset.gjrMobileHandled = '1';
-    const textarea = document.querySelector('#cvText');
-    if (!textarea) { toast('CV editor is not ready. Please try again.', true); return; }
+    const textarea = document.querySelector('#cvText') || document.querySelector('.input-card textarea') || document.querySelector('textarea');
+    if (!textarea) return;
     toast('Reading your CV…');
     try {
       let text = '';
-      if (/\.txt$/i.test(file.name)) text = await file.text();
-      else if (/\.pdf$/i.test(file.name)) text = await parsePdf(file);
-      else if (/\.docx$/i.test(file.name)) text = await parseDocx(file);
-      if (!text.trim() && (/\.pdf$/i.test(file.name) || /\.docx$/i.test(file.name))) {
+      if (/\.txt$/i.test(file.name) || file.type === 'text/plain') text = await file.text();
+      else if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') text = await parsePdf(file);
+      else if (/\.docx$/i.test(file.name) || file.type?.includes('wordprocessingml')) text = await parseDocx(file);
+      if (!text.trim() && (/\.pdf$/i.test(file.name) || /\.docx$/i.test(file.name) || file.type === 'application/pdf' || file.type?.includes('wordprocessingml'))) {
         toast('Reading the document with AI…');
         text = await aiExtract(file);
       }
       text = clean(text);
       if (!text) throw new Error('No readable CV content was found.');
       setReactTextarea(textarea, text);
+      if (typeof window.__gjrSetCv === 'function') {
+        window.__gjrSetCv(text, file);
+      }
       try { sessionStorage.setItem('gjr_cv_text', text); } catch {}
       const label = input.closest('label');
       const nameEl = label?.querySelector('b');
@@ -120,6 +123,12 @@
     if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !input.accept?.includes('.docx')) return;
     const file = input.files?.[0];
     if (!file) return;
+    const allowed = /\.(pdf|docx|txt)$/i.test(file.name) || file.type === 'application/pdf' || file.type === 'text/plain' || file.type?.includes('wordprocessingml');
+    if (!allowed) return;
+
+    const textarea = document.querySelector('#cvText') || document.querySelector('.input-card textarea') || document.querySelector('textarea');
+    if (!textarea) return;
+
     event.preventDefault();
     event.stopImmediatePropagation();
     handle(input, file);

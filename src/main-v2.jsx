@@ -23,7 +23,7 @@ async function post(path,body){const r=await fetch(path,{method:'POST',headers:{
 async function pdfText(file){
  try{
   const lib=await import('pdfjs-dist').catch(e=>{
-   if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){
+   if(e?.message?.includes('dynamically imported module')){
     window.location.reload();
    }
    throw e;
@@ -35,7 +35,7 @@ async function pdfText(file){
   if(out.trim())return out.trim();
  }catch(err){
   console.warn('PDF.js parsing failed, trying text extraction fallback:',err);
-  if(err?.message?.includes('dynamically imported module')||err?.name==='TypeError'){
+  if(err?.message?.includes('dynamically imported module')){
    window.location.reload();
    return '';
   }
@@ -64,8 +64,9 @@ async function docxText(file){
 
 async function readFile(file){
  if(file.type==='text/plain'||/\.txt$/i.test(file.name))return file.text();
- if(/\.pdf$/i.test(file.name))return pdfText(file);
+ if(/\.pdf$/i.test(file.name)||file.type==='application/pdf')return pdfText(file);
  if(/\.docx$/i.test(file.name))return docxText(file);
+ if(file.type==='application/vnd.openxmlformats-officedocument.wordprocessingml.document'||file.type?.includes('wordprocessingml'))return docxText(file);
  throw new Error('Unsupported file type. Please upload a PDF, DOCX or TXT file.');
 }
 
@@ -406,7 +407,38 @@ function App(){
  const openMasterCV=()=>{const masterCV=db.getMasterCV();setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
  const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
- const parseFile=async(kind,file)=>{if(!file)return;const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name):/\.(pdf|txt)$/i.test(file.name);if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}try{const text=await readFile(file);if(!text||!text.trim())throw new Error('The file contains no readable text. Please paste the text into the text box below.');if(kind==='cv'){const cleaned=cleanExtractedCVText(text);setCvFile(file);setCv(cleaned);saveSession('gjr_cv_text',cleaned)}else{setJdFile(file);setJd(text);saveSession('gjr_jd_text',text)}}catch(e){console.error('File parse exception:',e);if(e?.message?.includes('dynamically imported module')||e?.name==='TypeError'){window.location.reload();return}alert(e.message||'We could not read that file. Please paste your text into the box instead.')}};
+ useEffect(()=>{
+  window.__gjrSetCv=(text,file)=>{
+   const cleaned=cleanExtractedCVText(text);
+   if(file)setCvFile(file);
+   setCv(cleaned);
+   saveSession('gjr_cv_text',cleaned);
+  };
+  return ()=>{delete window.__gjrSetCv};
+ },[]);
+ const parseFile=async(kind,file)=>{
+  if(!file)return;
+  const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name)||(file.type==='application/pdf'||file.type==='text/plain'||file.type?.includes('wordprocessingml')):/\.(pdf|txt)$/i.test(file.name)||(file.type==='application/pdf'||file.type==='text/plain');
+  if(!ok){alert(kind==='cv'?'Please upload a PDF, DOCX or TXT CV.':'Please upload a PDF or TXT job description.');return}
+  try{
+   const text=await readFile(file);
+   if(!text||!text.trim())throw new Error('The file contains no readable text. Please paste the text into the text box below.');
+   if(kind==='cv'){
+    const cleaned=cleanExtractedCVText(text);
+    setCvFile(file);
+    setCv(cleaned);
+    saveSession('gjr_cv_text',cleaned);
+   }else{
+    setJdFile(file);
+    setJd(text);
+    saveSession('gjr_jd_text',text);
+   }
+  }catch(e){
+   console.error('File parse exception:',e);
+   if(e?.message?.includes('dynamically imported module')){window.location.reload();return}
+   alert(e.message||'We could not read that file. Please paste your text into the box instead.');
+  }
+ };
  const clearFile=kind=>{if(kind==='cv'){setCvFile(null);setCv('');try{sessionStorage.removeItem('gjr_cv_text')}catch{}}else{setJdFile(null);setJd('');try{sessionStorage.removeItem('gjr_jd_text')}catch{}}};
  const analyze=async()=>{
   if(!cv.trim())return alert('Upload your CV or paste your CV text.');
@@ -500,7 +532,7 @@ function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,
   {label:'Amazon · Analytics',jd:'Business & Product Analyst: SQL/Data analysis, metric tracking, user funnel optimization, cross-functional collaboration and customer-centric problem solving. Require structured problem solving, quantitative storytelling and bias for action.'}
  ];
  const applyPreset=p=>{setJd(p.jd);saveSession('gjr_jd_text',p.jd)};
- return <><div className="mode-switch"role="tablist"><button className={prep==='general'?'selected':''}onClick={()=>setPrep('general')}><span>📄</span><b>General CV</b>{prep==='general'&&<Check size={16}/>}</button><button className={prep==='specific'?'selected':''}onClick={()=>setPrep('specific')}><span>🎯</span><b>CV + specific JD</b>{prep==='specific'&&<Check size={16}/>}</button></div><div className="form-grid"><div className="input-card"><div className="label"><FileText size={17}/> Your CV</div><label className="dropzone"><Upload size={27}/><b>{cvFile?.name||'Upload your CV'}</b><span>{cvFile?'CV loaded · ready for review':'PDF, DOCX or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"onChange={e=>parseFile('cv',e.target.files?.[0])}/></label>{cvFile&&<button className="clear-file"onClick={()=>clearFile('cv')}><X size={15}/> Remove file</button>}<div className="or"><span>or paste CV text</span></div><textarea value={cv}onChange={e=>{setCv(e.target.value);saveSession('gjr_cv_text',e.target.value)}}placeholder="Paste your CV here…"/></div>{prep==='specific'?<div className="input-card"><div className="label"><BriefcaseBusiness size={17}/> Target Job Description</div><div className="preset-container"><span className="preset-title">⚡ Campus Placement Presets:</span><div className="preset-bar">{presets.map(p=><button key={p.label}className="preset-pill"type="button"onClick={()=>applyPreset(p)}>+ {p.label}</button>)}</div></div><label className="dropzone"><Upload size={27}/><b>{jdFile?.name||'Upload the job description'}</b><span>{jdFile?'JD loaded · role matching ready':'PDF or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,application/pdf,text/plain"onChange={e=>parseFile('jd',e.target.files?.[0])}/></label>{jdFile&&<button className="clear-file"onClick={()=>clearFile('jd')}><X size={15}/> Remove JD</button>}<div className="or"><span>or paste JD text</span></div><textarea className="tall"value={jd}onChange={e=>{setJd(e.target.value);saveSession('gjr_jd_text',e.target.value)}}placeholder="Paste the target job description or choose a campus recruiter preset above…"/></div>:<div className="input-card mode-explainer"><div className="label"><Sparkles size={17}/> General CV mode</div><div className="module-hero"><span className="eyebrow">CV ONLY</span><h2>No JD needed.</h2><p>Your CV is analysed on its own. You will edit and save the version you want the AI interviewer to use.</p></div></div>}<div className="full action-row"><div><b>{prep==='general'?'Ready to improve your CV?':'Ready to improve and match your CV?'}</b><span>Nothing sends you straight to interview. CV review always comes first.</span></div><button className="primary"disabled={loading||!cv.trim()||prep==='specific'&&!jd.trim()}onClick={analyze}>{loading?'Reviewing your CV…':<>Review & improve my CV <ArrowRight size={18}/></>}</button></div></div></>
+ return <><div className="mode-switch"role="tablist"><button className={prep==='general'?'selected':''}onClick={()=>setPrep('general')}><span>📄</span><b>General CV</b>{prep==='general'&&<Check size={16}/>}</button><button className={prep==='specific'?'selected':''}onClick={()=>setPrep('specific')}><span>🎯</span><b>CV + specific JD</b>{prep==='specific'&&<Check size={16}/>}</button></div><div className="form-grid"><div className="input-card"><div className="label"><FileText size={17}/> Your CV</div><label className="dropzone"><Upload size={27}/><b>{cvFile?.name||'Upload your CV'}</b><span>{cvFile?'CV loaded · ready for review':'PDF, DOCX or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"onChange={e=>{const f=e.target.files?.[0];e.target.value='';parseFile('cv',f)}}/></label>{cvFile&&<button className="clear-file"onClick={()=>clearFile('cv')}><X size={15}/> Remove file</button>}<div className="or"><span>or paste CV text</span></div><textarea id="cvText"value={cv}onChange={e=>{setCv(e.target.value);saveSession('gjr_cv_text',e.target.value)}}placeholder="Paste your CV here…"/></div>{prep==='specific'?<div className="input-card"><div className="label"><BriefcaseBusiness size={17}/> Target Job Description</div><div className="preset-container"><span className="preset-title">⚡ Campus Placement Presets:</span><div className="preset-bar">{presets.map(p=><button key={p.label}className="preset-pill"type="button"onClick={()=>applyPreset(p)}>+ {p.label}</button>)}</div></div><label className="dropzone"><Upload size={27}/><b>{jdFile?.name||'Upload the job description'}</b><span>{jdFile?'JD loaded · role matching ready':'PDF or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,application/pdf,text/plain"onChange={e=>{const f=e.target.files?.[0];e.target.value='';parseFile('jd',f)}}/></label>{jdFile&&<button className="clear-file"onClick={()=>clearFile('jd')}><X size={15}/> Remove JD</button>}<div className="or"><span>or paste JD text</span></div><textarea id="jdText"className="tall"value={jd}onChange={e=>{setJd(e.target.value);saveSession('gjr_jd_text',e.target.value)}}placeholder="Paste the target job description or choose a campus recruiter preset above…"/></div>:<div className="input-card mode-explainer"><div className="label"><Sparkles size={17}/> General CV mode</div><div className="module-hero"><span className="eyebrow">CV ONLY</span><h2>No JD needed.</h2><p>Your CV is analysed on its own. You will edit and save the version you want the AI interviewer to use.</p></div></div>}<div className="full action-row"><div><b>{prep==='general'?'Ready to improve your CV?':'Ready to improve and match your CV?'}</b><span>Nothing sends you straight to interview. CV review always comes first.</span></div><button className="primary"disabled={loading||!cv.trim()||prep==='specific'&&!jd.trim()}onClick={analyze}>{loading?'Reviewing your CV…':<>Review & improve my CV <ArrowRight size={18}/></>}</button></div></div></>
 }
 
 /* ─── CV ENGINE ─────────────────────────────────────────────── */
