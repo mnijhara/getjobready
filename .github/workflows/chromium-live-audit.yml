@@ -11,7 +11,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,21 +25,22 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Create dummy student fixtures
         run: |
-          python -m pip install --disable-pip-version-check reportlab pillow
+          python -m pip install --disable-pip-version-check reportlab pillow python-docx
           mkdir -p /tmp/gjr-audit
           python - <<'PY'
           from reportlab.pdfgen import canvas
           from reportlab.lib.pagesizes import letter
           from PIL import Image, ImageDraw
+          from docx import Document
           c = canvas.Canvas('/tmp/gjr-audit/dummy-text.pdf', pagesize=letter)
-          for y, t in [(740,'Alex Student'),(720,'Computer Science Student | alex@example.com'),(700,'Education: B.Tech Computer Science, Example University'),(680,'Projects: Built a campus placement tracker using React and Supabase.'),(660,'Skills: React, JavaScript, SQL, Python')]:
-              c.drawString(72, y, t)
+          for y, t in [(740,'Alex Student'),(720,'Computer Science Student | alex@example.com'),(700,'Education: B.Tech Computer Science, Example University'),(680,'Projects: Built a campus placement tracker using React and Supabase.'),(660,'Skills: React, JavaScript, SQL, Python')]: c.drawString(72,y,t)
           c.save()
-          img = Image.new('RGB', (1200,1600), 'white')
-          d = ImageDraw.Draw(img)
-          for y, t in [(100,'Alex Student'),(180,'Computer Science Student'),(260,'Education: B.Tech Computer Science'),(340,'Project: Campus placement tracker'),(420,'Skills: React, JavaScript, SQL, Python')]:
-              d.text((80,y), t, fill='black')
-          img.save('/tmp/gjr-audit/scanned-cv.pdf', resolution=150)
+          img=Image.new('RGB',(1200,1600),'white'); d=ImageDraw.Draw(img)
+          for y,t in [(100,'Alex Student'),(180,'Computer Science Student'),(260,'Education: B.Tech Computer Science'),(340,'Project: Campus placement tracker'),(420,'Skills: React, JavaScript, SQL, Python')]: d.text((80,y),t,fill='black')
+          img.save('/tmp/gjr-audit/scanned-cv.pdf',resolution=150)
+          doc=Document(); doc.add_paragraph('Alex Student'); doc.add_paragraph('Computer Science Student | alex@example.com'); doc.add_paragraph('Education: B.Tech Computer Science, Example University'); doc.add_paragraph('Projects: Built a campus placement tracker using React and Supabase.'); doc.add_paragraph('Skills: React, JavaScript, SQL, Python'); doc.save('/tmp/gjr-audit/dummy.docx')
+          open('/tmp/gjr-audit/dummy.txt','w').write('Alex Student\nComputer Science Student | alex@example.com\nEducation: B.Tech Computer Science, Example University\nProjects: Built a campus placement tracker using React and Supabase.\nSkills: React, JavaScript, SQL, Python')
+          open('/tmp/gjr-audit/not-allowed.exe','wb').write(b'not a supported document')
           PY
       - name: Run desktop + mobile Chromium audit
         env:
