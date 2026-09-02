@@ -13,11 +13,16 @@
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : (input?.url || '');
     if (url === '/api/extract-cv' && (init.method || 'GET').toUpperCase() === 'POST') {
-      // Prefer the same-origin server endpoint. This avoids browser CORS and keeps the
-      // existing production API as the canonical extraction path.
+      // Prefer the same-origin server endpoint only when it actually returns JSON.
+      // Static Hostinger deployments can return index.html with HTTP 200 for /api/*;
+      // that must NOT be treated as a successful extraction response.
       try {
         const serverResponse = await nativeFetch(input, init);
-        if (serverResponse.ok || (serverResponse.status >= 400 && serverResponse.status < 500 && serverResponse.status !== 404 && serverResponse.status !== 405)) {
+        const contentType = serverResponse.headers.get('content-type') || '';
+        if (contentType.toLowerCase().includes('application/json')) {
+          return serverResponse;
+        }
+        if (serverResponse.status >= 400 && serverResponse.status < 500 && serverResponse.status !== 404 && serverResponse.status !== 405) {
           return serverResponse;
         }
       } catch (e) {
