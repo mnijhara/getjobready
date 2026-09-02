@@ -1,0 +1,54 @@
+name: Chromium live student audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/live-audit.mjs'
+      - '.github/workflows/chromium-live-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Chromium test runner
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Create dummy student fixtures
+        run: |
+          python -m pip install --disable-pip-version-check reportlab pillow
+          mkdir -p /tmp/gjr-audit
+          python - <<'PY'
+          from reportlab.pdfgen import canvas
+          from reportlab.lib.pagesizes import letter
+          from PIL import Image, ImageDraw
+          c = canvas.Canvas('/tmp/gjr-audit/dummy-text.pdf', pagesize=letter)
+          for y, t in [(740,'Alex Student'),(720,'Computer Science Student | alex@example.com'),(700,'Education: B.Tech Computer Science, Example University'),(680,'Projects: Built a campus placement tracker using React and Supabase.'),(660,'Skills: React, JavaScript, SQL, Python')]:
+              c.drawString(72, y, t)
+          c.save()
+          img = Image.new('RGB', (1200,1600), 'white')
+          d = ImageDraw.Draw(img)
+          for y, t in [(100,'Alex Student'),(180,'Computer Science Student'),(260,'Education: B.Tech Computer Science'),(340,'Project: Campus placement tracker'),(420,'Skills: React, JavaScript, SQL, Python')]:
+              d.text((80,y), t, fill='black')
+          img.save('/tmp/gjr-audit/scanned-cv.pdf', resolution=150)
+          PY
+      - name: Run desktop + mobile Chromium audit
+        env:
+          GJR_AUDIT_FILES: /tmp/gjr-audit
+        run: node scripts/live-audit.mjs
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chromium-live-audit-report-${{ github.sha }}
+          path: live-audit-report.json
+          retention-days: 14
