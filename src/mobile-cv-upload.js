@@ -9,6 +9,20 @@
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   };
+  const inferMime = async (file) => {
+    const reported = String(file?.type || '').toLowerCase().split(';')[0].trim();
+    if (reported === 'application/pdf' || reported === 'text/plain' || reported === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return reported;
+    try {
+      const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+      const ascii = String.fromCharCode(...head);
+      if (ascii.startsWith('%PDF-')) return 'application/pdf';
+      if (ascii.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } catch {}
+    if (/\.pdf$/i.test(file?.name || '')) return 'application/pdf';
+    if (/\.txt$/i.test(file?.name || '')) return 'text/plain';
+    if (/\.docx$/i.test(file?.name || '')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    return reported;
+  };
   const toast = (msg, bad = false) => {
     let el = document.getElementById('gjr-cv-upload-status');
     if (!el) {
@@ -75,7 +89,8 @@
     const chunk = 0x8000;
     for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
     const data = btoa(binary);
-    const mime = file.type || (/.pdf$/i.test(file.name) ? 'application/pdf' : /\.txt$/i.test(file.name) ? 'text/plain' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    const mime = await inferMime(file);
+    if (!['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(mime)) throw new Error('Unsupported CV file type.');
     const r = await fetch('/api/extract-cv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
