@@ -588,7 +588,7 @@ function App(){
 
 
 
- if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback} answers={answers} onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}} onHome={goHome} onPractiseAgain={()=>{setAnswers([]);setQIndex(0);setScreen('interview')}}/></Workspace>;
+ if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback} answers={answers} onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}} onHome={goHome} onPractiseAgain={()=>{setAnswers([]);setQIndex(0);setScreen('interview')}} onImproveCV={()=>{setScreen('cvstudio')}} onModule={mid=>{const resolved=mid==='resilience'?'readiness':mid;setScreen(resolved)}}/></Workspace>;
 
  return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
 }
@@ -1380,7 +1380,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
  </div>
 }
 
-function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
+function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImproveCV,onModule}){
  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[]);
  const d=data||{score:0,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
  const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
@@ -1483,6 +1483,62 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain}){
    <button className="primary" onClick={()=>{if(onPractiseAgain)onPractiseAgain();else if(onHome)onHome();}}><Mic size={16}/> Practise Again</button>
   </div>
  </div>
+
+ <div className="journey-roadmap">
+  <div className="journey-header">
+   <span className="eyebrow">YOUR CAMPUS TO CORPORATE ROADMAP</span>
+   <h3>What to do next</h3>
+   <p>Follow these steps to go from interview-ready to corporate-ready.</p>
+  </div>
+  <div className="journey-steps">
+   <button className="journey-step" onClick={()=>{if(onImproveCV)onImproveCV()}}>
+    <div className="journey-step-num">1</div>
+    <div className="journey-step-icon"><FileText size={18}/></div>
+    <div className="journey-step-body">
+     <strong>Improve Your CV</strong>
+     <span>Your interview revealed gaps — fix your CV now while insights are fresh.</span>
+    </div>
+    <ChevronRight size={16} className="journey-step-arrow"/>
+   </button>
+   <button className="journey-step" onClick={()=>{if(onModule)onModule('demo')}}>
+    <div className="journey-step-num">2</div>
+    <div className="journey-step-icon"><Target size={18}/></div>
+    <div className="journey-step-body">
+     <strong>Build an AI Project for the Company</strong>
+     <span>Turn a real company problem into a polished AI solution — the differentiator that gets you hired.</span>
+    </div>
+    <ChevronRight size={16} className="journey-step-arrow"/>
+   </button>
+   <button className="journey-step" onClick={()=>{if(onModule)onModule('resilience')}}>
+    <div className="journey-step-num">3</div>
+    <div className="journey-step-icon"><ShieldCheck size={18}/></div>
+    <div className="journey-step-body">
+     <strong>Resilience &amp; Feedback Training</strong>
+     <span>Build mental toughness for rejection, learn to adapt from feedback cycles.</span>
+    </div>
+    <ChevronRight size={16} className="journey-step-arrow"/>
+   </button>
+   <button className="journey-step" onClick={()=>{if(onModule)onModule('readiness')}}>
+    <div className="journey-step-num">4</div>
+    <div className="journey-step-icon"><BriefcaseBusiness size={18}/></div>
+    <div className="journey-step-body">
+     <strong>Corporate Communication Training</strong>
+     <span>Master workplace communication, professional email, meetings &amp; stakeholder management.</span>
+    </div>
+    <ChevronRight size={16} className="journey-step-arrow"/>
+   </button>
+   <button className="journey-step" onClick={()=>{if(onModule)onModule('ai')}}>
+    <div className="journey-step-num">5</div>
+    <div className="journey-step-icon"><Sparkles size={18}/></div>
+    <div className="journey-step-body">
+     <strong>AI at Work Training</strong>
+     <span>Learn practical AI workflows that make you faster, sharper and more productive from Day 1.</span>
+    </div>
+    <ChevronRight size={16} className="journey-step-arrow"/>
+   </button>
+  </div>
+ </div>
+
 </div>
 }
 
