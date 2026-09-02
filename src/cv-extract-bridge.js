@@ -13,6 +13,17 @@
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : (input?.url || '');
     if (url === '/api/extract-cv' && (init.method || 'GET').toUpperCase() === 'POST') {
+      // Prefer the same-origin server endpoint. This avoids browser CORS and keeps the
+      // existing production API as the canonical extraction path.
+      try {
+        const serverResponse = await nativeFetch(input, init);
+        if (serverResponse.ok || (serverResponse.status >= 400 && serverResponse.status < 500 && serverResponse.status !== 404 && serverResponse.status !== 405)) {
+          return serverResponse;
+        }
+      } catch (e) {
+        console.warn('Same-origin CV extraction unavailable; trying proxy fallback:', e);
+      }
+
       try {
         const body = typeof init.body === 'string' ? JSON.parse(init.body) : (init.body || {});
         const data = String(body.data || '');
