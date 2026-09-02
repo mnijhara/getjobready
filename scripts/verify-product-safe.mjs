@@ -12,7 +12,7 @@ const server = read('server.cjs');
 if (!nativeEntry.includes("import './mobile-cv-upload.js';")) throw new Error('Canonical production entry must load the CV upload extraction helper.');
 if (!mobileUpload.includes("fetch('/api/extract-cv'")) throw new Error('CV upload helper must use the server extraction endpoint.');
 if (mobileUpload.includes('getjobready-ai-proxy.mnijhara.workers.dev')) throw new Error('CV upload helper must not expose or call the AI proxy directly from the browser.');
-if (!/your\\s\*cv|your\\s+cv/i.test(mobileUpload)) throw new Error('CV upload helper must identify the CV input independently of the accepted file list.');
+if (!/your\s*cv|your\s+cv/i.test(mobileUpload)) throw new Error('CV upload helper must identify the CV input independently of the accepted file list.');
 if (!mobileUpload.includes("input.accept = CV_ACCEPT")) throw new Error('CV upload helper must expand the CV picker to supported document formats.');
 if (!server.includes("app.post('/api/extract-cv'")) throw new Error('Server CV extraction fallback endpoint is missing.');
 
