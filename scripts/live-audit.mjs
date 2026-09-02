@@ -1,124 +1,25 @@
 import { chromium, devices } from 'playwright';
 import fs from 'node:fs';
 
-const base = 'https://getjobready.online/';
-const results = [];
-const failures = [];
-const dummy = `Alex Student\nComputer Science Student | alex@example.com\nEducation: B.Tech Computer Science, Example University\nProjects: Built a campus placement tracker using React and Supabase.\nSkills: React, JavaScript, SQL, Python`;
-
-function log(kind, msg) {
-  results.push({ kind, msg });
-  console.log(`[${kind}] ${msg}`);
-}
-
-async function auditDevice(name, contextOptions) {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ ...contextOptions });
-  const page = await context.newPage();
-  const consoleErrors = [];
-  const pageErrors = [];
-
-  page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
-  page.on('pageerror', e => pageErrors.push(e.message));
-  page.on('dialog', async d => {
-    log('dialog', `${name}: ${d.type()}: ${d.message()}`);
-    await d.dismiss();
-  });
-
-  try {
-    const response = await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    if (!response || !response.ok()) throw new Error(`home HTTP ${response?.status()}`);
-    await page.waitForTimeout(2500);
-    log('pass', `${name}: homepage loaded`);
-
-    const bodyText = await page.locator('body').innerText();
-    if (!bodyText.includes('GetJobReady')) throw new Error('GetJobReady branding/content missing');
-
-    const buttons = await page.locator('button:visible').allTextContents();
-    log('info', `${name}: ${buttons.length} visible buttons`);
-    const links = await page.locator('a:visible').evaluateAll(as => as.map(a => ({ text: (a.textContent || '').trim(), href: a.href })).slice(0, 100));
-    log('info', `${name}: ${links.length} visible links`);
-
-    const safeButtons = await page.locator('button:visible').evaluateAll(btns => btns.map((b, i) => ({
-      i, text: (b.textContent || '').trim(), disabled: b.disabled
-    })).filter(x => x.text && !x.disabled && !/(sign out|delete|remove|cancel|close|back|logout)/i.test(x.text)).slice(0, 30));
-
-    for (const b of safeButtons) {
-      try {
-        const loc = page.locator('button:visible').nth(b.i);
-        await loc.click({ timeout: 5000 });
-        await page.waitForTimeout(300);
-        await page.keyboard.press('Escape').catch(() => {});
-        log('pass', `${name}: clicked safe button "${b.text}"`);
-      } catch (e) {
-        failures.push(`${name}: button "${b.text}" failed: ${e.message}`);
-      }
-    }
-
-    const cvText = page.getByText('CV Preparation', { exact: false }).first();
-    if (await cvText.count()) {
-      await cvText.click({ timeout: 10000 }).catch(async () => { await cvText.locator('..').click().catch(() => {}); });
-      await page.waitForTimeout(1200);
-    }
-
-    const fileInputs = page.locator('input[type=file]');
-    if (!(await fileInputs.count())) throw new Error('no file input found in CV flow');
-
-    const tmp = process.env.GJR_AUDIT_FILES || '/tmp/gjr-audit';
-    for (const filename of ['dummy-text.pdf', 'scanned-cv.pdf']) {
-      const file = `${tmp}/${filename}`;
-      if (!fs.existsSync(file)) throw new Error(`audit fixture missing: ${filename}`);
-      await fileInputs.first().setInputFiles(file);
-      await page.waitForTimeout(1800);
-      log('pass', `${name}: uploaded ${filename}`);
-    }
-
-    const textarea = page.locator('textarea').first();
-    if (await textarea.count()) {
-      await textarea.fill(dummy);
-      log('pass', `${name}: filled dummy CV text`);
-    }
-
-    const action = page.getByRole('button', { name: /analy[sz]e|improve|continue|match|generate report|save/i }).first();
-    if (await action.count() && await action.isVisible()) {
-      await action.click({ timeout: 10000 }).catch(e => failures.push(`${name}: CV report/action failed: ${e.message}`));
-      await page.waitForTimeout(3000);
-      log('pass', `${name}: CV report/action exercised`);
-    }
-
-    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(1200);
-    const interview = page.getByText('AI Audio Interview', { exact: false }).first();
-    if (await interview.count()) {
-      await interview.click({ timeout: 10000 }).catch(async () => { await interview.locator('..').click().catch(() => {}); });
-      await page.waitForTimeout(1200);
-      const inputs = page.locator('input:visible, textarea:visible');
-      for (let i = 0; i < await inputs.count(); i++) {
-        const el = inputs.nth(i);
-        const type = (await el.getAttribute('type')) || 'text';
-        if (type !== 'file') await el.fill(type === 'email' ? 'audit@example.com' : dummy.slice(0, 120)).catch(() => {});
-      }
-      const start = page.getByRole('button', { name: /start|begin|practice|interview|continue/i }).first();
-      if (await start.count() && await start.isVisible()) {
-        await start.click({ timeout: 10000 }).catch(() => {});
-        await page.waitForTimeout(1500);
-        log('pass', `${name}: interview start/control exercised`);
-      }
-    }
-
-    if (consoleErrors.length) log('warn', `${name}: ${consoleErrors.length} console errors`);
-    if (pageErrors.length) failures.push(`${name}: ${pageErrors.length} page errors: ${pageErrors.slice(0, 5).join(' | ')}`);
-  } catch (e) {
-    failures.push(`${name}: ${e.message}`);
-  } finally {
-    await browser.close();
-  }
-}
-
-await auditDevice('desktop', { viewport: { width: 1440, height: 900 } });
-await auditDevice('mobile', { ...devices['Pixel 7'] });
-
-const report = { results, failures, generatedAt: new Date().toISOString() };
-fs.writeFileSync('live-audit-report.json', JSON.stringify(report, null, 2));
-console.log(JSON.stringify(report, null, 2));
-if (failures.length) process.exitCode = 1;
+const base='https://getjobready.online/';
+const results=[]; const failures=[];
+const dummy='Alex Student\nComputer Science Student | alex@example.com\nEducation: B.Tech Computer Science, Example University\nProjects: Built a campus placement tracker using React and Supabase.\nSkills: React, JavaScript, SQL, Python';
+const auditFiles=process.env.GJR_AUDIT_FILES||'/tmp/gjr-audit';
+const pass=m=>{results.push({kind:'pass',msg:m});console.log(`[PASS] ${m}`)};
+const info=m=>{results.push({kind:'info',msg:m});console.log(`[INFO] ${m}`)};
+const fail=m=>{failures.push(m);console.error(`[FAIL] ${m}`)};
+async function settle(p){for(let i=0;i<3;i++){const x=p.locator('button:visible').filter({hasText:/^(×|close|ok|got it|dismiss|back)$/i}).first();if(await x.count()&&await x.isVisible().catch(()=>false))await x.click({force:true}).catch(()=>{});await p.keyboard.press('Escape').catch(()=>{});await p.waitForTimeout(200)}}
+async function openByText(p,re,label){await settle(p);const x=p.getByText(re).first();if(!await x.count()||!await x.isVisible().catch(()=>false))return false;try{await x.scrollIntoViewIfNeeded();await x.click({timeout:8000});await p.waitForTimeout(900);pass(`${label} opened`);return true}catch(e){fail(`${label} click: ${e.message}`);return false}}
+async function audit(name,opts){const b=await chromium.launch({headless:true});const c=await b.newContext({...opts,permissions:['microphone']});const p=await c.newPage();const ce=[],pe=[];p.on('console',m=>m.type()==='error'&&ce.push(m.text()));p.on('pageerror',e=>pe.push(e.message));p.on('dialog',async d=>{info(`${name}: dialog ${d.type()} ${d.message()}`);await d.dismiss()});
+try{let r=await p.goto(base,{waitUntil:'domcontentloaded',timeout:60000});if(!r||!r.ok())throw Error(`home HTTP ${r?.status()}`);await p.waitForTimeout(1800);pass(`${name}: homepage loaded`);if(!(await p.locator('body').innerText()).includes('GetJobReady'))throw Error('branding missing');
+const links=await p.locator('a:visible').evaluateAll(as=>as.map(a=>({text:(a.textContent||'').trim(),href:a.href})));info(`${name}: ${links.length} visible links`);
+// Test each primary module independently from a clean page.
+for(const [label,re] of [['CV module',/CV|resume|job match/i],['Interview module',/AI Audio Interview|AI interviewer|voice interview|interview/i],['Corporate module',/Corporate Ready|workplace|corporate/i],['AI module',/AI at Work|AI skill|learn AI/i],['Profile',/profile/i],['Plan',/my plan|plan/i]]){await p.goto(base,{waitUntil:'domcontentloaded',timeout:60000});await p.waitForTimeout(500);await openByText(p,re,label)}
+// CV: locate actual file controls after opening the module, then exercise both PDF classes and paste input.
+await p.goto(base,{waitUntil:'domcontentloaded',timeout:60000});await p.waitForTimeout(500);await openByText(p,/CV|resume|job match/i,'CV');await settle(p);const fi=p.locator('input[type=file]');const n=await fi.count();info(`${name}: ${n} file inputs in CV flow`);if(!n)fail(`${name}: no CV file input`);else{for(const f of ['dummy-text.pdf','scanned-cv.pdf']){const path=`${auditFiles}/${f}`;if(!fs.existsSync(path)){fail(`${name}: missing ${f}`);continue}try{await fi.first().setInputFiles(path);await p.waitForTimeout(1200);pass(`${name}: uploaded ${f}`)}catch(e){fail(`${name}: upload ${f}: ${e.message}`)}}const ta=p.locator('textarea').first();if(await ta.count()&&await ta.isVisible().catch(()=>false)){await ta.fill(dummy);pass(`${name}: pasted dummy CV`)}const a=p.getByRole('button',{name:/analys|improve|match|continue|generate|save/i}).first();if(await a.count()&&await a.isVisible().catch(()=>false)){try{await a.click({timeout:12000});await p.waitForTimeout(3000);pass(`${name}: CV report action exercised`)}catch(e){fail(`${name}: CV report action: ${e.message}`)}}}
+// Interview: start, answer-like controls, finish/report controls if the current product exposes them.
+await p.goto(base,{waitUntil:'domcontentloaded',timeout:60000});await p.waitForTimeout(500);await openByText(p,/AI Audio Interview|AI interviewer|voice interview|interview/i,'Interview');await settle(p);const start=p.getByRole('button',{name:/start|begin|practice|continue|ready/i}).first();if(await start.count()&&await start.isVisible().catch(()=>false)){try{await start.click({timeout:12000});await p.waitForTimeout(1500);pass(`${name}: interview started`)}catch(e){fail(`${name}: interview start: ${e.message}`)}}else info(`${name}: interview start not exposed without prerequisites`);const textInputs=p.locator('textarea:visible,input:visible:not([type=file])');if(await textInputs.count())await textInputs.first().fill('I built a placement tracker project and improved the workflow using React.');const next=p.getByRole('button',{name:/next|submit answer|continue/i}).first();if(await next.count()&&await next.isVisible().catch(()=>false))await next.click({timeout:10000}).catch(e=>fail(`${name}: interview next: ${e.message}`));const finish=p.getByRole('button',{name:/finish|end interview|complete|done/i}).first();if(await finish.count()&&await finish.isVisible().catch(()=>false)){await finish.click({timeout:10000}).catch(e=>fail(`${name}: interview finish: ${e.message}`));await p.waitForTimeout(1800);pass(`${name}: interview completion exercised`)}
+if(ce.length)info(`${name}: console errors ${ce.length}: ${ce.slice(0,8).join(' | ')}`);if(pe.length)fail(`${name}: page errors: ${pe.slice(0,8).join(' | ')}`);
+}catch(e){fail(`${name}: fatal ${e.message}`)}finally{await b.close()}}
+await audit('desktop',{viewport:{width:1440,height:900}});await audit('mobile',{...devices['Pixel 7']});
+const report={base,results,failures,generatedAt:new Date().toISOString()};fs.writeFileSync('live-audit-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));if(failures.length)process.exitCode=1;
