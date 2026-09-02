@@ -31,23 +31,28 @@ async function pdfText(file){
   const pdfjs=lib.default&&lib.default.getDocument?lib.default:lib;
   pdfjs.GlobalWorkerOptions.workerSrc='/pdf.worker.mjs';
   const pdf=await pdfjs.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise;
-  let out='';for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);const t=await p.getTextContent();out+=t.items.map(x=>x.str).join(' ')+'\n'}
-  if(out.trim()&&out.trim().length>30)return out.trim();
+  let out='';
+  for(let i=1;i<=pdf.numPages;i++){
+   const p=await pdf.getPage(i);
+   const t=await p.getTextContent();
+   out+=t.items.map(x=>x.str).join(' ')+'\n';
+  }
+  const clean=out.trim();
+  if(clean.length>30&&!/^\s*%PDF-/i.test(clean)&&!/\/FlateDecode|\/Linearized/i.test(clean)){
+   return clean;
+  }
  }catch(err){
-  console.warn('PDF.js parsing failed, trying text extraction fallback:',err);
+  console.warn('PDF.js parsing failed, using server AI extraction:',err);
  }
- try{
-  const raw=await file.text();
-  const clean=raw.replace(/[^\x20-\x7E\n\r\t]/g,' ').replace(/\s+/g,' ').trim();
-  if(clean.length>40)return clean;
- }catch{}
  try{
   const bytes=new Uint8Array(await file.arrayBuffer());
   let binary='';const chunk=0x8000;
   for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
   const base64=btoa(binary);
   const res=await post('/api/extract-cv',{data:base64,mime:file.type||'application/pdf'});
-  if(res?.text)return res.text;
+  if(res?.text&&!/^\s*%PDF-/i.test(res.text)){
+   return res.text;
+  }
  }catch(e){
   console.warn('Server-side AI PDF extraction fallback failed:',e);
  }
