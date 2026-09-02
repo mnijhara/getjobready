@@ -9,8 +9,6 @@ const root = __dirname;
 // Deployment parity marker: keep the Hostinger Node entrypoint tied to the GitHub build.
 const allowedOrigin = (process.env.PUBLIC_BASE_URL || 'https://getjobready.online').replace(/\/$/, '');
 app.disable('x-powered-by');
-// GetJobReady is normally behind a single trusted reverse proxy. Trust only that
-// first hop so req.ip uses the real client address for per-student rate limiting.
 app.set('trust proxy', 1);
 app.use(cors({ origin: (origin, callback) => { if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true); return callback(null, false); }, methods: ['GET','POST','OPTIONS'], credentials: false }));
 app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','SAMEORIGIN');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','microphone=(self), camera=(), geolocation=()');if(req.path.startsWith('/api/')){res.setHeader('Cache-Control','no-store, max-age=0');res.setHeader('Pragma','no-cache');}next();});
@@ -24,6 +22,28 @@ app.use('/api', (req,res,next)=>{if(req.path==='/health'||req.path==='/ai-status
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'getjobready', ai: publicStatus() }));
 app.get('/api/ai-status', (req, res) => res.json(publicStatus()));
+
+// Extract plain CV text for browser upload fallbacks. The frontend uses this endpoint
+// when local PDF.js/Mammoth extraction is unavailable or returns no readable text.
+// Keep this separate from /api/analyze-upload because that endpoint intentionally returns
+// a structured readiness report, not raw CV text.
+app.post('/api/extract-cv', async (req, res) => {
+  const { data = '', mime = 'application/pdf' } = req.body || {};
+  if (!data) return res.status(400).json({ error: 'CV file data is required.' });
+  if (data.length > 7_000_000) return res.status(413).json({ error: 'CV file is too large. Please keep it under 5 MB.' });
+  const allowedMimes = ['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  if (!allowedMimes.includes(mime)) return res.status(415).json({ error: 'Unsupported CV file type.' });
+  try {
+    const prompt = `Read the attached CV and return ONLY the readable CV text, preserving names, headings, dates, employers, education, projects, skills and bullet content. Do not summarize, analyse, rewrite, invent or add anything. Preserve the source wording as closely as possible. If the document is an image/scanned PDF, use visual understanding to transcribe its readable text. Output plain text only.`;
+    const text = await generate(prompt, { parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }], json: false, responseMimeType: 'text/plain', maxOutputTokens: 12000 });
+    const clean = String(text || '').trim();
+    if (!clean) return res.status(422).json({ error: 'No readable CV text was found in the uploaded document.' });
+    return res.json({ text: clean });
+  } catch (error) {
+    console.error('extract-cv:', error.message);
+    return res.status(503).json({ error: 'CV extraction is temporarily unavailable. Please retry in a moment.' });
+  }
+});
 
 const analysisPrompt = (cv, jd, career, mode='specific') => mode === 'general'
   ? `You are an expert campus recruiter and CV strategist. Analyse this student's CV WITHOUT assuming a specific job. Return ONLY valid JSON with exactly these keys: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4; rewrite only when source evidence supports it and never invent facts), plan (exactly 7 actionable steps), interviewQuestions (exactly 5 general interview questions grounded in the CV). Questions must test the candidate's actual projects, experience, achievements, strengths, weaknesses, teamwork, ownership, problem solving and behavioural readiness. Do not invent employers, skills, achievements or a target role.\n\nCV:\n${String(cv).slice(0,40000)}`
