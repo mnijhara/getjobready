@@ -90,11 +90,11 @@ function cleanExtractedCVText(raw){
   .replace(/\r\n/g,'\n')
   // Split on section headers (case-insensitive with flexible whitespace)
   .replace(/\s+(Education|Academic Background|Academics|Academic Details)\s+/gi,'\n\nEDUCATION\n')
-  .replace(/\s+(Experience|Work Experience|Professional Experience|Internships)\s+/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
-  .replace(/\s+(Projects|Key Projects|Academic Projects|Personal Projects)\s+/gi,'\n\nKEY PROJECTS\n')
-  .replace(/\s+(Technical Skills|Technical Expertise|Key Skills|Skills & Tools|Skills)\s+/gi,'\n\nTECHNICAL SKILLS\n')
+  .replace(/\s+(Summer\s+Internship\s*(&|and)?\s*Live\s*Projects|Summer\s+Internships?|Experience|Work Experience|Professional Experience|Internships?|Work History)\s+/gi,'\n\nPROFESSIONAL EXPERIENCE\n')
+  .replace(/\s+(Projects|Key Projects|Academic Projects|Personal Projects|Live Projects)\s+/gi,'\n\nKEY PROJECTS\n')
+  .replace(/\s+(Key Skills\s*(&|and)?\s*Certifications|Technical Skills|Technical Expertise|Key Skills|Skills & Tools|Skills)\s+/gi,'\n\nTECHNICAL SKILLS\n')
   .replace(/\s+(Achievements|Honors & Awards|Awards|Competitive Programming)\s+/gi,'\n\nACHIEVEMENTS\n')
-  .replace(/\s+(Leadership & Responsibility|Positions of Responsibility|Leadership|Extracurricular)\s+/gi,'\n\nLEADERSHIP\n')
+  .replace(/\s+(Positions\s+of\s+Responsibility\s*(&|and)?\s*Leadership|Leadership & Responsibility|Positions of Responsibility|Leadership|Extracurricular)\s+/gi,'\n\nLEADERSHIP\n')
   .replace(/\s+(Certifications|Certificates|Courses)\s+/gi,'\n\nCERTIFICATIONS\n')
   .replace(/(▪|•|◆|●|\*\s+)/g,'\n• ');
 
@@ -104,15 +104,46 @@ function cleanExtractedCVText(raw){
   .join('\n');
 }
 
+function detectDomain(cvText, jdText, roleName){
+ const context = ((roleName||'') + ' ' + (jdText||'') + ' ' + (cvText||'')).toLowerCase();
+ const targetContext = ((roleName||'') + ' ' + (jdText||'')).toLowerCase();
+ const isMBA = /\b(mba|pgdm|post\s*graduate\s*diploma|iim|imt|xlri|nmims|sibm|fms|mdi|spjimr|isb|b-school|business school|management trainee)\b/i.test(context);
+
+ // Target JD / Role takes top precedence if present
+ if (/\b(marketing|brand|sales|trade|fmcg|gtm|consumer|retail|distribution|dealer|merchandising|territory)\b/i.test(targetContext)) return 'Marketing';
+ if (/\b(finance|banking|valuation|equity|portfolio|cfa|financial|investment|credit|treasury|wealth)\b/i.test(targetContext)) return 'Finance';
+ if (/\b(consulting|strategy|operations|supply chain|scm|logistics|procurement|lean six sigma|management consulting)\b/i.test(targetContext)) return 'Consulting';
+ if (/\b(human resources|talent acquisition|recruitment|people ops|hrbp|employee engagement)\b/i.test(targetContext)) return 'HR';
+
+ // When candidate has MBA / PGDM background, check management domains before undergrad engineering keywords
+ if (isMBA) {
+  if (/\b(marketing|brand|sales|trade|fmcg|gtm|consumer|retail|distribution|dealer|campaign)\b/i.test(context)) return 'Marketing';
+  if (/\b(finance|banking|valuation|equity|portfolio|cfa|financial|investment|credit|treasury|wealth)\b/i.test(context)) return 'Finance';
+  if (/\b(consulting|strategy|operations|supply chain|scm|logistics|procurement|process)\b/i.test(context)) return 'Consulting';
+  if (/\b(human resources|talent acquisition|recruitment|people ops|hrbp)\b/i.test(context)) return 'HR';
+  return 'General Management';
+ }
+
+ // Non-MBA business domains
+ if (/\b(marketing|brand|campaign|consumer insights|trade marketing|growth marketing)\b/i.test(context)) return 'Marketing';
+ if (/\b(finance|valuation|equity|portfolio|cfa|financial analyst|investment banking)\b/i.test(context)) return 'Finance';
+ if (/\b(human resources|talent acquisition|recruitment|people ops|hrbp)\b/i.test(context)) return 'HR';
+ if (/\b(consulting|strategy|supply chain|operations)\b/i.test(context)) return 'Consulting';
+
+ // Technology only when candidate has software/coding roles or technical skills without business pivot
+ if (/\b(software\s*engineer|software\s*developer|coding|backend|frontend|fullstack|algorithms|data structures|web\s*development|distributed systems|devops|react|node|golang|c\+\+|java\b)/i.test(context)) return 'Technology';
+
+ return 'General';
+}
 
 function generateTailoredCVQuestions(cvText,jd,role){
  const cv=cvText||'';
  const lines=cv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
  const companies=[];const bullets=[];
  lines.forEach(l=>{
-  if(l.includes(' · ')||l.includes(' - ')){
-   companies.push(l.split(' · ')[0]||l);
-  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(l)){
+  if(l.includes(' · ')||l.includes(' - ')||l.includes(' — ')){
+   companies.push(l.split(/[·\-—]/)[0]?.trim()||l);
+  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|LEADERSHIP|@|\.com|\.in|\+91|linkedin)/i.test(l)){
    bullets.push(l);
   }
  });
@@ -120,25 +151,24 @@ function generateTailoredCVQuestions(cvText,jd,role){
  const b1=bullets[0]||'your key achievements';
  const b2=bullets[1]||'a major project';
  const comp=companies[0]||'your previous organisation or project';
- const topContext=lines.slice(0,15).join(' ')+' '+(role||'')+' '+(jd||'');
- const domain=/\b(software|engineer|developer|coding|backend|frontend|fullstack|java|python|golang|go|react|node|c\+\+|computer science|b\.tech|btech|algorithms|git|cloud|aws|docker)\b/i.test(topContext)?'Technology'
-  :/\b(marketing|brand|campaign|consumer|growth|advertising)\b/i.test(topContext)?'Marketing'
-  :/\b(finance|banking|valuation|equity|portfolio|cfa|financial)\b/i.test(topContext)?'Finance'
-  :/\b(human resources|hrbp|talent acquisition|recruitment|people ops)\b/i.test(topContext)?'Human Resources'
-  :/\b(consulting|strategy|operations|business analyst)\b/i.test(topContext)?'Management Consulting'
-  :(role||'your field');
- const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test(topContext);
+ const domain=detectDomain(cv, jd, role);
+ const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test((role||'')+' '+(jd||'')+' '+cv.slice(0,300));
+ const isEngineerToMBA=/\b(b\.?tech|b\.?e\.?|computer science|electrical|mechanical|civil|engineering)\b/i.test(cv)&&/\b(mba|pgdm|marketing|sales|finance|consulting|hr)\b/i.test(cv);
 
- const q1=`Tell me about yourself — your background in ${domain}, your academic journey, and the one experience or project you're most proud of so far.`;
+ const q1=`Tell me about yourself — your background in ${domain==='Technology'?'Technology':domain}, your academic journey, and the one experience or project you're most proud of so far.`;
  const q2=`In your CV, you mention "${b1.slice(0,85)}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
- const q3=isInternship
-  ?`Tell me about your summer internship or key technical project. What was your day-to-day responsibility, what tools or AI did you use, and what's the one number that shows your impact?`
+ const q3=isEngineerToMBA
+  ?`You completed your undergraduate degree in engineering and are now pursuing an MBA in ${domain} — walk me through what drove that pivot, and why you are targeting this specific role.`
+  :isInternship
+  ?`Tell me about your summer internship or key project. What was your day-to-day responsibility, what data, tools or AI did you use, and what's the one number that proves your business impact?`
   :`Tell me about a major project at ${comp.slice(0,40)}. What was your personal ownership, what challenge did you face, and what was the quantifiable outcome?`;
- const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or modern frameworks — in your work or studies? Give me a specific example where it made you faster or more effective.`;
- const q5=`Describe a time when something went wrong, a deadline was missed, or you faced a technical roadblock. How did you debug or resolve it and what would you do differently?`;
+ const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or analytics frameworks — in your work or studies? Give me a specific example where it made you faster or more effective.`;
+ const q5=domain==='Marketing'||domain==='Consulting'||domain==='General Management'
+  ?`Describe a time when you faced conflict with a team member, dealer, or stakeholder, or when a project hit an unexpected bottleneck. How did you handle it and what was the resolution?`
+  :`Describe a time when something went wrong, a deadline was missed, or you faced a technical roadblock. How did you debug or resolve it and what would you do differently?`;
  const q6=`If you joined ${role?'the '+role+' team':'this team'} tomorrow, what's your 30-day plan to add real value, build relationships, and prove yourself quickly?`;
 
-  return[q1,q2,q3,q4,q5,q6];
+ return[q1,q2,q3,q4,q5,q6];
 }
 
 function evaluateInterviewTurnLocal(question,answer,history){
@@ -159,35 +189,35 @@ function evaluateInterviewTurnLocal(question,answer,history){
   turnScore=25;
   note=`25/100 — Lacks STAR Depth (${wordCount} words). Mentions high-level activities but lacks specific technical decisions, individual ownership ("I architected / I built"), and quantifiable results.`;
  }else if(wordCount<45){
-  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k))/i.test(cleanAns);
-  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role)\b/i.test(cleanAns);
+  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k|dealers|stores|outlets|clients))/i.test(cleanAns);
+  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role|i\s+analyzed|i\s+formulated|i\s+managed)\b/i.test(cleanAns);
   if(!hasMetrics&&!hasOwnership){
    turnScore=40;
-   note=`40/100 — Needs STAR Structure & Metrics. Missing personal ownership verbs ("I built...") and measurable results (%, latency, scale, time saved).`;
+   note=`40/100 — Needs STAR Structure & Metrics. Missing personal ownership verbs ("I built / I led...") and measurable results (%, scale, time saved, revenue).`;
   }else if(!hasMetrics){
    turnScore=50;
-   note=`50/100 — Solid structure but missing numbers. Recruiters look for quantifiable proof: % improvement, latency reduction, or scale.`;
+   note=`50/100 — Solid structure but missing numbers. Recruiters look for quantifiable proof: % improvement, growth, latency reduction, or scale.`;
   }else{
    turnScore=60;
-   note=`60/100 — Good attempt with metrics, but expand on the technical architecture, decisions made, and obstacles overcome.`;
+   note=`60/100 — Good attempt with metrics, but expand on the specific methods, decisions made, and obstacles overcome.`;
   }
  }else{
-  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k))/i.test(cleanAns);
-  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role|i\s+took\s+ownership)\b/i.test(cleanAns);
-  const hasTechDepth=/(api|database|sql|nosql|cache|redis|node|react|python|cloud|r2|cloudflare|aws|docker|microservice|tracing|middleware|architecture|pipeline)/i.test(cleanAns);
+  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k|dealers|stores|outlets|clients))/i.test(cleanAns);
+  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role|i\s+took\s+ownership|i\s+analyzed|i\s+formulated|i\s+conducted|i\s+managed|i\s+spearheaded)\b/i.test(cleanAns);
+  const hasDepth=/(api|database|sql|nosql|cache|redis|node|react|python|cloud|aws|docker|microservice|architecture|pipeline|roi|revenue|margin|ebitda|dealer|retail|distribution|sales|channel|turnover|cost|customer|client|attrition|sourcing|valuation|dcf|pricing|market\s*share|penetration|retention|conversion|growth|gtm|spss|tableau|power\s*bi)/i.test(cleanAns);
 
-  if(hasMetrics&&hasOwnership&&hasTechDepth){
+  if(hasMetrics&&hasOwnership&&hasDepth){
    turnScore=Math.min(95,80+Math.min(15,Math.floor((wordCount-45)/5)));
-   note=`Strong STAR Answer (${turnScore}/100). Demonstrates clear Situation, personal Action, deep technical context, and measurable outcomes.`;
+   note=`Strong STAR Answer (${turnScore}/100). Demonstrates clear Situation, personal Action, deep domain context, and measurable outcomes.`;
   }else if(hasOwnership&&hasMetrics){
    turnScore=75;
-   note=`75/100 — Good STAR structure with metrics and ownership. Mention specific technical components/tools to reach 90+.`;
+   note=`75/100 — Good STAR structure with metrics and ownership. Mention specific domain methods, tools or business frameworks to reach 90+.`;
   }else if(hasMetrics){
    turnScore=65;
-   note=`65/100 — Includes numbers, but emphasize YOUR direct role ("I built", "I resolved") rather than general team accomplishments.`;
+   note=`65/100 — Includes numbers, but emphasize YOUR direct role ("I built", "I formulated", "I led") rather than general team accomplishments.`;
   }else{
    turnScore=55;
-   note=`55/100 — Clear explanation, but missing quantifiable impact (percentages, time saved, or scale).`;
+   note=`55/100 — Clear explanation, but missing quantifiable impact (percentages, revenue, time saved, or scale).`;
   }
  }
 
@@ -563,11 +593,12 @@ function parseCV(raw){
  let name='',title='',contact='';
 
  const firstLine=lines[0]||'';
+ const topText=lines.slice(0,5).join('\n');
 
  // 1. Extract name from top line (before pipe '|', '+', email, or role titles)
- const emailMatch=firstLine.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+ const emailMatch=topText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
  const email=emailMatch?emailMatch[0]:'';
- const phoneMatch=firstLine.match(/\+?\d[\d\s\-]{8,}\d/);
+ const phoneMatch=topText.match(/\+?\d[\d\s\-]{8,}\d/);
  const phone=phoneMatch?phoneMatch[0].trim():'';
 
  let nameCandidate=firstLine
@@ -609,16 +640,15 @@ function parseCV(raw){
   if(roleParts.length)title=roleParts.join(' | ');
  }
 
-
- // 3. Build clean contact line
+ // 3. Build clean contact line across top lines
  const contactParts=[];
  if(phone)contactParts.push(phone);
  if(email)contactParts.push(email);
- if(/LinkedIn/i.test(firstLine))contactParts.push('LinkedIn');
- if(/GitHub/i.test(firstLine))contactParts.push('GitHub');
- if(/LeetCode/i.test(firstLine))contactParts.push('LeetCode');
- if(/CodeChef/i.test(firstLine))contactParts.push('CodeChef');
- if(/Codeforces/i.test(firstLine))contactParts.push('Codeforces');
+ if(/LinkedIn/i.test(topText))contactParts.push('LinkedIn');
+ if(/GitHub/i.test(topText))contactParts.push('GitHub');
+ if(/LeetCode/i.test(topText))contactParts.push('LeetCode');
+ if(/CodeChef/i.test(topText))contactParts.push('CodeChef');
+ if(/Codeforces/i.test(topText))contactParts.push('Codeforces');
  contact=contactParts.join(' | ');
 
  const sections={summary:[],competencies:[],experience:[],projects:[],education:[],certifications:[],achievements:[],leadership:[],others:[]};
@@ -636,14 +666,17 @@ function parseCV(raw){
  };
 
  lines.slice(1).forEach(l=>{
+  // Ignore contact line so it doesn't pollute others
+  if((email&&l.includes(email))||(phone&&l.includes(phone)))return;
+
   if(/(EXECUTIVE SUMMARY|PROFESSIONAL SUMMARY|SUMMARY|PROFILE|OBJECTIVE|ABOUT ME)/i.test(l)&&l.length<40){finishBlock();currentSection='summary';return}
   if(/(CORE COMPETENCIES|TECHNICAL SKILLS|SKILLS & TOOLS|KEY SKILLS|SKILLS|TECHNOLOGIES|COURSEWORK)/i.test(l)&&l.length<40){finishBlock();currentSection='competencies';return}
-  if(/(PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|INTERNSHIPS|EMPLOYMENT)/i.test(l)&&l.length<40){finishBlock();currentSection='experience';return}
-  if(/(KEY PROJECTS|PROJECTS|ACADEMIC PROJECTS|PERSONAL PROJECTS)/i.test(l)&&l.length<40){finishBlock();currentSection='projects';return}
+  if(/(PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EXPERIENCE|SUMMER INTERNSHIP|INTERNSHIP|WORK HISTORY|EMPLOYMENT)/i.test(l)&&l.length<55){finishBlock();currentSection='experience';return}
+  if(/(KEY PROJECTS|PROJECTS|ACADEMIC PROJECTS|PERSONAL PROJECTS|LIVE PROJECTS)/i.test(l)&&l.length<45){finishBlock();currentSection='projects';return}
   if(/(EDUCATION|ACADEMIC BACKGROUND|ACADEMIC DETAILS|ACADEMICS)/i.test(l)&&l.length<40){finishBlock();currentSection='education';return}
   if(/(CERTIFICATIONS|COURSES|TRAINING|LICENSES)/i.test(l)&&l.length<40){finishBlock();currentSection='certifications';return}
   if(/(ACHIEVEMENTS|HONORS|AWARDS|COMPETITIVE PROGRAMMING)/i.test(l)&&l.length<40){finishBlock();currentSection='achievements';return}
-  if(/(LEADERSHIP & RESPONSIBILITY|LEADERSHIP|POSITIONS OF RESPONSIBILITY|VOLUNTEERING)/i.test(l)&&l.length<40){finishBlock();currentSection='leadership';return}
+  if(/(LEADERSHIP & RESPONSIBILITY|LEADERSHIP|POSITIONS OF RESPONSIBILITY|VOLUNTEERING)/i.test(l)&&l.length<45){finishBlock();currentSection='leadership';return}
 
   if(currentSection==='summary'){sections.summary.push(l);return}
   if(currentSection==='competencies'){
@@ -665,7 +698,7 @@ function parseCV(raw){
     }
    }else{
     finishBlock();
-    const parts=l.split(/\s+[·|]\s+/);
+    const parts=l.split(/\s+[·|—]\s+/);
     currentJob={role:parts[0]||l,company:parts[1]||'',dates:parts.slice(2).join(' · ')||'',bullets:[]};
    }
    return;
@@ -682,31 +715,27 @@ function generateSuggestions(parsed,jd){
  const sugg=[];let id=0;
  const{sections,name,title}=parsed;
  const allText=JSON.stringify(parsed).toLowerCase();
-
- // Strict domain detection
- const domain=/\b(software|engineer|developer|coding|backend|frontend|fullstack|java|python|golang|go|react|node|c\+\+|computer science|b\.tech|btech|algorithms|git|cloud|aws|docker)\b/i.test(allText)?'Technology'
-  :/\b(human resources|talent acquisition|recruitment|people ops|hrbp)\b/i.test(allText)?'HR'
-  :/\b(finance|banking|valuation|equity|portfolio|cfa|financial analyst)\b/i.test(allText)?'Finance'
-  :/\b(marketing|brand management|campaign|digital marketing|consumer insights)\b/i.test(allText)?'Marketing'
-  :'General';
+ const domain=detectDomain(allText, jd||'', title||'');
 
  const firstExp=sections.experience[0]||sections.projects[0];
  const firstCompany=firstExp?.company||firstExp?.role||'your key role';
- const firstRole=firstExp?.role||'Software Engineer';
+ const firstRole=firstExp?.role||(domain==='Marketing'?'Marketing Trainee':domain==='Finance'?'Financial Analyst':'Professional');
  const allBullets=[...sections.experience.flatMap(e=>e.bullets),...sections.projects.flatMap(p=>p.bullets)];
  const yearsMatch=allText.match(/(\d+)\s*(\+?\s*)year/i);
  const yearsExp=yearsMatch?parseInt(yearsMatch[1]):null;
 
  // 1. Executive Summary
  if(!sections.summary.length){
-  const sumExample=domain==='Technology'
-   ?`Software Engineer with strong foundation in distributed systems, REST APIs, and scalable web architecture. Proven track record solving 800+ algorithmic problems and delivering production-ready applications.`
+  const sumExample=domain==='Marketing'
+   ?`MBA / PGDM (Marketing) with proven experience in channel sales distribution, GTM strategy, brand management, and market expansion. Track record translating consumer insights and trade partner data into measurable revenue growth.`
+   :domain==='Finance'
+   ?`MBA / PGDM (Finance) with strong analytical foundation in corporate finance, valuation modeling (DCF, multiples), credit risk analysis, and financial statement analysis.`
+   :domain==='Consulting'||domain==='General Management'
+   ?`Management professional specializing in operational excellence, process optimization, stakeholder consensus, and data-backed business problem solving.`
    :domain==='HR'
    ?`${yearsExp?yearsExp+'+ years of':''} experience in talent acquisition, HRBP, and organisational development. Proven track record building high-performance teams and reducing attrition.`
-   :domain==='Finance'
-   ?`Finance professional with strong analytical skills in financial modelling, credit analysis, and stakeholder management. Consistent track record of data-driven decision-making.`
-   :domain==='Marketing'
-   ?`Marketing professional specialising in brand management, consumer insights, and digital campaigns. Experience translating data into actionable growth strategies.`
+   :domain==='Technology'
+   ?`Software Engineer with strong foundation in distributed systems, REST APIs, and scalable web architecture. Proven track record delivering production-ready applications and robust code.`
    :`Results-driven professional with hands-on experience in ${firstRole}. Strong problem-solver with a track record of measurable impact.`;
   sugg.push({id:id++,type:'add_section',section:'EXECUTIVE SUMMARY',icon:'📝',label:'Add a powerful Executive Summary (missing)',preview:sumExample,checked:true});
  }else{
@@ -718,40 +747,46 @@ function generateSuggestions(parsed,jd){
 
  // 2. Competencies
  if(sections.competencies.length<6){
-  const compExamples=domain==='Technology'?'Data Structures & Algorithms · System Design · Go / React · REST APIs & WebSockets · SQL / NoSQL · Docker & Cloud'
+  const compExamples=domain==='Marketing'?'Channel Sales & Distribution · GTM Strategy · Brand Management · Market Research & Consumer Insights · Retail Penetration · Trade Promotions · Competitor Benchmarking · SPSS & Tableau'
+   :domain==='Finance'?'Financial Modelling · DCF Valuation · Financial Statement Analysis · Credit Risk Assessment · Advanced Excel & SQL · Capital Budgeting · Portfolio Analysis'
+   :domain==='Consulting'||domain==='General Management'?'Business Strategy & Problem Solving · Process Optimization · Supply Chain & Logistics · Stakeholder Management · Data-Driven Decision Making · Lean Six Sigma · Client Presentations'
    :domain==='HR'?'Talent Acquisition · HRBP · Org Design · Change Management · Employee Engagement · People Analytics'
-   :domain==='Finance'?'Financial Modelling · Credit Analysis · DCF Valuation · Risk Assessment · Stakeholder Management · Excel/SQL'
-   :domain==='Marketing'?'Brand Management · Consumer Insights · Digital Marketing · Campaign ROI · Market Research · Content Strategy'
+   :domain==='Technology'?'Data Structures & Algorithms · System Design · Go / React · REST APIs & WebSockets · SQL / NoSQL · Docker & Cloud'
    :'Data Analysis · Problem Solving · Stakeholder Communication · Project Management · Critical Thinking · Presentation';
   sugg.push({id:id++,type:'add_competencies',section:'CORE COMPETENCIES',icon:'⚡',label:`Expand Core Competencies — you have only ${sections.competencies.length}, recruiters expect 6–9`,preview:compExamples,checked:true});
  }
 
  // 3. AI / modern tools
  if(!/ai|chatgpt|claude|copilot|llm|analytics|docker/i.test(allText)){
-  const aiExample=domain==='Technology'
-   ?`Integrated LLM-driven APIs and automated prompt pipelines with strict schema validation to accelerate feature delivery.`
+  const aiExample=domain==='Marketing'
+   ?`Leveraged AI research and consumer sentiment tools (ChatGPT, Claude) to model customer preferences and accelerate campaign GTM by 30%.`
+   :domain==='Finance'
+   ?`Used AI analytics tools and advanced Excel automation to streamline financial modeling and reduce report turnaround by 35%.`
    :domain==='HR'
    ?`Used AI-powered ATS analytics and ChatGPT to screen 500+ applications, reducing time-to-hire by 28% and improving quality-of-hire scores.`
-   :`Leveraged AI research tools (ChatGPT, Claude) to automate workflows and accelerate project delivery by 35%.`;
+   :domain==='Technology'
+   ?`Integrated LLM-driven APIs and automated prompt pipelines with strict schema validation to accelerate feature delivery.`
+   :`Leveraged modern AI research tools (ChatGPT, Claude) to automate workflows and accelerate project delivery by 35%.`;
   sugg.push({id:id++,type:'add_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'🤖',label:'Add AI & modern tools usage to your CV',preview:aiExample,checked:true});
  }
 
  // 4. Unquantified bullets
  const unquantified=allBullets.filter(b=>!/\d/.test(b)&&b.length>20).slice(0,2);
  unquantified.forEach((b,i)=>{
-  const verb=b.match(/^(managed|led|handled|drove|supported|assisted|coordinated|engineered|designed|built)/i)?.[0]||'Led';
-  sugg.push({id:id++,type:'quantify_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'📊',label:`Quantify: "${b.slice(0,50)}..." — add a number`,preview:`${verb} [X% speedup / 100% uptime / X+ users / X-ms latency]. Add the exact metric that proves impact.`,checked:i===0});
+  const verb=b.match(/^(managed|led|handled|drove|supported|assisted|coordinated|engineered|designed|built|analyzed|formulated|conducted)/i)?.[0]||'Led';
+  sugg.push({id:id++,type:'quantify_bullet',section:'PROFESSIONAL EXPERIENCE',icon:'📊',label:`Quantify: "${b.slice(0,50)}..." — add a number`,preview:`${verb} [X% growth / INR X Lakhs / X+ dealers / X% speedup]. Add the exact metric that proves business impact.`,checked:i===0});
  });
 
  // 5. Certifications
  if(!sections.certifications.length){
-  const certExamples=domain==='Technology'?'AWS Certified Cloud Practitioner · Docker & Kubernetes Fundamentals · Google AI Essentials'
+  const certExamples=domain==='Marketing'?'Google Digital Marketing & E-commerce · HubSpot Inbound Marketing · KPMG Lean Six Sigma Green Belt'
+   :domain==='Finance'?'CFA Level I / II Candidate · Bloomberg Market Concepts (BMC) · CFI FMVA · Google AI Essentials'
+   :domain==='Consulting'||domain==='General Management'?'Lean Six Sigma Green Belt · McKinsey Forward Program · Google Project Management'
    :domain==='HR'?'SHRM Certified Professional · LinkedIn Learning: People Analytics · Google AI Essentials'
-   :domain==='Finance'?'CFA Level I / Bloomberg Market Concepts · Google AI Essentials · Excel Modeling Certification'
+   :domain==='Technology'?'AWS Certified Cloud Practitioner · Docker & Kubernetes Fundamentals · Google AI Essentials'
    :`Google AI Essentials (2024) · LinkedIn Learning: ${domain} Analytics · Coursera: AI for Everyone`;
   sugg.push({id:id++,type:'add_section',section:'CERTIFICATIONS',icon:'🎓',label:'Add Certifications section — shows commitment to learning',preview:certExamples,checked:false});
  }
-
 
  // 6. JD-specific keywords
  if(jd&&jd.length>50){
@@ -775,6 +810,8 @@ function buildCV(parsed,checkedSuggestions){
   summary:[...parsed.sections.summary],
   competencies:[...parsed.sections.competencies],
   experience:parsed.sections.experience.map(e=>({...e,bullets:[...e.bullets]})),
+  projects:parsed.sections.projects.map(pr=>({...pr,bullets:[...pr.bullets]})),
+  leadership:parsed.sections.leadership.map(l=>({...l,bullets:[...l.bullets]})),
   certifications:[...parsed.sections.certifications],
  }};
 
@@ -870,12 +907,17 @@ function renderExecutivePDF(p){
   body+=`</div>`;
  }
 
- // Leadership
+ // Leadership & Positions of Responsibility
  if(sections.leadership?.length){
-  body+=`<div class="section"><h2>L E A D E R S H I P &nbsp; &amp; &nbsp; R E S P O N S I B I L I T Y</h2>`;
+  body+=`<div class="section"><h2>P O S I T I O N S &nbsp; O F &nbsp; R E S P O N S I B I L I T Y</h2>`;
   sections.leadership.forEach(l=>{
-   if(l.bullets?.length){body+=`<ul>${l.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
-   else if(l.role){body+=`<p class="edu-line">${l.role}</p>`}
+   if(l.role||l.company||l.bullets?.length){
+    body+=`<div class="job-block"><div class="job-header">${l.role?`<span class="job-role">${l.role}</span>`:''}${l.company?`<span class="job-sep"> · </span><span class="job-company">${l.company}</span>`:''}${l.dates?`<span class="job-dates">${l.dates}</span>`:''}</div>`;
+    if(l.bullets?.length){body+=`<ul>${l.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`}
+    body+=`</div>`;
+   }else if(l.role){
+    body+=`<p class="edu-line">${l.role}</p>`;
+   }
   });
   body+=`</div>`;
  }
