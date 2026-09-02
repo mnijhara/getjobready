@@ -32,20 +32,25 @@ async function pdfText(file){
   pdfjs.GlobalWorkerOptions.workerSrc='/pdf.worker.mjs';
   const pdf=await pdfjs.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise;
   let out='';for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);const t=await p.getTextContent();out+=t.items.map(x=>x.str).join(' ')+'\n'}
-  if(out.trim())return out.trim();
+  if(out.trim()&&out.trim().length>30)return out.trim();
  }catch(err){
   console.warn('PDF.js parsing failed, trying text extraction fallback:',err);
-  if(err?.message?.includes('dynamically imported module')){
-   window.location.reload();
-   return '';
-  }
  }
- // Fallback text reader for unencrypted / simple PDFs
  try{
   const raw=await file.text();
   const clean=raw.replace(/[^\x20-\x7E\n\r\t]/g,' ').replace(/\s+/g,' ').trim();
   if(clean.length>40)return clean;
  }catch{}
+ try{
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  let binary='';const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+  const base64=btoa(binary);
+  const res=await post('/api/extract-cv',{data:base64,mime:file.type||'application/pdf'});
+  if(res?.text)return res.text;
+ }catch(e){
+  console.warn('Server-side AI PDF extraction fallback failed:',e);
+ }
  throw new Error('Could not extract text from this PDF file. Please paste your CV text into the text box below.');
 }
 
@@ -56,10 +61,18 @@ async function docxText(file){
    throw e;
   });
   const result=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});
-  return String(result.value||'').trim();
- }catch(e){
-  throw new Error('Could not read this DOCX file. Please paste your text into the text box below.');
- }
+  const text=String(result.value||'').trim();
+  if(text)return text;
+ }catch(e){}
+ try{
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  let binary='';const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+  const base64=btoa(binary);
+  const res=await post('/api/extract-cv',{data:base64,mime:file.type||'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  if(res?.text)return res.text;
+ }catch(e){}
+ throw new Error('Could not read this DOCX file. Please paste your text into the text box below.');
 }
 
 async function readFile(file){
@@ -557,7 +570,7 @@ function App(){
  const goHome=()=>setScreen('home');
  if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
- if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}isMasterCV={appId==='master'}onSave={saveFinal}onContinue={startInterview}onGoHome={goHome}/></Workspace>;
+ if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}isMasterCV={appId==='master'}onSave={saveFinal}onContinue={startInterview}onGoHome={goHome}onCustomRoleInterview={(role,comp,text)=>{setRoleName(comp?`${comp} – ${role}`:role);if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')}}/></Workspace>;
 
 
  if(screen==='interview'){
@@ -985,7 +998,7 @@ function renderExecutivePDF(p){
 
 
 /* ─── CV STUDIO COMPONENT ───────────────────────────────────── */
-function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}){
+function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,onCustomRoleInterview}){
  const[parsed,setParsed]=useState(()=>parseCV(String(initial||'')));
  const[suggestions,setSuggestions]=useState(()=>generateSuggestions(parseCV(String(initial||'')),jd||''));
  const[checked,setChecked]=useState(()=>{
@@ -997,6 +1010,17 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
  const[showEdit,setShowEdit]=useState(false);
  const[editText,setEditText]=useState(()=>cleanExtractedCVText(String(initial||'')));
  const[previewKey,setPreviewKey]=useState(0);
+ const[showTargetModal,setShowTargetModal]=useState(false);
+ const[targetCompany,setTargetCompany]=useState('');
+ const[targetRole,setTargetRole]=useState('');
+
+ const confirmTargetInterview=()=>{
+  if(!targetRole.trim())return;
+  setShowTargetModal(false);
+  if(onCustomRoleInterview){
+   onCustomRoleInterview(targetRole.trim(),targetCompany.trim(),editText);
+  }
+ };
 
  // Score evaluation fallback
  const currentResult=(result&&result.score)?result:localReview(initial||'',jd||'',mode);
@@ -1138,16 +1162,57 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome}
     <div className="cv-preview-frame">
      <iframe key={previewKey} srcDoc={previewHTML} title="CV Preview" sandbox="allow-same-origin" style={{width:'100%',height:'780px',border:'none',borderRadius:'0 0 10px 10px'}}/>
     </div>
-    <div className="continue-card">
-     {isMasterCV
-      ?<><div><b>✅ Master CV saved!</b><span>Now create job-specific applications and add each JD to practise a tailored interview.</span></div>
-        <button className="primary" onClick={()=>{onSave(editText);onGoHome&&onGoHome()}}>Go to My Applications <ArrowRight size={18}/></button></>
-      :<><div><b>Next: live interview</b><span>Your improved CV will be used by the AI interviewer for this role.</span></div>
-        <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>Save & start interview <ArrowRight size={18}/></button></>
-     }
+    <div className="continue-card" style={{flexDirection:'column',alignItems:'stretch',gap:'14px'}}>
+     {isMasterCV ? (
+      <>
+       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+        <div>
+         <b style={{fontSize:'15px'}}>✅ Master CV saved & ready!</b>
+         <span style={{display:'block',fontSize:'12px',color:'#64748b',marginTop:'2px'}}>What would you like to do next? Have a direct voice interview, practice for a specific company/role, or save to applications.</span>
+        </div>
+       </div>
+       <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
+        <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>
+         <Mic size={16}/> Direct Audio Interview (General CV)
+        </button>
+        <button className="secondary" style={{background:'#f3e8ff',color:'#6b21a8'}} onClick={()=>{onSave(editText);setShowTargetModal(true)}}>
+         💼 Practise for Target Company / Role
+        </button>
+        <button className="ghost-sm" onClick={()=>{onSave(editText);onGoHome&&onGoHome()}}>
+         📁 Save & Go to Workspace
+        </button>
+       </div>
+      </>
+     ) : (
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px'}}>
+       <div><b>Next: live interview</b><span>Your improved CV will be used by the AI interviewer for this role.</span></div>
+       <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>Save & start interview <ArrowRight size={18}/></button>
+      </div>
+     )}
     </div>
    </div>
   </div>
+
+  {showTargetModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowTargetModal(false)}>
+   <div className="modal-card login-card">
+    <button className="modal-x" onClick={()=>setShowTargetModal(false)}><X size={18}/></button>
+    <span className="eyebrow">CUSTOM TARGET ROLE INTERVIEW</span>
+    <h2>Practise for a Target Company or Role</h2>
+    <p>Specify the target company and role title (e.g. Coding Panda – Full Stack Developer or Asian Paints – Territory Sales Manager). The AI interviewer will tailor questions specifically to your CV and this target role.</p>
+    <div style={{display:'flex',flexDirection:'column',gap:'12px',margin:'15px 0'}}>
+     <div><label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'4px'}}>Target Company / Employer (optional)</label>
+     <input type="text" className="login-input" style={{marginBottom:0}} placeholder="e.g. Coding Panda, Deloitte, Google, Asian Paints" value={targetCompany} onChange={e=>setTargetCompany(e.target.value)}/></div>
+     <div><label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'4px'}}>Target Role / Job Title</label>
+     <input type="text" className="login-input" style={{marginBottom:0}} placeholder="e.g. Full Stack Intern, Management Trainee" value={targetRole} onChange={e=>setTargetRole(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&targetRole.trim()){confirmTargetInterview();}}}/></div>
+    </div>
+    <div style={{display:'flex',gap:'12px',justifyContent:'center'}}>
+     <button className="ghost-sm" onClick={()=>setShowTargetModal(false)}>Cancel</button>
+     <button className="primary" disabled={!targetRole.trim()} onClick={confirmTargetInterview}>
+      Start Tailored Audio Interview <ArrowRight size={16}/>
+     </button>
+    </div>
+   </div>
+  </div>}
  </div>
 }
 
