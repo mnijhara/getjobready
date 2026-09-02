@@ -8,12 +8,15 @@ const read = (name) => fs.readFileSync(new URL(name, root), 'utf8');
 // contract focused on behaviour and architecture so minification cannot invalidate it.
 const nativeEntry = read('src/native-entry.jsx');
 const mobileUpload = read('src/mobile-cv-upload.js');
+const cvBridge = read('src/cv-extract-bridge.js');
 const server = read('server.cjs');
 if (!nativeEntry.includes("import './mobile-cv-upload.js';")) throw new Error('Canonical production entry must load the CV upload extraction helper.');
 if (!mobileUpload.includes("fetch('/api/extract-cv'")) throw new Error('CV upload helper must use the server extraction endpoint.');
 if (mobileUpload.includes('getjobready-ai-proxy.mnijhara.workers.dev')) throw new Error('CV upload helper must not expose or call the AI proxy directly from the browser.');
 if (!/your\s*cv|your\s+cv/i.test(mobileUpload)) throw new Error('CV upload helper must identify the CV input independently of the accepted file list.');
 if (!mobileUpload.includes("input.accept = CV_ACCEPT")) throw new Error('CV upload helper must expand the CV picker to supported document formats.');
+if (!cvBridge.includes('const normalizedMime = inferMime(body.mime, String(body.data));')) throw new Error('CV bridge must normalize unreliable browser MIME values before server extraction.');
+if (!cvBridge.includes("body: JSON.stringify({ ...body, mime: normalizedMime })")) throw new Error('CV bridge must send the normalized MIME to the same-origin extraction endpoint.');
 if (!server.includes("app.post('/api/extract-cv'")) throw new Error('Server CV extraction fallback endpoint is missing.');
 
 // Reuse the comprehensive verifier, replacing only the brittle CV-editor source-format
