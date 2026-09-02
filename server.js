@@ -185,62 +185,6 @@ app.use("/api", (req, res, next) => {
 });
 app.get("/api/health", (req, res) => res.json({ ok: true, service: "getjobready", ai: publicStatus() }));
 app.get("/api/ai-status", (req, res) => res.json(publicStatus()));
-
-var fs = require("fs");
-var path = require("path");
-var crypto = require("crypto");
-var USER_DATA_DIR = path.join(__dirname, "data", "users");
-try { if (!fs.existsSync(USER_DATA_DIR)) fs.mkdirSync(USER_DATA_DIR, { recursive: true }); } catch (e) {}
-function getUserFilePath(email) {
-  const hash = crypto.createHash("sha256").update(String(email || "").trim().toLowerCase()).digest("hex");
-  return path.join(USER_DATA_DIR, `${hash}.json`);
-}
-
-app.post("/api/user-data/get", (req, res) => {
-  const { email = "" } = req.body || {};
-  if (!email.trim()) return res.status(400).json({ error: "Email is required." });
-  const file = getUserFilePath(email);
-  try {
-    if (fs.existsSync(file)) {
-      const content = fs.readFileSync(file, "utf8");
-      return res.json(JSON.parse(content));
-    }
-  } catch (e) {}
-  return res.json({ email: email.trim().toLowerCase(), masterCV: "", applications: [], interviews: [] });
-});
-
-app.post("/api/user-data/save", (req, res) => {
-  const { email = "", masterCV = "", applications = [], interviews = [] } = req.body || {};
-  if (!email.trim()) return res.status(400).json({ error: "Email is required." });
-  const file = getUserFilePath(email);
-  try {
-    let existing = { email: email.trim().toLowerCase(), masterCV: "", applications: [], interviews: [] };
-    if (fs.existsSync(file)) {
-      try { existing = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {}
-    }
-    const mergedCV = masterCV || existing.masterCV || "";
-    const appMap = new Map();
-    (existing.applications || []).forEach(a => { if (a && a.id) appMap.set(String(a.id), a); });
-    (applications || []).forEach(a => { if (a && a.id) appMap.set(String(a.id), a); });
-
-    const ivMap = new Map();
-    (existing.interviews || []).forEach(iv => { if (iv && iv.id) ivMap.set(String(iv.id), iv); });
-    (interviews || []).forEach(iv => { if (iv && iv.id) ivMap.set(String(iv.id), iv); });
-
-    const payload = {
-      email: email.trim().toLowerCase(),
-      masterCV: mergedCV,
-      applications: Array.from(appMap.values()),
-      interviews: Array.from(ivMap.values()),
-      updatedAt: new Date().toISOString()
-    };
-    fs.writeFileSync(file, JSON.stringify(payload, null, 2), "utf8");
-    return res.json({ ok: true, updatedAt: payload.updatedAt });
-  } catch (e) {
-    console.error("user-data save failed:", e);
-    return res.status(500).json({ error: "Failed to save user data." });
-  }
-});
 var analysisPrompt = (cv, jd, career, mode = "specific") => mode === "general" ? `You are an expert campus recruiter and CV strategist. Analyse this student's CV WITHOUT assuming a specific job. Return ONLY valid JSON with exactly these keys: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4; rewrite only when source evidence supports it and never invent facts), plan (exactly 7 actionable steps), interviewQuestions (exactly 5 general interview questions grounded in the CV). Questions must test the candidate's actual projects, experience, achievements, strengths, weaknesses, teamwork, ownership, problem solving and behavioural readiness. Do not invent employers, skills, achievements or a target role.
 
 CV:
