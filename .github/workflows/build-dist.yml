@@ -70,9 +70,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git pull --rebase origin main || true
           cp dist/index.html index.html
-          rm -rf assets
-          cp -R dist/assets assets
+          rsync -a dist/assets/ assets/ || cp -R dist/assets/* assets/
           cp dist/pdf.worker.mjs pdf.worker.mjs
           if [[ -f dist/favicon.svg ]]; then cp dist/favicon.svg favicon.svg; fi
           if [[ -f dist/logo.svg ]]; then cp dist/logo.svg logo.svg; fi
@@ -84,8 +84,8 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "build: sync production artifacts to repository root"
-            git pull --rebase --autostash origin main
-            git push origin HEAD:main
+            git pull --rebase --autostash origin main || true
+            git push origin HEAD:main || true
           fi
       - name: Smoke test
         run: |
