@@ -277,7 +277,12 @@ function localImprove(cv){
 
 function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview,onViewInterview}){
  const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
- useEffect(()=>{setApps(db.getApplications());setInterviews(db.getInterviews())},[]);
+ useEffect(()=>{
+  const refresh=()=>{setApps(db.getApplications());setInterviews(db.getInterviews())};
+  refresh();
+  window.addEventListener('gjr_cloud_synced',refresh);
+  return ()=>window.removeEventListener('gjr_cloud_synced',refresh);
+ },[]);
  const del=id=>{if(!confirm('Delete this application?'))return;db.deleteApplication(id);setApps(db.getApplications())};
  const delIv=id=>{if(!confirm('Delete this interview report?'))return;db.deleteInterview(id);setInterviews(db.getInterviews())};
  const masterCV=db.getMasterCV();
@@ -393,7 +398,7 @@ function App(){
  const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
  const[masterSaved,setMasterSaved]=useState(false);
  const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
- const handleLogin=email=>{db.saveProfile(email);setProfile({email});setCv(db.getMasterCV());setJd('');setAppId(null);setRoleName('');setScreen('home')};
+ const handleLogin=email=>{db.saveProfile(email);setProfile({email});setCv(db.getMasterCV());setJd('');setAppId(null);setRoleName('');setScreen('home');db.syncFromCloud().catch(()=>{})};
  const handleLogout=()=>{db.logout();setProfile(null);setCv('');setJd('');setAppId(null);setRoleName('');setScreen('home')};
  const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
  // New Application: ALWAYS go to resume screen with specific/JD mode when master exists
@@ -408,14 +413,22 @@ function App(){
  const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
  useEffect(()=>{
+  db.syncFromCloud().catch(()=>{});
+  const handleSync=()=>{
+   const p=db.getProfile();
+   if(p)setProfile(p);
+   const m=db.getMasterCV();
+   if(m&&!cv)setCv(m);
+  };
+  window.addEventListener('gjr_cloud_synced',handleSync);
   window.__gjrSetCv=(text,file)=>{
    const cleaned=cleanExtractedCVText(text);
    if(file)setCvFile(file);
    setCv(cleaned);
    saveSession('gjr_cv_text',cleaned);
   };
-  return ()=>{delete window.__gjrSetCv};
- },[]);
+  return ()=>{delete window.__gjrSetCv;window.removeEventListener('gjr_cloud_synced',handleSync)};
+ },[cv]);
  const parseFile=async(kind,file)=>{
   if(!file)return;
   const ok=kind==='cv'?/\.(pdf|txt|docx)$/i.test(file.name)||(file.type==='application/pdf'||file.type==='text/plain'||file.type?.includes('wordprocessingml')):/\.(pdf|txt)$/i.test(file.name)||(file.type==='application/pdf'||file.type==='text/plain');
