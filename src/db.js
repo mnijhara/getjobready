@@ -12,6 +12,15 @@ const getEmailKey = () => {
   }
 };
 
+const getProfileEmail = () => {
+  try {
+    const p = JSON.parse(localStorage.getItem('gjr_profile'));
+    return p?.email ? p.email.trim().toLowerCase() : '';
+  } catch {
+    return '';
+  }
+};
+
 const getCloudUser = async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -28,14 +37,16 @@ export const db = {
     } catch { return null; }
   },
   saveProfile: (email) => {
-    const profile = { email: email.trim(), joined: new Date().toISOString() };
+    const cleanEmail = email.trim();
+    const profile = { email: cleanEmail, joined: new Date().toISOString() };
     localStorage.setItem('gjr_profile', JSON.stringify(profile));
+    db.syncServerData(cleanEmail).then(() => db.pushServerData(cleanEmail)).catch(() => {});
     getCloudUser().then(user => {
       if (user) {
         supabase.from('profiles').upsert({
           id: user.id,
           email: user.email,
-          full_name: user.user_metadata?.full_name || email.split('@')[0]
+          full_name: user.user_metadata?.full_name || cleanEmail.split('@')[0]
         }, { onConflict: 'id' }).catch(() => {});
       }
     });
@@ -54,6 +65,7 @@ export const db = {
   saveMasterCV: (text) => {
     const key = `gjr_master_cv_${getEmailKey()}`;
     localStorage.setItem(key, text);
+    db.pushServerData().catch(() => {});
     getCloudUser().then(user => {
       if (user) {
         supabase.from('master_cvs').update({ is_current: false }).eq('user_id', user.id).eq('is_current', true)
@@ -79,6 +91,7 @@ export const db = {
       apps.push(updatedApp);
     }
     localStorage.setItem(key, JSON.stringify(apps));
+    db.pushServerData().catch(() => {});
 
     getCloudUser().then(user => {
       if (user) {
@@ -98,6 +111,7 @@ export const db = {
     const key = `gjr_apps_${getEmailKey()}`;
     const apps = db.getApplications().filter(x => x.id !== id);
     localStorage.setItem(key, JSON.stringify(apps));
+    db.pushServerData().catch(() => {});
     getCloudUser().then(user => {
       if (user) {
         supabase.from('job_applications').delete().eq('id', id).eq('user_id', user.id).catch(() => {});
@@ -116,6 +130,7 @@ export const db = {
     const newIv = { ...interview, id: interview.id || Date.now().toString(), date: new Date().toISOString() };
     interviews.unshift(newIv);
     localStorage.setItem(key, JSON.stringify(interviews));
+    db.pushServerData().catch(() => {});
 
     getCloudUser().then(user => {
       if (user) {
@@ -146,13 +161,80 @@ export const db = {
     const key = `gjr_interviews_${getEmailKey()}`;
     const interviews = db.getInterviews().filter(x => x.id !== id);
     localStorage.setItem(key, JSON.stringify(interviews));
+    db.pushServerData().catch(() => {});
     getCloudUser().then(user => {
       if (user) {
         supabase.from('interviews').delete().eq('id', id).eq('user_id', user.id).catch(() => {});
       }
     });
   },
+  syncServerData: async (email) => {
+    const targetEmail = email || getProfileEmail();
+    if (!targetEmail) return null;
+    try {
+      const res = await fetch('/api/user-data/get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data || !data.email) return null;
+
+      const emailKey = targetEmail.replace(/[^a-z0-9]/g, '_');
+      const keyCV = `gjr_master_cv_${emailKey}`;
+      const keyApps = `gjr_apps_${emailKey}`;
+      const keyIvs = `gjr_interviews_${emailKey}`;
+
+      if (data.masterCV) {
+        const localCV = localStorage.getItem(keyCV) || '';
+        if (!localCV || data.masterCV.length >= localCV.length) {
+          localStorage.setItem(keyCV, data.masterCV);
+        }
+      }
+
+      if (Array.isArray(data.applications) && data.applications.length) {
+        const localApps = db.getApplications();
+        const mergedMap = new Map();
+        [...data.applications, ...localApps].forEach(a => { if (a && a.id) mergedMap.set(String(a.id), a); });
+        localStorage.setItem(keyApps, JSON.stringify(Array.from(mergedMap.values())));
+      }
+
+      if (Array.isArray(data.interviews) && data.interviews.length) {
+        const localIvs = db.getInterviews();
+        const mergedMap = new Map();
+        [...data.interviews, ...localIvs].forEach(iv => { if (iv && iv.id) mergedMap.set(String(iv.id), iv); });
+        localStorage.setItem(keyIvs, JSON.stringify(Array.from(mergedMap.values())));
+      }
+
+      window.dispatchEvent(new CustomEvent('gjr_cloud_synced'));
+      return data;
+    } catch (e) {
+      console.warn('Server sync failed', e);
+      return null;
+    }
+  },
+  pushServerData: async (email) => {
+    const targetEmail = email || getProfileEmail();
+    if (!targetEmail) return;
+    try {
+      const masterCV = db.getMasterCV();
+      const applications = db.getApplications();
+      const interviews = db.getInterviews();
+      await fetch('/api/user-data/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail, masterCV, applications, interviews })
+      });
+    } catch (e) {
+      console.warn('Server push failed', e);
+    }
+  },
   syncFromCloud: async () => {
+    const targetEmail = getProfileEmail();
+    if (targetEmail) {
+      await db.syncServerData(targetEmail);
+    }
     const user = await getCloudUser();
     if (!user) return;
 

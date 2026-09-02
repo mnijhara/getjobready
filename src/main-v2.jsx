@@ -448,7 +448,7 @@ function App(){
  const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
  const[masterSaved,setMasterSaved]=useState(false);
  const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
- const handleLogin=email=>{db.saveProfile(email);setProfile({email});setCv(db.getMasterCV());setJd('');setAppId(null);setRoleName('');setScreen('home');db.syncFromCloud().catch(()=>{})};
+ const handleLogin=email=>{db.saveProfile(email);setProfile({email});db.syncServerData(email).then(()=>{setCv(db.getMasterCV());setProfile(db.getProfile())}).catch(()=>{});setJd('');setAppId(null);setRoleName('');setScreen('home');db.syncFromCloud().catch(()=>{})};
  const handleLogout=()=>{db.logout();setProfile(null);setCv('');setJd('');setAppId(null);setRoleName('');setScreen('home')};
  const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
  // New Application: ALWAYS go to resume screen with specific/JD mode when master exists
