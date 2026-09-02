@@ -10,21 +10,24 @@
     const modelText = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || data?.text || data?.output || '';
     return String(modelText || '').trim();
   };
+  const inferMime = (mime, data) => {
+    const normalized = String(mime || '').toLowerCase().split(';')[0].trim();
+    if (normalized === 'application/pdf' || normalized === 'text/plain' || normalized === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return normalized;
+    try {
+      const prefix = atob(String(data || '').slice(0, 16));
+      if (prefix.startsWith('%PDF-')) return 'application/pdf';
+      if (prefix.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } catch {}
+    return normalized || 'application/pdf';
+  };
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : (input?.url || '');
     if (url === '/api/extract-cv' && (init.method || 'GET').toUpperCase() === 'POST') {
-      // Prefer the same-origin server endpoint only when it actually returns JSON.
-      // Static Hostinger deployments can return index.html with HTTP 200 for /api/*;
-      // that must NOT be treated as a successful extraction response.
       try {
         const serverResponse = await nativeFetch(input, init);
         const contentType = serverResponse.headers.get('content-type') || '';
-        if (contentType.toLowerCase().includes('application/json')) {
-          return serverResponse;
-        }
-        if (serverResponse.status >= 400 && serverResponse.status < 500 && serverResponse.status !== 404 && serverResponse.status !== 405) {
-          return serverResponse;
-        }
+        if (contentType.toLowerCase().includes('application/json')) return serverResponse;
+        if (serverResponse.status >= 400 && serverResponse.status < 500 && serverResponse.status !== 404 && serverResponse.status !== 405) return serverResponse;
       } catch (e) {
         console.warn('Same-origin CV extraction unavailable; trying proxy fallback:', e);
       }
@@ -32,7 +35,7 @@
       try {
         const body = typeof init.body === 'string' ? JSON.parse(init.body) : (init.body || {});
         const data = String(body.data || '');
-        const mime = String(body.mime || 'application/pdf');
+        const mime = inferMime(body.mime, data);
         if (!data) return new Response(JSON.stringify({ error: 'CV file data is required.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
         const prompt = `Extract the complete readable text from this student's uploaded CV document. Preserve names, headings, dates, employers, projects, skills and bullet wording as faithfully as possible. Do not summarise, rewrite, invent or omit content. Return ONLY the extracted CV text, with sensible line breaks. If the document is image/scanned based, use visual understanding to read it. Do not return JSON or markdown fences.`;
         const r = await nativeFetch(`${WORKER}/generate`, {
