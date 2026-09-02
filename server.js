@@ -220,20 +220,6 @@ ${String(jd).slice(0, 3e4)}`;
     return res.status(503).json({ error: "AI analysis is temporarily unavailable. Please retry in a moment." });
   }
 });
-app.post("/api/extract-cv", async (req, res) => {
-  const { data = "", mime = "application/pdf" } = req.body || {};
-  if (!data) return res.status(400).json({ error: "CV file data is required." });
-  if (data.length > 7e6) return res.status(413).json({ error: "CV file is too large. Please keep it under 5 MB." });
-  try {
-    const prompt = `Extract the student's CV from this document. Return ONLY the plain readable text of the CV, preserving names, contact details, headings, education, experience, projects, technical skills, achievements and leadership bullets. Do not invent or summarize.`;
-    const resData = await generate("", { parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }] });
-    const text = typeof resData === "string" ? resData : resData?.text || resData?.summary || JSON.stringify(resData);
-    return res.json({ text: String(text || "").replace(/^```(?:text)?\s*/i, "").replace(/\s*```$/i, "").trim() });
-  } catch (error) {
-    console.error("extract-cv:", error.message);
-    return res.status(503).json({ error: "Document text extraction unavailable." });
-  }
-});
 app.post("/api/interview-feedback", async (req, res) => {
   const { jd = "", answers = [], mode = "specific", cv = "" } = req.body || {};
   const safeAnswers = Array.isArray(answers) ? answers.slice(-10).map((a) => ({ question: String(a.question || "").slice(0, 1e3), answer: String(a.answer || "").slice(0, 5e3) })) : [];
