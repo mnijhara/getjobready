@@ -37,7 +37,10 @@
       try {
         const serverResponse = await nativeFetch(input, init);
         const contentType = serverResponse.headers.get('content-type') || '';
-        if (contentType.toLowerCase().includes('application/json')) return serverResponse;
+        // A successful JSON response is authoritative. For server 5xx failures, however,
+        // continue to the existing proxy fallback so desktop/mobile uploads remain usable
+        // when the same-origin Node service is temporarily unavailable.
+        if (contentType.toLowerCase().includes('application/json') && serverResponse.status < 500) return serverResponse;
         if (serverResponse.status >= 400 && serverResponse.status < 500 && serverResponse.status !== 404 && serverResponse.status !== 405) return serverResponse;
       } catch (e) { console.warn('Same-origin CV extraction unavailable; trying proxy fallback:', e); }
       try {
