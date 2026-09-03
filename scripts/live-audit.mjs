@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const base = 'https://getjobready.online/';
 const expectedSha = process.env.GITHUB_SHA || '';
+const expectedSourceSha = process.env.GJR_EXPECTED_SOURCE_SHA || expectedSha;
 const dir = process.env.GJR_AUDIT_FILES || '/tmp/gjr-audit';
 const results = [];
 const failures = [];
@@ -43,10 +44,14 @@ async function verifyDeployment(page, name) {
     const response = await page.request.get(new URL('/build-info.json', base).toString(), { timeout: 10000 });
     if (!response.ok()) throw new Error(`build-info HTTP ${response.status()}`);
     const infoJson = await response.json();
-    if (infoJson.sha !== expectedSha) {
-      throw new Error(`live SHA ${infoJson.sha || 'missing'} does not match expected ${expectedSha}`);
+    const deployedSha = infoJson.sha || '';
+    if (deployedSha !== expectedSourceSha) {
+      throw new Error(`live source SHA ${deployedSha || 'missing'} does not match expected source ${expectedSourceSha}`);
     }
-    pass(`${name}: live deployment SHA matches ${expectedSha}`);
+    if (expectedSha !== expectedSourceSha) {
+      info(`${name}: live build matches source ${expectedSourceSha}; audit commit is ${expectedSha}`);
+    }
+    pass(`${name}: live deployment SHA matches expected source ${expectedSourceSha}`);
   } catch (e) {
     fail(`${name}: deployment identity check failed: ${e.message}`);
   }
@@ -148,7 +153,7 @@ async function audit(name, contextOptions) {
 await audit('desktop', { viewport: { width: 1440, height: 900 } });
 await audit('mobile', { ...devices['Pixel 7'] });
 
-const report = { base, expectedSha: expectedSha || null, results, failures, generatedAt: new Date().toISOString() };
+const report = { base, expectedSha: expectedSha || null, expectedSourceSha: expectedSourceSha || null, results, failures, generatedAt: new Date().toISOString() };
 fs.writeFileSync('live-audit-report.json', JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 1;
