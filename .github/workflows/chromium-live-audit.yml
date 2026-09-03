@@ -11,6 +11,7 @@ on:
       - 'src/mobile-cv-upload.js'
       - 'src/main-v2.jsx'
       - 'src/native-entry.jsx'
+      - 'build-info.json'
   workflow_dispatch:
 permissions:
   contents: read
