@@ -2,6 +2,7 @@ import { chromium, devices } from 'playwright';
 import fs from 'node:fs';
 
 const base = 'https://getjobready.online/';
+const expectedSha = process.env.GITHUB_SHA || '';
 const dir = process.env.GJR_AUDIT_FILES || '/tmp/gjr-audit';
 const results = [];
 const failures = [];
@@ -33,6 +34,24 @@ async function openModule(page, matcher, label) {
   }
 }
 
+async function verifyDeployment(page, name) {
+  if (!expectedSha) {
+    info(`${name}: GITHUB_SHA unavailable; skipping deployment identity assertion`);
+    return;
+  }
+  try {
+    const response = await page.request.get(new URL('/build-info.json', base).toString(), { timeout: 10000 });
+    if (!response.ok()) throw new Error(`build-info HTTP ${response.status()}`);
+    const infoJson = await response.json();
+    if (infoJson.sha !== expectedSha) {
+      throw new Error(`live SHA ${infoJson.sha || 'missing'} does not match expected ${expectedSha}`);
+    }
+    pass(`${name}: live deployment SHA matches ${expectedSha}`);
+  } catch (e) {
+    fail(`${name}: deployment identity check failed: ${e.message}`);
+  }
+}
+
 async function upload(page, file, label) {
   const path = `${dir}/${file}`;
   if (!fs.existsSync(path)) { fail(`${label}: fixture missing ${file}`); return false; }
@@ -49,8 +68,6 @@ async function upload(page, file, label) {
 }
 
 async function assertExtracted(page, file, label) {
-  // The product's canonical CV editor is #cvText. Do not infer extraction
-  // from an arbitrary textbox (the interview screen also contains textboxes).
   const editor = page.locator('#cvText');
   try {
     await editor.waitFor({ state: 'attached', timeout: 5000 });
@@ -88,6 +105,7 @@ async function audit(name, contextOptions) {
     await page.waitForTimeout(1500);
     if (!(await page.locator('body').innerText()).includes('GetJobReady')) throw new Error('branding missing');
     pass(`${name}: homepage loaded`);
+    await verifyDeployment(page, name);
 
     await openModule(page, /CV Preparation|CV|resume|job match/i, 'CV');
     await settle(page);
@@ -130,7 +148,7 @@ async function audit(name, contextOptions) {
 await audit('desktop', { viewport: { width: 1440, height: 900 } });
 await audit('mobile', { ...devices['Pixel 7'] });
 
-const report = { base, results, failures, generatedAt: new Date().toISOString() };
+const report = { base, expectedSha: expectedSha || null, results, failures, generatedAt: new Date().toISOString() };
 fs.writeFileSync('live-audit-report.json', JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 1;
