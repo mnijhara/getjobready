@@ -13,6 +13,15 @@
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   };
+  const setReactCV = (value, file) => {
+    try {
+      if (typeof window.__gjrSetCv === 'function') {
+        window.__gjrSetCv(value, file || null);
+        return true;
+      }
+    } catch (e) { console.warn('CV React state bridge failed; falling back to DOM editor.', e); }
+    return false;
+  };
   const inferMime = async (file) => {
     const reported = String(file?.type || '').toLowerCase().split(';')[0].trim();
     try {
@@ -73,17 +82,35 @@
     if(card)return {card,editor:card.querySelector('textarea,[contenteditable="true"],input:not([type="file"])')};
     const heading=[...document.querySelectorAll('h1,h2,h3,h4,button,[role="button"]')].find(el=>/cv\s*preparation|upload.*cv|resume/i.test(el.textContent||''));
     if(heading){const section=heading.closest('section,article,div');return {card:section,editor:section?.querySelector('textarea,[contenteditable="true"],input:not([type="file"])')};}
+    const fallbackEditor=document.querySelector('textarea[name="cv"],textarea[placeholder*="CV" i],textarea[placeholder*="resume" i],[contenteditable="true"][aria-label*="CV" i]);
+    if(fallbackEditor)return {card:fallbackEditor.closest('section,article,div')||document.body,editor:fallbackEditor};
     return null;
   };
   async function handle(input,file){
     if(!file||!isCvInput(input))return; if(file.size>MAX_FILE_BYTES){toast('Please keep your CV under 5 MB.',true);return;}
     const mime=await inferMime(file); if(!(SUPPORTED.includes(mime)||/\.(pdf|docx|txt)$/i.test(file.name))){toast('Please choose a PDF, DOCX or TXT CV.',true);return;}
-    const target=findCvEditor()?.editor; if(!target){toast('CV editor is not ready. Please try again.',true);return;} toast('Reading your CV…');
-    try{let text='';if(mime==='text/plain')text=await file.text();else if(mime==='application/pdf')text=await parsePdf(file);else if(mime==='application/vnd.openxmlformats-officedocument.wordprocessingml.document')text=await parseDocx(file);if(!text.trim()){toast('Reading the document securely with AI…');text=await aiExtract(file,mime);}text=clean(text);if(!text)throw new Error('No readable CV content was found.');setEditorValue(target,text);try{sessionStorage.setItem('gjr_cv_text',text);}catch{}toast('CV uploaded successfully. You can review it now.');}
+    toast('Reading your CV…');
+    try{
+      let text='';
+      if(mime==='text/plain')text=await file.text();
+      else if(mime==='application/pdf')text=await parsePdf(file);
+      else if(mime==='application/vnd.openxmlformats-officedocument.wordprocessingml.document')text=await parseDocx(file);
+      if(!text.trim()){toast('Reading the document securely with AI…');text=await aiExtract(file,mime);}
+      text=clean(text);if(!text)throw new Error('No readable CV content was found.');
+      const bridged=setReactCV(text,file);
+      if(!bridged){
+        const target=findCvEditor()?.editor;
+        if(!target)throw new Error('CV editor is not ready. Please try again.');
+        setEditorValue(target,text);
+      }
+      try{sessionStorage.setItem('gjr_cv_text',text);}catch{}
+      toast('CV uploaded successfully. You can review it now.');
+    }
     catch(e){console.error('CV upload failed',e);toast(e?.message==='CV file is over 5 MB.'?'Please keep your CV under 5 MB.':'We could not read this CV. Please retry or paste the CV text below.',true);}
   }
   const ensureCvUploadControl=()=>{
-    const editor=findCvEditor(); if(!editor?.card)return;
+    const editor=findCvEditor();
+    if(!editor?.card)return;
     const existing=[...editor.card.querySelectorAll('input[type="file"]')].find(isCvInput);if(existing){patchCvInput(existing);return;}if(editor.card.querySelector('[data-gjr-cv-upload-fallback="1"]'))return;
     const wrap=document.createElement('div');wrap.dataset.gjrCvUploadFallback='1';Object.assign(wrap.style,{display:'flex',alignItems:'center',gap:'10px',margin:'10px 0 12px',flexWrap:'wrap'});
     const button=document.createElement('button');button.type='button';button.textContent='Upload CV';button.setAttribute('aria-label','Upload CV');Object.assign(button.style,{border:'1px solid rgba(99,102,241,.35)',borderRadius:'10px',padding:'9px 13px',font:'700 13px/1 system-ui,sans-serif',cursor:'pointer'});
