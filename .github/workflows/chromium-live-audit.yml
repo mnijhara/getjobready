@@ -50,10 +50,26 @@ jobs:
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
         run: node scripts/live-audit.mjs
+      - name: Publish audit diagnostics
+        if: always()
+        run: |
+          if [ -f live-audit-report.json ]; then
+            cat live-audit-report.json
+            {
+              echo '## Chromium live audit diagnostics'
+              echo
+              echo '```json'
+              cat live-audit-report.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'live-audit-report.json was not generated.' | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chromium-live-audit-report-${{ github.sha }}
           path: live-audit-report.json
+          if-no-files-found: warn
           retention-days: 14
