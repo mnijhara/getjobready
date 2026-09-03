@@ -16,10 +16,15 @@
   const inferMime = async (file) => {
     const reported = String(file?.type || '').toLowerCase().split(';')[0].trim();
     try {
-      const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-      const ascii = String.fromCharCode(...head);
+      const head = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+      const ascii = String.fromCharCode(...head.subarray(0, 16));
       if (ascii.startsWith('%PDF-')) return 'application/pdf';
       if (ascii.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (!SUPPORTED.includes(reported)) {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(head);
+        const nonPrintable = text.replace(/[\t\n\r\x20-\x7E]/g, '');
+        if (text.trim() && nonPrintable.length / Math.max(text.length, 1) < 0.08) return 'text/plain';
+      }
     } catch {}
     if (SUPPORTED.includes(reported)) return reported;
     if (/\.pdf$/i.test(file?.name || '')) return 'application/pdf';
