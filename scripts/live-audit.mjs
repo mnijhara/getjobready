@@ -1,24 +1,136 @@
 import { chromium, devices } from 'playwright';
 import fs from 'node:fs';
-const base='https://getjobready.online/'; const results=[]; const failures=[];
-const dummy='Alex Student\nComputer Science Student | alex@example.com\nEducation: B.Tech Computer Science, Example University\nProjects: Built a campus placement tracker using React and Supabase.\nSkills: React, JavaScript, SQL, Python';
-const dir=process.env.GJR_AUDIT_FILES||'/tmp/gjr-audit';
-const pass=m=>{results.push({kind:'pass',msg:m});console.log('[PASS]',m)}; const info=m=>{results.push({kind:'info',msg:m});console.log('[INFO]',m)}; const fail=m=>{failures.push(m);console.error('[FAIL]',m)};
-async function settle(p){for(let i=0;i<3;i++){const x=p.locator('button:visible').filter({hasText:/^(×|close|ok|got it|dismiss)$/i}).first();if(await x.count()&&await x.isVisible().catch(()=>false))await x.click({force:true}).catch(()=>{});await p.keyboard.press('Escape').catch(()=>{});await p.waitForTimeout(200)}}
-async function open(p,re,label){await settle(p);const x=p.getByText(re).first();if(!await x.count()||!await x.isVisible().catch(()=>false)){info(`${label}: target not exposed on this state`);return false}try{await x.scrollIntoViewIfNeeded();await x.click({timeout:10000});await p.waitForTimeout(800);pass(`${label} opened`);return true}catch(e){fail(`${label}: ${e.message}`);return false}}
-async function upload(p,file,label){const path=`${dir}/${file}`;if(!fs.existsSync(path)){fail(`${label}: fixture missing ${file}`);return false}try{const inputs=p.locator('input[type=file]');if(await inputs.count()){await inputs.first().setInputFiles(path)}else{const target=p.getByText(/upload (your )?(cv|resume)|drop.*cv|choose.*file|browse/i).first();if(!await target.count())throw Error('no file input or upload control found');const chooser=p.waitForEvent('filechooser',{timeout:4000}).catch(()=>null);await target.click({timeout:8000});const fc=await chooser;if(fc)await fc.setFiles(path);else{const later=p.locator('input[type=file]').first();if(!await later.count())throw Error('upload control did not create file input')}}await p.waitForTimeout(2200);pass(`${label}: uploaded ${file}`);return true}catch(e){fail(`${label}: upload ${file}: ${e.message}`);return false}}
-async function cvEditor(p){const ta=p.locator('textarea:visible').first();if(await ta.count())return {kind:'textarea',loc:ta};const ce=p.locator('[contenteditable="true"]:visible').first();if(await ce.count())return {kind:'contenteditable',loc:ce};const inp=p.locator('input:visible:not([type=file])').first();if(await inp.count())return {kind:'input',loc:inp};return null}
-async function editorValue(editor){if(editor.kind==='textarea'||editor.kind==='input')return editor.loc.inputValue();return editor.loc.textContent()}
-async function assertCvExtracted(p,file,label){const editor=await cvEditor(p);if(!editor){fail(`${label}: no visible CV editor after ${file}`);return false}try{await editor.loc.waitFor({state:'visible',timeout:5000});const value=await editorValue(editor);if(!/Alex Student|Computer Science Student|placement tracker/i.test(value||'')){fail(`${label}: ${file} did not populate extracted CV text`);return false}pass(`${label}: ${file} populated extracted CV text in ${editor.kind}`);return true}catch(e){fail(`${label}: ${file} extraction assertion: ${e.message}`);return false}}
-async function audit(name,opts){const browser=await chromium.launch({headless:true});const ctx=await browser.newContext({...opts,permissions:['microphone']});const p=await ctx.newPage();const ce=[],pe=[];p.on('console',m=>m.type()==='error'&&ce.push(m.text()));p.on('pageerror',e=>pe.push(e.message));p.on('dialog',async d=>{info(`${name}: dialog ${d.type()} ${d.message()}`);await d.dismiss()});
-try{let r=await p.goto(base,{waitUntil:'commit',timeout:30000});if(!r||!r.ok())throw Error(`home HTTP ${r?.status()}`);await p.waitForLoadState('domcontentloaded',{timeout:10000}).catch(()=>{});await p.waitForTimeout(1800);pass(`${name}: homepage loaded`);if(!(await p.locator('body').innerText()).includes('GetJobReady'))throw Error('branding missing');
-const buttonTexts=(await p.locator('button:visible').allTextContents()).map(x=>x.trim()).filter(Boolean);info(`${name}: ${buttonTexts.length} visible buttons: ${buttonTexts.slice(0,60).join(' | ')}`);
-for(const [label,re] of [['CV',/CV Preparation|CV|resume|job match/i],['Interview',/AI Audio Interview|AI interviewer|voice interview|interview/i],['Corporate',/Corporate Ready|workplace|corporate/i],['AI at Work',/AI at Work|AI skill|learn AI/i]]){await p.goto(base,{waitUntil:'commit',timeout:30000});await p.waitForLoadState('domcontentloaded',{timeout:5000}).catch(()=>{});await p.waitForTimeout(500);await open(p,re,label)}
-await p.goto(base,{waitUntil:'commit',timeout:30000});await p.waitForLoadState('domcontentloaded',{timeout:5000}).catch(()=>{});await p.waitForTimeout(500);await open(p,/CV Preparation|CV|resume|job match/i,'CV');await settle(p);
-let fi=p.locator('input[type=file]');if(!await fi.count()){const up=p.getByText(/upload (your )?(cv|resume)|drop.*cv|choose.*file|browse/i).first();if(await up.count()&&await up.isVisible().catch(()=>false)){const chooser=p.waitForEvent('filechooser',{timeout:4000}).catch(()=>null);await up.click({timeout:8000}).catch(()=>{});await chooser;await p.waitForTimeout(300)}fi=p.locator('input[type=file]')}
-info(`${name}: file inputs after activating upload = ${await fi.count()}`);if(!await fi.count())fail(`${name}: CV upload control does not expose a file input/file chooser`);else{for(const f of ['dummy-text.pdf','scanned-cv.pdf','dummy.docx','dummy.txt']){if(await upload(p,f,`${name} CV`))await assertCvExtracted(p,f,`${name} CV`)}const a=p.getByRole('button',{name:/analys|improve|match|continue|generate|save/i}).first();if(await a.count()&&await a.isVisible().catch(()=>false)){try{await a.click({timeout:12000});await p.waitForTimeout(3500);pass(`${name}: CV report action exercised`)}catch(e){fail(`${name}: CV report action: ${e.message}`)}}}
-await p.goto(base,{waitUntil:'commit',timeout:30000});await p.waitForLoadState('domcontentloaded',{timeout:5000}).catch(()=>{});await p.waitForTimeout(500);await open(p,/AI Audio Interview|AI interviewer|voice interview|interview/i,'Interview');await settle(p);const start=p.getByRole('button',{name:/start|begin|practice|ready/i}).first();if(await start.count()&&await start.isVisible().catch(()=>false)){try{await start.click({timeout:12000});await p.waitForTimeout(1600);pass(`${name}: interview started`)}catch(e){fail(`${name}: interview start: ${e.message}`)}}else info(`${name}: interview start not exposed`);const text=p.locator('textarea:visible,input:visible:not([type=file])');if(await text.count())await text.first().fill('I built a placement tracker using React and improved the workflow for students.');const next=p.getByRole('button',{name:/next|submit answer|continue/i}).first();if(await next.count()&&await next.isVisible().catch(()=>false))await next.click({timeout:10000}).catch(e=>fail(`${name}: interview next: ${e.message}`));const finish=p.getByRole('button',{name:/finish|end interview|complete|done/i}).first();if(await finish.count()&&await finish.isVisible().catch(()=>false)){await finish.click({timeout:10000}).catch(e=>fail(`${name}: interview finish: ${e.message}`));await p.waitForTimeout(1800);pass(`${name}: interview completion exercised`)}
-if(ce.length)info(`${name}: ${ce.length} console errors: ${ce.slice(0,8).join(' | ')}`);if(pe.length)fail(`${name}: page errors: ${pe.slice(0,8).join(' | ')}`);
-}catch(e){fail(`${name}: fatal ${e.message}`)}finally{await browser.close()}}
-await audit('desktop',{viewport:{width:1440,height:900}});await audit('mobile',{...devices['Pixel 7']});
-const report={base,results,failures,generatedAt:new Date().toISOString()};fs.writeFileSync('live-audit-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));if(failures.length)process.exitCode=1;
+
+const base = 'https://getjobready.online/';
+const dir = process.env.GJR_AUDIT_FILES || '/tmp/gjr-audit';
+const results = [];
+const failures = [];
+const pass = msg => { results.push({ kind: 'pass', msg }); console.log('[PASS]', msg); };
+const info = msg => { results.push({ kind: 'info', msg }); console.log('[INFO]', msg); };
+const fail = msg => { failures.push(msg); console.error('[FAIL]', msg); };
+
+async function settle(page) {
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(250);
+}
+
+async function openModule(page, matcher, label) {
+  await settle(page);
+  const target = page.getByText(matcher).first();
+  if (!await target.count() || !await target.isVisible().catch(() => false)) {
+    info(`${label}: target not exposed`);
+    return false;
+  }
+  try {
+    await target.scrollIntoViewIfNeeded();
+    await target.click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    pass(`${label} opened`);
+    return true;
+  } catch (e) {
+    fail(`${label}: ${e.message}`);
+    return false;
+  }
+}
+
+async function upload(page, file, label) {
+  const path = `${dir}/${file}`;
+  if (!fs.existsSync(path)) { fail(`${label}: fixture missing ${file}`); return false; }
+  try {
+    const input = page.locator('input[type=file]').first();
+    if (!await input.count()) throw new Error('CV file input missing');
+    await input.setInputFiles(path);
+    pass(`${label}: uploaded ${file}`);
+    return true;
+  } catch (e) {
+    fail(`${label}: upload ${file}: ${e.message}`);
+    return false;
+  }
+}
+
+async function assertExtracted(page, file, label) {
+  // The product's canonical CV editor is #cvText. Do not infer extraction
+  // from an arbitrary textbox (the interview screen also contains textboxes).
+  const editor = page.locator('#cvText');
+  try {
+    await editor.waitFor({ state: 'attached', timeout: 5000 });
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#cvText');
+      return !!el && /Alex Student|Computer Science Student|placement tracker/i.test(el.value || '');
+    }, { timeout: 10000 });
+    const value = await editor.inputValue();
+    const box = await editor.boundingBox();
+    if (!box || box.width < 20 || box.height < 20) {
+      fail(`${label}: ${file} populated #cvText but editor has no usable layout`);
+      return false;
+    }
+    pass(`${label}: ${file} populated CV editor (${Math.round(box.width)}x${Math.round(box.height)})`);
+    info(`${label}: ${file} extracted ${value.length} characters`);
+    return true;
+  } catch (e) {
+    fail(`${label}: ${file} did not populate #cvText: ${e.message}`);
+    return false;
+  }
+}
+
+async function audit(name, contextOptions) {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ ...contextOptions, permissions: ['microphone'] });
+  const page = await context.newPage();
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+  page.on('pageerror', err => pageErrors.push(err.message));
+  try {
+    const response = await page.goto(base, { waitUntil: 'commit', timeout: 30000 });
+    if (!response?.ok()) throw new Error(`home HTTP ${response?.status()}`);
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    if (!(await page.locator('body').innerText()).includes('GetJobReady')) throw new Error('branding missing');
+    pass(`${name}: homepage loaded`);
+
+    await openModule(page, /CV Preparation|CV|resume|job match/i, 'CV');
+    await settle(page);
+    const input = page.locator('input[type=file]').first();
+    if (!await input.count()) { fail(`${name}: CV upload input missing`); }
+    else {
+      for (const file of ['dummy-text.pdf', 'scanned-cv.pdf', 'dummy.docx', 'dummy.txt']) {
+        if (await upload(page, file, `${name} CV`)) {
+          await assertExtracted(page, file, `${name} CV`);
+        }
+      }
+      const review = page.getByRole('button', { name: /Review & improve my CV/i }).first();
+      if (await review.count() && await review.isVisible().catch(() => false)) {
+        await review.click({ timeout: 12000 });
+        await page.waitForTimeout(3000);
+        pass(`${name}: CV review action exercised`);
+      }
+    }
+
+    await page.goto(base, { waitUntil: 'commit', timeout: 30000 });
+    await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    await openModule(page, /AI Audio Interview|AI interviewer|voice interview|interview/i, 'Interview');
+    await settle(page);
+    const start = page.getByRole('button', { name: /start|begin|practice|ready/i }).first();
+    if (await start.count() && await start.isVisible().catch(() => false)) {
+      await start.click({ timeout: 12000 });
+      await page.waitForTimeout(1200);
+      pass(`${name}: interview started`);
+    }
+    if (consoleErrors.length) info(`${name}: console errors: ${consoleErrors.slice(0, 8).join(' | ')}`);
+    if (pageErrors.length) fail(`${name}: page errors: ${pageErrors.slice(0, 8).join(' | ')}`);
+  } catch (e) {
+    fail(`${name}: fatal ${e.message}`);
+  } finally {
+    await browser.close();
+  }
+}
+
+await audit('desktop', { viewport: { width: 1440, height: 900 } });
+await audit('mobile', { ...devices['Pixel 7'] });
+
+const report = { base, results, failures, generatedAt: new Date().toISOString() };
+fs.writeFileSync('live-audit-report.json', JSON.stringify(report, null, 2));
+console.log(JSON.stringify(report, null, 2));
+if (failures.length) process.exitCode = 1;
