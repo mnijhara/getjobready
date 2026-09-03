@@ -82,7 +82,7 @@
     if(card)return {card,editor:card.querySelector('textarea,[contenteditable="true"],input:not([type="file"])')};
     const heading=[...document.querySelectorAll('h1,h2,h3,h4,button,[role="button"]')].find(el=>/cv\s*preparation|upload.*cv|resume/i.test(el.textContent||''));
     if(heading){const section=heading.closest('section,article,div');return {card:section,editor:section?.querySelector('textarea,[contenteditable="true"],input:not([type="file"])')};}
-    const fallbackEditor=document.querySelector('textarea[name="cv"],textarea[placeholder*="CV" i],textarea[placeholder*="resume" i],[contenteditable="true"][aria-label*="CV" i]);
+    const fallbackEditor=document.querySelector('textarea[name="cv"],textarea[placeholder*="CV" i],textarea[placeholder*="resume" i],[contenteditable="true"][aria-label*="CV" i]');
     if(fallbackEditor)return {card:fallbackEditor.closest('section,article,div')||document.body,editor:fallbackEditor};
     return null;
   };
