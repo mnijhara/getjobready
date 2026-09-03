@@ -47,9 +47,6 @@
     input.dataset.gjrCvInput = '1';
     input.accept = CV_ACCEPT;
   };
-  const patchExistingInputs = () => document.querySelectorAll('input[type="file"]').forEach(patchCvInput);
-  patchExistingInputs();
-  new MutationObserver(patchExistingInputs).observe(document.documentElement, { childList: true, subtree: true });
 
   async function parsePdf(file) {
     try {
@@ -123,6 +120,59 @@
       toast(e?.message === 'CV file is over 5 MB.' ? 'Please keep your CV under 5 MB.' : 'We could not read this CV. Please retry or paste the CV text below.', true);
     }
   }
+
+  const findCvEditor = () => {
+    const cards = [...document.querySelectorAll('.input-card')];
+    const card = cards.find(el => /your\s*cv|cv\s*preparation|upload.*cv|resume/i.test(el.textContent || '') && el.querySelector('textarea'));
+    if (card) return { card, textarea: card.querySelector('textarea') };
+    const visibleTextareas = [...document.querySelectorAll('textarea')].filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+    if (visibleTextareas.length === 1 && /cv|resume/i.test(document.body.innerText || '')) {
+      return { card: visibleTextareas[0].closest('.input-card') || visibleTextareas[0].parentElement, textarea: visibleTextareas[0] };
+    }
+    return null;
+  };
+
+  const ensureCvUploadControl = () => {
+    const editor = findCvEditor();
+    if (!editor?.card || !editor.textarea) return;
+    const existing = [...editor.card.querySelectorAll('input[type="file"]')].find(isCvInput);
+    if (existing) { patchCvInput(existing); return; }
+    if (editor.card.querySelector('[data-gjr-cv-upload-fallback="1"]')) return;
+
+    const wrap = document.createElement('div');
+    wrap.dataset.gjrCvUploadFallback = '1';
+    Object.assign(wrap.style, { display:'flex', alignItems:'center', gap:'10px', margin:'10px 0 12px', flexWrap:'wrap' });
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Upload CV';
+    button.setAttribute('aria-label', 'Upload CV');
+    Object.assign(button.style, { border:'1px solid rgba(99,102,241,.35)', borderRadius:'10px', padding:'9px 13px', font:'700 13px/1 system-ui,sans-serif', cursor:'pointer' });
+    const hint = document.createElement('span');
+    hint.textContent = 'PDF, DOCX or TXT · max 5 MB';
+    Object.assign(hint.style, { font:'500 12px/1.3 system-ui,sans-serif', opacity:'.7' });
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.dataset.gjrCvInput = '1';
+    input.accept = CV_ACCEPT;
+    input.setAttribute('aria-label', 'Choose CV file');
+    Object.assign(input.style, { position:'absolute', width:'1px', height:'1px', opacity:'0', pointerEvents:'none' });
+    button.addEventListener('click', () => input.click());
+    input.addEventListener('change', event => {
+      const file = event.target.files?.[0];
+      if (file) handle(input, file);
+    });
+    wrap.append(button, hint, input);
+    editor.textarea.parentElement?.insertBefore(wrap, editor.textarea);
+    patchCvInput(input);
+  };
+
+  const patchExistingInputs = () => document.querySelectorAll('input[type="file"]').forEach(patchCvInput);
+  patchExistingInputs();
+  ensureCvUploadControl();
+  new MutationObserver(() => { patchExistingInputs(); ensureCvUploadControl(); }).observe(document.documentElement, { childList: true, subtree: true });
 
   document.addEventListener('change', (event) => {
     const input = event.target;
