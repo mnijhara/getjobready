@@ -22,6 +22,7 @@ if (!mobileUpload.includes("new TextDecoder('utf-8', { fatal: true })")) throw n
 if (!cvBridge.includes('const normalizedMime = inferMime(body.mime, String(body.data));')) throw new Error('CV bridge must normalize unreliable browser MIME values before server extraction.');
 if (!cvBridge.includes("body: JSON.stringify({ ...body, mime: normalizedMime })")) throw new Error('CV bridge must send the normalized MIME to the same-origin extraction endpoint.');
 if (!cvBridge.includes("new TextDecoder('utf-8', { fatal: true })")) throw new Error('CV bridge must preserve generic-MIME text detection for desktop extraction.');
+if (!cvBridge.includes("contentType.toLowerCase().includes('application/json') && serverResponse.status < 500")) throw new Error('CV bridge must fall back to the AI proxy when same-origin extraction returns a server 5xx JSON response.');
 if (!desktopApp.includes("post('/api/extract-cv'")) throw new Error('Desktop CV extraction must retain a server-side extraction fallback.');
 if (!desktopApp.includes('mime:file.type||\'application/pdf\'')) throw new Error('Desktop CV fallback must preserve a MIME value for the extraction API.');
 if (!server.includes("app.post('/api/extract-cv'")) throw new Error('Server CV extraction fallback endpoint is missing.');
