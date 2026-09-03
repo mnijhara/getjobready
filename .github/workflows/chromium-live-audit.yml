@@ -53,6 +53,7 @@ jobs:
       - name: Run desktop + mobile Chromium audit
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
+          GJR_EXPECTED_SOURCE_SHA: ${{ github.actor == 'github-actions[bot]' && github.event.before || github.sha }}
         run: node scripts/live-audit.mjs
       - name: Publish audit diagnostics
         if: always()
