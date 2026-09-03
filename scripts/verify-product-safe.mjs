@@ -26,6 +26,8 @@ if (!cvBridge.includes('const normalizedMime = inferMime(body.mime, String(body.
 if (!cvBridge.includes("body: JSON.stringify({ ...body, mime: normalizedMime })")) throw new Error('CV bridge must send the normalized MIME to the same-origin extraction endpoint.');
 if (!cvBridge.includes("new TextDecoder('utf-8', { fatal: true })")) throw new Error('CV bridge must preserve generic-MIME text detection for desktop extraction.');
 if (!cvBridge.includes("contentType.toLowerCase().includes('application/json') && serverResponse.status < 500")) throw new Error('CV bridge must fall back to the AI proxy when same-origin extraction returns a server 5xx JSON response.');
+if (!cvBridge.includes("contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }] }],")) throw new Error('Browser CV AI fallback must send the instruction and document as Gemini contents parts.');
+if (/body: JSON\.stringify\(\{[^}]*\bprompt,/.test(cvBridge) || /body: JSON\.stringify\(\{[^}]*\bjson:\s*false/.test(cvBridge)) throw new Error('Browser CV AI fallback must not send unsupported top-level prompt/json fields.');
 if (!desktopApp.includes("post('/api/extract-cv'")) throw new Error('Desktop CV extraction must retain a server-side extraction fallback.');
 if (!desktopApp.includes('mime:file.type||\'application/pdf\'')) throw new Error('Desktop CV fallback must preserve a MIME value for the extraction API.');
 if (!desktopApp.includes('window.__gjrSetCv')) throw new Error('Desktop application must expose the canonical React CV setter for upload helpers.');
