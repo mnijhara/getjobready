@@ -13,9 +13,14 @@
   const inferMime = (mime, data) => {
     const normalized = String(mime || '').toLowerCase().split(';')[0].trim();
     try {
-      const prefix = atob(String(data || '').slice(0, 24));
-      if (prefix.startsWith('%PDF-')) return 'application/pdf';
-      if (prefix.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      const raw = atob(String(data || '').slice(0, 1024));
+      if (raw.startsWith('%PDF-')) return 'application/pdf';
+      if (raw.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (!['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(normalized)) {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(raw, c => c.charCodeAt(0)));
+        const sample = text.replace(/[\t\n\r\x20-\x7E]/g, '');
+        if (text.trim() && sample.length / Math.max(text.length, 1) < 0.08) return 'text/plain';
+      }
     } catch {}
     if (normalized === 'application/pdf' || normalized === 'text/plain' || normalized === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return normalized;
     return normalized || 'application/pdf';
