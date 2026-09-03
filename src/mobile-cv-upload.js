@@ -52,7 +52,8 @@
   };
   const isCvInput = (input) => {
     const label = input.closest('.input-card')?.querySelector('.label')?.textContent || '';
-    return /your\s*cv/i.test(label) || input.dataset.gjrCvInput === '1';
+    const accept = String(input.getAttribute('accept') || '').toLowerCase();
+    return /your\s*cv|cv\s*preparation|upload.*cv|resume/i.test(label) || accept.includes('.docx') || input.dataset.gjrCvInput === '1';
   };
   const patchCvInput = (input) => {
     if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !isCvInput(input)) return;
