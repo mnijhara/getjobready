@@ -63,18 +63,16 @@ var require_ai_router = __commonJS({
       if (!configured()) throw Object.assign(new Error("AI_NOT_CONFIGURED"), { code: "AI_NOT_CONFIGURED" });
       if (Date.now() < workerCooldownUntil) throw new Error("AI_PROXY_COOLDOWN");
       const suppliedParts = options.parts || [{ text: prompt }];
-      const parts = suppliedParts.filter((part, index) => !(index === 0 && part?.text === prompt));
+      const parts = suppliedParts.length ? suppliedParts : [{ text: prompt }];
       const model = options.model || DEFAULT_MODEL;
       const generationConfig = {
         responseMimeType: options.responseMimeType || "application/json",
         maxOutputTokens: options.maxOutputTokens || 6e3
       };
       const body = {
-        prompt,
         model,
-        contents: parts.length ? [{ parts }] : [],
-        generationConfig,
-        json: options.json !== false
+        contents: [{ parts }],
+        generationConfig
       };
       workerRequests += 1;
       lastWorkerUse = Date.now();
