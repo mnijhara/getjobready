@@ -18,6 +18,8 @@ if (!mobileUpload.includes('ensureCvUploadControl')) throw new Error('CV upload 
 if (!mobileUpload.includes("data-gjr-cv-upload-fallback")) throw new Error('CV upload fallback must be uniquely marked to avoid duplicate controls.');
 if (!mobileUpload.includes("textarea,[contenteditable=\"true\"]")) throw new Error('CV upload fallback must support textarea and contenteditable CV editors.');
 if (!mobileUpload.includes('setEditorValue')) throw new Error('CV upload fallback must write extracted text through the editor value bridge.');
+if (!mobileUpload.includes('setReactCV')) throw new Error('CV upload fallback must use the React CV state bridge when available.');
+if (!mobileUpload.includes("window.__gjrSetCv")) throw new Error('CV upload fallback must route extracted text through the canonical React CV setter.');
 if (!mobileUpload.includes("new TextDecoder('utf-8', { fatal: true })")) throw new Error('CV upload helper must detect text CVs when browsers report a generic MIME type.');
 if (!cvBridge.includes('const normalizedMime = inferMime(body.mime, String(body.data));')) throw new Error('CV bridge must normalize unreliable browser MIME values before server extraction.');
 if (!cvBridge.includes("body: JSON.stringify({ ...body, mime: normalizedMime })")) throw new Error('CV bridge must send the normalized MIME to the same-origin extraction endpoint.');
@@ -25,6 +27,7 @@ if (!cvBridge.includes("new TextDecoder('utf-8', { fatal: true })")) throw new E
 if (!cvBridge.includes("contentType.toLowerCase().includes('application/json') && serverResponse.status < 500")) throw new Error('CV bridge must fall back to the AI proxy when same-origin extraction returns a server 5xx JSON response.');
 if (!desktopApp.includes("post('/api/extract-cv'")) throw new Error('Desktop CV extraction must retain a server-side extraction fallback.');
 if (!desktopApp.includes('mime:file.type||\'application/pdf\'')) throw new Error('Desktop CV fallback must preserve a MIME value for the extraction API.');
+if (!desktopApp.includes('window.__gjrSetCv')) throw new Error('Desktop application must expose the canonical React CV setter for upload helpers.');
 if (!server.includes("app.post('/api/extract-cv'")) throw new Error('Server CV extraction fallback endpoint is missing.');
 if (!server.includes('const resolveCvMime = (reportedMime, data)')) throw new Error('Server CV extraction must normalize unreliable MIME values before AI processing.');
 if (!server.includes('const resolvedMime=resolveCvMime(mime,data);') && !server.includes('const resolvedMime = resolveCvMime(mime, data);')) throw new Error('Server CV extraction must use its resolved MIME.');
