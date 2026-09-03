@@ -52,6 +52,14 @@ jobs:
           test -f index.html
           test -d assets
           grep -q '/assets/' index.html
+      - name: Write deployment build identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '{"sha":"%s","workflow":"%s","runId":"%s"}\n' "$GITHUB_SHA" "$GITHUB_WORKFLOW" "$GITHUB_RUN_ID" > dist/build-info.json
+          cp dist/build-info.json build-info.json
+          test -s dist/build-info.json
+          test -s build-info.json
       - name: Preserve compatibility asset URLs
         shell: bash
         run: |
@@ -88,6 +96,8 @@ jobs:
           test -f server.js
           test -f server.cjs
           test -f pdf.worker.mjs
+          test -f build-info.json
+          test -f dist/build-info.json
           test -f assets/native-V7Q_2HxE.js
           test -f assets/pdf.worker-CLesOks4.mjs
           test -f assets/index-BqWIDi9r.js
@@ -105,7 +115,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html assets dist server.cjs server.js pdf.worker.mjs
+          git add index.html assets dist server.cjs server.js pdf.worker.mjs build-info.json
           if git diff --cached --quiet; then
             echo "production artifacts are already current"
             exit 0
