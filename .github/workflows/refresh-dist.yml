@@ -112,15 +112,12 @@ jobs:
           fi
           git commit -m "build: refresh production artifacts"
           for attempt in 1 2 3; do
-            git fetch origin main
-            git rebase origin/main
+            git pull --rebase --autostash origin main
             if git push origin HEAD:main; then
               exit 0
             fi
             echo "Production artifact push raced with another main update; retrying ($attempt/3)." >&2
-            git rebase --abort || true
             git reset --hard HEAD
-            git clean -fd -- dist assets server.js pdf.worker.mjs index.html
             sleep $((attempt * 2))
           done
           echo "Unable to push refreshed production artifacts after 3 race-safe retries." >&2
