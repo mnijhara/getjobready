@@ -6,6 +6,7 @@ on:
       - 'scripts/live-audit.mjs'
       - '.github/workflows/chromium-live-audit.yml'
       - 'server.cjs'
+      - 'ai-router.cjs'
       - 'src/cv-extract-bridge.js'
       - 'src/mobile-cv-upload.js'
       - 'src/main-v2.jsx'
