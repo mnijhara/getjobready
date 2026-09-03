@@ -13,11 +13,15 @@ on:
       - 'src/native-entry.jsx'
       - '.htaccess'
       - 'build-info.json'
+  workflow_run:
+    workflows: [Refresh tracked production artifacts]
+    types: [completed]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   audit:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -53,7 +57,7 @@ jobs:
       - name: Run desktop + mobile Chromium audit
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
-          GJR_EXPECTED_SOURCE_SHA: ${{ github.actor == 'github-actions[bot]' && github.event.before || github.sha }}
+          GJR_EXPECTED_SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: node scripts/live-audit.mjs
       - name: Publish audit diagnostics
         if: always()
