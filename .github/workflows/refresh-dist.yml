@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Product regression verification
         run: npm run verify
       - name: Check production server
@@ -118,6 +118,8 @@ jobs:
               exit 0
             fi
             echo "Production artifact push raced with another main update; retrying ($attempt/3)." >&2
+            git rebase --abort || true
+            git reset --hard HEAD
             sleep $((attempt * 2))
           done
           echo "Unable to push refreshed production artifacts after 3 race-safe retries." >&2
