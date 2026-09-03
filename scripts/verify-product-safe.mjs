@@ -9,6 +9,7 @@ const mobileUpload = read('src/mobile-cv-upload.js');
 const cvBridge = read('src/cv-extract-bridge.js');
 const desktopApp = read('src/main-v2.jsx');
 const server = read('server.cjs');
+const aiRouter = read('ai-router.cjs');
 if (!nativeEntry.includes("import './mobile-cv-upload.js';")) throw new Error('Canonical production entry must load the CV upload extraction helper.');
 if (!mobileUpload.includes("fetch('/api/extract-cv'")) throw new Error('CV upload helper must use the server extraction endpoint.');
 if (mobileUpload.includes('getjobready-ai-proxy.mnijhara.workers.dev')) throw new Error('CV upload helper must not expose or call the AI proxy directly from the browser.');
@@ -32,6 +33,9 @@ if (!server.includes("app.post('/api/extract-cv'")) throw new Error('Server CV e
 if (!server.includes('const resolveCvMime = (reportedMime, data)')) throw new Error('Server CV extraction must normalize unreliable MIME values before AI processing.');
 if (!server.includes('const resolvedMime=resolveCvMime(mime,data);') && !server.includes('const resolvedMime = resolveCvMime(mime, data);')) throw new Error('Server CV extraction must use its resolved MIME.');
 if (!server.includes('mime: resolvedMime')) throw new Error('Server CV extraction must send the resolved MIME to the AI router.');
+if (aiRouter.includes('prompt,\n    model') || aiRouter.includes('json: options.json')) throw new Error('AI router must not send unsupported top-level prompt/json fields to the Gemini proxy.');
+if (!aiRouter.includes('contents: [{ parts }]')) throw new Error('AI router must send the instruction as a Gemini contents part.');
+if (!aiRouter.includes('generationConfig')) throw new Error('AI router must send Gemini generation configuration through the supported field.');
 
 const source = read('scripts/verify-product.mjs');
 const oldDeclaration = /const cvInitializesFromOriginal=[\s\S]*?\nexpect\(cvInitializesFromOriginal,'CV editor initializes from the original CV without rewriting it'\);/;
