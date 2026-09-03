@@ -52,6 +52,21 @@ jobs:
           test -f index.html
           test -d assets
           grep -q '/assets/' index.html
+      - name: Verify source revision is still current
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          checked_out_sha="$(git rev-parse HEAD)"
+          remote_sha="$(git rev-parse origin/main)"
+          if [[ "$checked_out_sha" != "$GITHUB_SHA" ]]; then
+            echo "Checkout SHA $checked_out_sha does not match workflow SHA $GITHUB_SHA" >&2
+            exit 1
+          fi
+          if [[ "$remote_sha" != "$GITHUB_SHA" ]]; then
+            echo "main advanced from $GITHUB_SHA to $remote_sha while artifacts were building; refusing to publish stale artifacts." >&2
+            exit 1
+          fi
       - name: Write deployment build identity
         shell: bash
         run: |
@@ -111,6 +126,16 @@ jobs:
           js_asset="$(grep -oE '/assets/[^" ]+\.js' index.html | head -1)"
           test -n "$js_asset"
           test "$(wc -c < "${js_asset#/}")" -gt 150000
+      - name: Recheck source revision before publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          remote_sha="$(git rev-parse origin/main)"
+          if [[ "$remote_sha" != "$GITHUB_SHA" ]]; then
+            echo "main advanced from $GITHUB_SHA to $remote_sha before publish; refusing to publish stale artifacts." >&2
+            exit 1
+          fi
       - name: Commit refreshed production artifacts
         shell: bash
         run: |
@@ -123,14 +148,8 @@ jobs:
             exit 0
           fi
           git commit -m "build: refresh production artifacts"
-          for attempt in 1 2 3; do
-            git pull --rebase --autostash origin main
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            echo "Production artifact push raced with another main update; retrying ($attempt/3)." >&2
-            git reset --hard HEAD
-            sleep $((attempt * 2))
-          done
-          echo "Unable to push refreshed production artifacts after 3 race-safe retries." >&2
+          if git push origin HEAD:main; then
+            exit 0
+          fi
+          echo "Production artifact push raced with another main update; refusing to retry a stale build. The newer main commit must run a fresh artifact build." >&2
           exit 1
