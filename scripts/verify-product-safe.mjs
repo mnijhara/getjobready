@@ -25,6 +25,9 @@ if (!cvBridge.includes("new TextDecoder('utf-8', { fatal: true })")) throw new E
 if (!desktopApp.includes("post('/api/extract-cv'")) throw new Error('Desktop CV extraction must retain a server-side extraction fallback.');
 if (!desktopApp.includes('mime:file.type||\'application/pdf\'')) throw new Error('Desktop CV fallback must preserve a MIME value for the extraction API.');
 if (!server.includes("app.post('/api/extract-cv'")) throw new Error('Server CV extraction fallback endpoint is missing.');
+if (!server.includes('const resolveCvMime = (reportedMime, data)')) throw new Error('Server CV extraction must normalize unreliable MIME values before AI processing.');
+if (!server.includes('const resolvedMime=resolveCvMime(mime,data);') && !server.includes('const resolvedMime = resolveCvMime(mime, data);')) throw new Error('Server CV extraction must use its resolved MIME.');
+if (!server.includes('mime: resolvedMime')) throw new Error('Server CV extraction must send the resolved MIME to the AI router.');
 
 const source = read('scripts/verify-product.mjs');
 const oldDeclaration = /const cvInitializesFromOriginal=[\s\S]*?\nexpect\(cvInitializesFromOriginal,'CV editor initializes from the original CV without rewriting it'\);/;
