@@ -70,7 +70,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git pull --rebase origin main || true
           cp dist/index.html index.html
           rsync -a dist/assets/ assets/ || cp -R dist/assets/* assets/
           cp dist/pdf.worker.mjs pdf.worker.mjs
@@ -80,22 +79,31 @@ jobs:
           git add index.html assets pdf.worker.mjs favicon.svg logo.svg manifest.webmanifest dist
           if git diff --cached --quiet; then
             echo "Production entrypoint already matches the generated artifact."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "build: sync production artifacts to repository root"
-            git pull --rebase --autostash origin main || true
-            git push origin HEAD:main || true
+            exit 0
           fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build: sync production artifacts to repository root"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Production artifact push raced with another main update; retrying ($attempt/3)." >&2
+            sleep $((attempt * 2))
+          done
+          echo "Unable to push refreshed production artifacts after 3 race-safe retries." >&2
+          exit 1
       - name: Smoke test
         run: |
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
           for i in {1..30}; do if curl -fsS http://127.0.0.1:4173/api/health > /tmp/health.json; then break; fi; sleep 1; done
-          grep -q '"ok":true' /tmp/health.json
+          grep -q '\"ok\":true' /tmp/health.json
           curl -fsS http://127.0.0.1:4173/ | grep -q '/assets/'
-          curl -fsS http://127.0.0.1:4173/api/ai-status | grep -q '"configured"'
+          curl -fsS http://127.0.0.1:4173/api/ai-status | grep -q '\"configured\"'
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
         with:
