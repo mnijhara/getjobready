@@ -96,6 +96,7 @@ jobs:
           test -f server.js
           test -f server.cjs
           test -f pdf.worker.mjs
+          test -f .htaccess
           test -f build-info.json
           test -f dist/build-info.json
           test -f assets/native-V7Q_2HxE.js
@@ -106,6 +107,7 @@ jobs:
           grep -q '/assets/' index.html
           grep -q 'interview-turn' server.js
           grep -q 'ai-status' server.js
+          grep -q 'application/javascript' .htaccess
           js_asset="$(grep -oE '/assets/[^" ]+\.js' index.html | head -1)"
           test -n "$js_asset"
           test "$(wc -c < "${js_asset#/}")" -gt 150000
@@ -115,7 +117,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html assets dist server.cjs server.js pdf.worker.mjs build-info.json
+          git add index.html assets dist server.cjs server.js pdf.worker.mjs build-info.json .htaccess
           if git diff --cached --quiet; then
             echo "production artifacts are already current"
             exit 0
