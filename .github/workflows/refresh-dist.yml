@@ -105,7 +105,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html assets dist server.cjs server.js
+          git add index.html assets dist server.cjs server.js pdf.worker.mjs
           if git diff --cached --quiet; then
             echo "production artifacts are already current"
             exit 0
@@ -120,6 +120,7 @@ jobs:
             echo "Production artifact push raced with another main update; retrying ($attempt/3)." >&2
             git rebase --abort || true
             git reset --hard HEAD
+            git clean -fd -- dist assets server.js pdf.worker.mjs index.html
             sleep $((attempt * 2))
           done
           echo "Unable to push refreshed production artifacts after 3 race-safe retries." >&2
