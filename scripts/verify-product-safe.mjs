@@ -16,6 +16,8 @@ if (!mobileUpload.includes("fetch('/api/extract-cv'")) throw new Error('CV uploa
 if (mobileUpload.includes('getjobready-ai-proxy.mnijhara.workers.dev')) throw new Error('CV upload helper must not expose or call the AI proxy directly from the browser.');
 if (!/your\s*cv|your\s+cv/i.test(mobileUpload)) throw new Error('CV upload helper must identify the CV input independently of the accepted file list.');
 if (!mobileUpload.includes("input.accept = CV_ACCEPT")) throw new Error('CV upload helper must expand the CV picker to supported document formats.');
+if (!mobileUpload.includes('ensureCvUploadControl')) throw new Error('CV upload helper must restore an upload control when the CV editor renders without a native file input.');
+if (!mobileUpload.includes("data-gjr-cv-upload-fallback")) throw new Error('CV upload fallback must be uniquely marked to avoid duplicate controls.');
 if (!cvBridge.includes('const normalizedMime = inferMime(body.mime, String(body.data));')) throw new Error('CV bridge must normalize unreliable browser MIME values before server extraction.');
 if (!cvBridge.includes("body: JSON.stringify({ ...body, mime: normalizedMime })")) throw new Error('CV bridge must send the normalized MIME to the same-origin extraction endpoint.');
 if (!desktopApp.includes("post('/api/extract-cv'")) throw new Error('Desktop CV extraction must retain a server-side extraction fallback.');
