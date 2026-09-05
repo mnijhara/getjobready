@@ -1314,11 +1314,19 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
 function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,history,onTurn,onDone}){
  const[status,setStatus]=useState('starting'),[transcript,setTranscript]=useState(''),[turns,setTurns]=useState(history||[]),[permission,setPermission]=useState(false);
  const[silenceCountdown,setSilenceCountdown]=useState(null);
+ const[showTypeMode,setShowTypeMode]=useState(false),[typedAnswer,setTypedAnswer]=useState('');
  const rec=useRef(null),started=useRef(false),submitting=useRef(false),latestTranscript=useRef('');
  const silenceTimerRef=useRef(null),countdownIntervalRef=useRef(null),speechFinalizedRef=useRef('');
  const mediaRecorderRef=useRef(null),audioChunksRef=useRef([]);
  const supported=typeof window!=='undefined'&&('webkitSpeechRecognition'in window||'SpeechRecognition'in window);
  useEffect(()=>{setTurns(history||[])},[history]);
+ useEffect(()=>{
+  window.__gjrSubmitAnswer=(text)=>{
+   latestTranscript.current=text;
+   submit(text);
+  };
+  return()=>{delete window.__gjrSubmitAnswer};
+ },[question,turn,turns]);
 
  const clearSilenceTimers=()=>{
   if(silenceTimerRef.current){clearTimeout(silenceTimerRef.current);silenceTimerRef.current=null;}
@@ -1553,9 +1561,49 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
      </button>
     </div>
    )}
+   </div>
+   <div style={{marginTop:'12px',textAlign:'center'}}>
+    {!showTypeMode ? (
+     <button type="button" className="ghost-sm" style={{fontSize:'12px',color:'#6855e8',background:'rgba(104,85,232,0.06)'}} onClick={()=>setShowTypeMode(true)}>
+      ⌨️ Or type / paste answer (library / quiet mode)
+     </button>
+    ) : (
+     <div style={{marginTop:'8px',padding:'16px',background:'#fff',borderRadius:'16px',border:'1px solid #e2e8f0',textAlign:'left'}}>
+      <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'6px',color:'#334155'}}>
+       Type your answer (STAR method):
+      </label>
+      <textarea
+       id="interviewTypedInput"
+       value={typedAnswer}
+       onChange={e=>setTypedAnswer(e.target.value)}
+       rows={4}
+       placeholder="Situation → Task → Action → Result (include metrics and your role)..."
+       style={{width:'100%',padding:'10px',borderRadius:'10px',border:'1px solid #cbd5e1',fontSize:'13px',lineHeight:'1.5'}}
+      />
+      <div style={{marginTop:'10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+       <button type="button" className="ghost-sm" onClick={()=>{setShowTypeMode(false);setTypedAnswer('');}}>
+        Close
+       </button>
+       <button
+        type="button"
+        className="primary-sm"
+        disabled={!typedAnswer.trim() || submitting.current}
+        onClick={()=>{
+         const ans=typedAnswer.trim();
+         setTypedAnswer('');
+         setShowTypeMode(false);
+         latestTranscript.current=ans;
+         submit(ans);
+        }}
+       >
+        Submit Typed Answer <ArrowRight size={14}/>
+       </button>
+      </div>
+     </div>
+    )}
+   </div>
+   {permission&&<div className="interview-hint"><Volume2 size={15}/> Question audio · automatic answer capture · 100% hands-free</div>}
   </div>
-  {permission&&<div className="interview-hint"><Volume2 size={15}/> Question audio · automatic answer capture · 100% hands-free</div>}
- </div>
 }
 
 function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImproveCV,onModule}){
