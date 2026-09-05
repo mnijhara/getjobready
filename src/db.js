@@ -253,34 +253,70 @@ export const db = {
       db.saveProfile(targetEmail);
     }
 
+    // 1. Sync Master CV
+    const localCVKey = `gjr_master_cv_${getEmailKey()}`;
+    const localCV = localStorage.getItem(localCVKey) || '';
+
     const { data: cvData } = await supabase.from('master_cvs').select('*').eq('user_id', uid).eq('is_current', true).order('updated_at', { ascending: false }).limit(1).maybeSingle();
     if (cvData?.source_text) {
-      const key = `gjr_master_cv_${getEmailKey()}`;
-      localStorage.setItem(key, cvData.source_text);
+      if (!localCV || cvData.source_text.length >= localCV.length) {
+        localStorage.setItem(localCVKey, cvData.source_text);
+      }
+    } else if (localCV && localCV.trim()) {
+      // If cloud is empty but laptop has local CV, push it up
+      supabase.from('master_cvs').insert({
+        user_id: uid,
+        title: 'Master CV',
+        source_text: localCV,
+        is_current: true
+      }).catch(() => {});
     }
 
+    // 2. Sync Applications
+    const keyApps = `gjr_apps_${getEmailKey()}`;
+    const localApps = db.getApplications();
+
     const { data: appsData } = await supabase.from('job_applications').select('*').eq('user_id', uid).order('created_at', { ascending: false });
+    
+    // If local has apps not yet in Supabase (e.g. laptop created before RLS fix), upload them
+    if (localApps && localApps.length) {
+      for (const la of localApps) {
+        const alreadyInCloud = (appsData || []).some(ca => String(ca.id) === String(la.id) || (ca.company === (la.company || la.role) && ca.cv_text === la.cv));
+        if (!alreadyInCloud) {
+          supabase.from('job_applications').insert({
+            user_id: uid,
+            company: la.company || la.role || 'Role-specific Application',
+            job_description: la.jd || '',
+            cv_text: la.cv || '',
+            status: 'evaluated',
+            score: Number(la.result?.score || la.score) || null,
+            metadata: { role: la.role || la.company, report: la.result || { score: la.score }, email: targetEmail }
+          }).catch(() => {});
+        }
+      }
+    }
+
     if (appsData && appsData.length) {
-      const key = `gjr_apps_${getEmailKey()}`;
-      const localApps = db.getApplications();
       const merged = [...localApps];
       for (const a of appsData) {
         const id = String(a.id);
         const meta = a.metadata || {};
         const role = meta.role || a.company || 'Role-specific CV';
+        const company = a.company || (meta.role && meta.role.includes('–') ? meta.role.split('–')[0].trim() : '') || 'Application';
         if (!merged.some(m => m.id === id || (m.role === role && m.cv === a.cv_text))) {
           merged.push({
             id,
             role,
-            company: a.company || '',
+            company,
             cv: a.cv_text || '',
             jd: a.job_description || '',
             result: meta.report || { score: a.score },
+            score: a.score || meta.report?.score,
             updated: a.created_at
           });
         }
       }
-      localStorage.setItem(key, JSON.stringify(merged));
+      localStorage.setItem(keyApps, JSON.stringify(merged));
     }
 
     const { data: ivData } = await supabase.from('interviews').select('*').eq('user_id', uid).order('created_at', { ascending: false });
