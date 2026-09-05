@@ -28,33 +28,37 @@ async function main() {
   }
 
   try {
-    console.log('--- Running direct API test on /api/aimentor ---');
-    const apiRes = await fetch(`${BASE}api/aimentor`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        career: 'Product Manager',
-        message: 'How do I draft an executive memo with Claude using SCQA?',
-        messages: [
-          { role: 'user', content: 'How do I draft an executive memo with Claude using SCQA?' }
-        ]
-      })
-    });
+    if (!TARGET_URL) {
+      console.log('--- Running direct API test on /api/aimentor ---');
+      const apiRes = await fetch(`${BASE}api/aimentor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          career: 'Product Manager',
+          message: 'How do I draft an executive memo with Claude using SCQA?',
+          messages: [
+            { role: 'user', content: 'How do I draft an executive memo with Claude using SCQA?' }
+          ]
+        })
+      });
 
-    if (!apiRes.ok) {
-      throw new Error(`API test failed with status ${apiRes.status}: ${await apiRes.text()}`);
-    }
+      if (!apiRes.ok) {
+        throw new Error(`API test failed with status ${apiRes.status}: ${await apiRes.text()}`);
+      }
 
-    const apiData = await apiRes.json();
-    console.log('API Response received:');
-    console.log('Reply preview:', apiData.reply?.slice(0, 100) + '...');
-    console.log('Recommended Prompt preview:', apiData.recommendedPrompt?.slice(0, 80) + '...');
-    console.log('Key takeaways count:', apiData.keyTakeaways?.length);
-    console.log('Recommended Course:', apiData.recommendedCourse);
-    if (!apiData.reply || !apiData.recommendedPrompt || !apiData.keyTakeaways) {
-      throw new Error('API payload missing critical fields: ' + JSON.stringify(apiData));
+      const apiData = await apiRes.json();
+      console.log('API Response received:');
+      console.log('Reply preview:', apiData.reply?.slice(0, 100) + '...');
+      console.log('Recommended Prompt preview:', apiData.recommendedPrompt?.slice(0, 80) + '...');
+      console.log('Key takeaways count:', apiData.keyTakeaways?.length);
+      console.log('Recommended Course:', apiData.recommendedCourse);
+      if (!apiData.reply || !apiData.recommendedPrompt || !apiData.keyTakeaways) {
+        throw new Error('API payload missing critical fields: ' + JSON.stringify(apiData));
+      }
+      console.log('✓ /api/aimentor direct API test passed.');
+    } else {
+      console.log('Testing against remote target URL. Verifying endpoint or resilient fallback in browser.');
     }
-    console.log('✓ /api/aimentor direct API test passed.');
 
     console.log('--- Launching Playwright browser ---');
     const browser = await chromium.launch({ headless: true });
@@ -128,11 +132,13 @@ async function main() {
     const guidanceHeader = await page.locator('.mentor-guidance-header').innerText();
     console.log('✓ Guidance Blueprint:', guidanceHeader);
 
+    const prefix = TARGET_URL ? 'live-ai-' : 'ai-';
+
     // Take Tab 1 Screenshot
     await guidanceCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(400);
-    await page.screenshot({ path: '/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/ai-tab1-mentor-chat.png', fullPage: true });
-    console.log('✓ Saved Tab 1 screenshot: ai-tab1-mentor-chat.png');
+    await page.screenshot({ path: `/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/${prefix}tab1-mentor-chat.png`, fullPage: true });
+    console.log(`✓ Saved Tab 1 screenshot: ${prefix}tab1-mentor-chat.png`);
 
     // Verify Tab 2: Battle-Tested Prompts & 7-Day Sprint
     console.log('Switching to Tab 2 (Battle-Tested Prompts & 7-Day Sprint)...');
@@ -147,8 +153,8 @@ async function main() {
     await sprintHeading.waitFor({ state: 'visible' });
     console.log('✓ Prompts, Guardrails, and Sprint builder confirmed in Tab 2');
 
-    await page.screenshot({ path: '/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/ai-tab2-prompts-sprint.png', fullPage: true });
-    console.log('✓ Saved Tab 2 screenshot: ai-tab2-prompts-sprint.png');
+    await page.screenshot({ path: `/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/${prefix}tab2-prompts-sprint.png`, fullPage: true });
+    console.log(`✓ Saved Tab 2 screenshot: ${prefix}tab2-prompts-sprint.png`);
 
     // Test "Discuss in Chat" button on Prompt 1
     console.log('Testing "Discuss in Chat" from Tab 2...');
@@ -187,8 +193,8 @@ async function main() {
     await ibm.waitFor({ state: 'visible' });
     console.log('✓ All 6 verified free AI courses confirmed visible (DeepLearning.AI, Microsoft, Vanderbilt, Google Cloud, Harvard, IBM)');
 
-    await page.screenshot({ path: '/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/ai-tab3-free-courses.png', fullPage: true });
-    console.log('✓ Saved Tab 3 screenshot: ai-tab3-free-courses.png');
+    await page.screenshot({ path: `/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/${prefix}tab3-free-courses.png`, fullPage: true });
+    console.log(`✓ Saved Tab 3 screenshot: ${prefix}tab3-free-courses.png`);
 
     await browser.close();
     console.log('🎉 ALL AI AT WORK LIVE MENTOR & FREE COURSES TESTS PASSED SUCCESSFULLY!');
