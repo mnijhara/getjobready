@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/live-audit.mjs'
+      - 'scripts/student-cv-live-audit.mjs'
       - '.github/workflows/chromium-live-audit.yml'
   workflow_dispatch:
 permissions:
@@ -47,10 +48,16 @@ jobs:
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
         run: node scripts/live-audit.mjs
-      - name: Upload audit report
+      - name: Run real-student CV interview audit
+        env:
+          GJR_AUDIT_FILES: /tmp/gjr-audit
+        run: node scripts/student-cv-live-audit.mjs
+      - name: Upload audit reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chromium-live-audit-report-${{ github.sha }}
-          path: live-audit-report.json
+          path: |
+            live-audit-report.json
+            student-cv-live-audit-report.json
           retention-days: 14
