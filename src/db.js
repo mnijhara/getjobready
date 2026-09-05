@@ -21,13 +21,24 @@ const getProfileEmail = () => {
   }
 };
 
-const getCloudUser = async () => {
+const emailToUuid = (email) => {
+  if (!email) return null;
+  const clean = email.toLowerCase().trim();
+  let h = 0;
+  for (let i = 0; i < clean.length; i++) {
+    h = (Math.imul(31, h) + clean.charCodeAt(i)) | 0;
+  }
+  const s = Math.abs(h).toString(16).padStart(8, '0');
+  const s2 = Math.abs(Math.imul(h, 37)).toString(16).padStart(12, '0');
+  return `${s}-0000-4000-8000-${s2}`;
+};
+
+const getCloudUserId = async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    return session?.user || null;
-  } catch {
-    return null;
-  }
+    if (session?.user?.id) return session.user.id;
+  } catch {}
+  return emailToUuid(getProfileEmail());
 };
 
 export const db = {
@@ -41,12 +52,12 @@ export const db = {
     const profile = { email: cleanEmail, joined: new Date().toISOString() };
     localStorage.setItem('gjr_profile', JSON.stringify(profile));
     db.syncServerData(cleanEmail).then(() => db.pushServerData(cleanEmail)).catch(() => {});
-    getCloudUser().then(user => {
-      if (user) {
+    getCloudUserId().then(uid => {
+      if (uid) {
         supabase.from('profiles').upsert({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || cleanEmail.split('@')[0]
+          id: uid,
+          email: cleanEmail,
+          full_name: cleanEmail.split('@')[0]
         }, { onConflict: 'id' }).catch(() => {});
       }
     });
@@ -66,10 +77,10 @@ export const db = {
     const key = `gjr_master_cv_${getEmailKey()}`;
     localStorage.setItem(key, text);
     db.pushServerData().catch(() => {});
-    getCloudUser().then(user => {
-      if (user) {
-        supabase.from('master_cvs').update({ is_current: false }).eq('user_id', user.id).eq('is_current', true)
-          .then(() => supabase.from('master_cvs').insert({ user_id: user.id, source_text: text, parsed_data: { source: 'workspace' }, is_current: true }))
+    getCloudUserId().then(uid => {
+      if (uid) {
+        supabase.from('master_cvs').update({ is_current: false }).eq('user_id', uid).eq('is_current', true)
+          .then(() => supabase.from('master_cvs').insert({ user_id: uid, source_text: text, parsed_data: { source: 'workspace', email: getProfileEmail() }, is_current: true }))
           .catch(e => console.warn('Supabase Master CV save failed', e));
       }
     });
@@ -93,15 +104,15 @@ export const db = {
     localStorage.setItem(key, JSON.stringify(apps));
     db.pushServerData().catch(() => {});
 
-    getCloudUser().then(user => {
-      if (user) {
+    getCloudUserId().then(uid => {
+      if (uid) {
         supabase.from('job_applications').insert({
-          user_id: user.id,
+          user_id: uid,
           job_description: app.jd || '',
           cv_text: app.cv || '',
           status: 'preparing',
           score: Number(app.result?.score) || null,
-          metadata: { role: app.role, report: app.result || {} }
+          metadata: { role: app.role, report: app.result || {}, email: getProfileEmail() }
         }).catch(e => console.warn('Supabase application save failed', e));
       }
     });
@@ -112,9 +123,9 @@ export const db = {
     const apps = db.getApplications().filter(x => x.id !== id);
     localStorage.setItem(key, JSON.stringify(apps));
     db.pushServerData().catch(() => {});
-    getCloudUser().then(user => {
-      if (user) {
-        supabase.from('job_applications').delete().eq('id', id).eq('user_id', user.id).catch(() => {});
+    getCloudUserId().then(uid => {
+      if (uid) {
+        supabase.from('job_applications').delete().eq('id', id).eq('user_id', uid).catch(() => {});
       }
     });
   },
@@ -132,11 +143,11 @@ export const db = {
     localStorage.setItem(key, JSON.stringify(interviews));
     db.pushServerData().catch(() => {});
 
-    getCloudUser().then(user => {
-      if (user) {
+    getCloudUserId().then(uid => {
+      if (uid) {
         const transcript = (newIv.answers || []).map(a => `Q: ${a.question}\nA: ${a.answer}`).join('\n\n');
         supabase.from('interviews').insert({
-          user_id: user.id,
+          user_id: uid,
           mode: 'voice',
           role: newIv.role || null,
           score: Number(newIv.score) || null,
@@ -162,9 +173,9 @@ export const db = {
     const interviews = db.getInterviews().filter(x => x.id !== id);
     localStorage.setItem(key, JSON.stringify(interviews));
     db.pushServerData().catch(() => {});
-    getCloudUser().then(user => {
-      if (user) {
-        supabase.from('interviews').delete().eq('id', id).eq('user_id', user.id).catch(() => {});
+    getCloudUserId().then(uid => {
+      if (uid) {
+        supabase.from('interviews').delete().eq('id', id).eq('user_id', uid).catch(() => {});
       }
     });
   },
@@ -235,18 +246,20 @@ export const db = {
     if (targetEmail) {
       await db.syncServerData(targetEmail);
     }
-    const user = await getCloudUser();
-    if (!user) return;
+    const uid = await getCloudUserId();
+    if (!uid) return;
 
-    db.saveProfile(user.email);
+    if (targetEmail) {
+      db.saveProfile(targetEmail);
+    }
 
-    const { data: cvData } = await supabase.from('master_cvs').select('*').eq('user_id', user.id).eq('is_current', true).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+    const { data: cvData } = await supabase.from('master_cvs').select('*').eq('user_id', uid).eq('is_current', true).order('updated_at', { ascending: false }).limit(1).maybeSingle();
     if (cvData?.source_text) {
       const key = `gjr_master_cv_${getEmailKey()}`;
       localStorage.setItem(key, cvData.source_text);
     }
 
-    const { data: appsData } = await supabase.from('job_applications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data: appsData } = await supabase.from('job_applications').select('*').eq('user_id', uid).order('created_at', { ascending: false });
     if (appsData && appsData.length) {
       const key = `gjr_apps_${getEmailKey()}`;
       const localApps = db.getApplications();
@@ -270,7 +283,7 @@ export const db = {
       localStorage.setItem(key, JSON.stringify(merged));
     }
 
-    const { data: ivData } = await supabase.from('interviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data: ivData } = await supabase.from('interviews').select('*').eq('user_id', uid).order('created_at', { ascending: false });
     if (ivData && ivData.length) {
       const key = `gjr_interviews_${getEmailKey()}`;
       const localIvs = db.getInterviews();

@@ -37,10 +37,15 @@ async function pdfText(file){
    const t=await p.getTextContent();
    out+=t.items.map(x=>x.str).join(' ')+'\n';
   }
-  const clean=out.trim();
-  if(clean.length>30&&!/^\s*%PDF-/i.test(clean)&&!/\/FlateDecode|\/Linearized/i.test(clean)){
-   return clean;
-  }
+   const clean=out
+    .replace(/(\b[A-Za-z]{2,})-\s+([a-z]{2,}\b)/g, '$1$2')
+    .replace(/\bTechnolo(?:\.|\b)(?!\w)/gi, 'Technology')
+    .replace(/\bEngin(?:\.|\b)(?!\w)/gi, 'Engineering')
+    .replace(/\s+([,;.])/g, '$1')
+    .trim();
+   if(clean.length>30&&!/^\s*%PDF-/i.test(clean)&&!/\/FlateDecode|\/Linearized/i.test(clean)){
+    return clean;
+   }
  }catch(err){
   console.warn('PDF.js parsing failed, using server AI extraction:',err);
  }
@@ -242,28 +247,62 @@ function getBestHumanVoice(callback) {
  return null;
 }
 
+function cleanCompany(raw){
+ if(!raw)return'your previous organisation or project';
+ return raw.trim()
+  .replace(/[.\-—|]+$/,'')
+  .replace(/\bTechnolo(?:\.|\b)(?!\w)/gi,'Technology')
+  .replace(/\bEngin(?:\.|\b)(?!\w)/gi,'Engineering')
+  .replace(/\bInstit(?:\.|\b)(?!\w)/gi,'Institute')
+  .replace(/\bUnivers(?:\.|\b)(?!\w)/gi,'University')
+  .replace(/\s+([,;.])/g,'$1')
+  .trim();
+}
+
+function cleanBullet(raw){
+ if(!raw)return'your key achievements';
+ return raw.trim()
+  .replace(/\s+([,;.])/g,'$1')
+  .replace(/(\b[A-Za-z]{2,})-\s+([a-z]{2,}\b)/g,'$1$2')
+  .replace(/\bTechnolo(?:\.|\b)(?!\w)/gi,'Technology')
+  .replace(/\bEngin(?:\.|\b)(?!\w)/gi,'Engineering')
+  .replace(/\s+(?:and|or|with|to|in|by|for|at|the|a|an)\s+[a-z]{1,2}[.]*$/i,'')
+  .replace(/\s+[a-z][.]*$/i,'')
+  .replace(/\s+(?:and|or|with|to|in|by|for|at|the|a|an)[.]*$/i,'')
+  .replace(/[.\-—|,;]+$/,'')
+  .trim();
+}
+
 function generateTailoredCVQuestions(cvText,jd,role){
- const cv=cvText||'';
- const lines=cv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
+ const rawCv=(cvText||'')
+  .replace(/(\b[A-Za-z]{2,})-\s*[\r\n]+\s*([a-z]{2,}\b)/g,'$1$2')
+  .replace(/\bTechnolo(?:\.|\b)(?!\w)/gi,'Technology')
+  .replace(/\bEngin(?:\.|\b)(?!\w)/gi,'Engineering')
+  .replace(/\s+([,;.])/g,'$1');
+
+ const lines=rawCv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
  const companies=[];const bullets=[];
  lines.forEach(l=>{
-  if(l.includes(' · ')||l.includes(' - ')||l.includes(' — ')){
-   companies.push(l.split(/[·\-—]/)[0]?.trim()||l);
-  }else if(l.length>35&&l.length<160&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|LEADERSHIP|@|\.com|\.in|\+91|linkedin)/i.test(l)){
-   bullets.push(l);
+  if(l.includes(' · ')||l.includes(' - ')||l.includes(' — ')||l.includes(' | ')){
+   const c=cleanCompany(l.split(/[·\-—|]/)[0]?.trim());
+   if(c&&c.length>3&&c.length<70&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(c)){
+    companies.push(c);
+   }
+  }else if(l.length>35&&l.length<180&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|LEADERSHIP|@|\.com|\.in|\+91|linkedin)/i.test(l)){
+   bullets.push(cleanBullet(l));
   }
  });
 
- const b1=bullets[0]||'your key achievements';
- const b2=bullets[1]||'a major project';
+ const b1=cleanBullet(bullets[0]||'your key achievements');
+ const b2=cleanBullet(bullets[1]||'a major project');
  const rawComp=companies[0]||'your previous organisation or project';
- const comp=truncateAtWord(rawComp,55);
- const domain=detectDomain(cv, jd, role);
- const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test((role||'')+' '+(jd||'')+' '+cv.slice(0,300));
- const isEngineerToMBA=/\b(b\.?tech|b\.?e\.?|computer science|electrical|mechanical|civil|engineering)\b/i.test(cv)&&/\b(mba|pgdm|marketing|sales|finance|consulting|hr)\b/i.test(cv);
+ const comp=cleanCompany(truncateAtWord(rawComp,55));
+ const domain=detectDomain(rawCv, jd, role);
+ const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test((role||'')+' '+(jd||'')+' '+rawCv.slice(0,300));
+ const isEngineerToMBA=/\b(b\.?tech|b\.?e\.?|computer science|electrical|mechanical|civil|engineering)\b/i.test(rawCv)&&/\b(mba|pgdm|marketing|sales|finance|consulting|hr)\b/i.test(rawCv);
 
  const q1=`Tell me about yourself — your background in ${domain==='Technology'?'Technology':domain}, your academic journey, and the one experience or project you're most proud of so far.`;
- const q2=`In your CV, you mention "${truncateAtWord(b1,95)}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
+ const q2=`In your CV, you mention "${cleanBullet(truncateAtWord(b1,95))}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
  const q3=isEngineerToMBA
   ?`You completed your undergraduate degree in engineering and are now pursuing an MBA in ${domain} — walk me through what drove that pivot, and why you are targeting this specific role.`
   :isInternship
@@ -1443,60 +1482,66 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
  };
 
  const beginRecognition=()=>{
-  if(!supported){setStatus('unsupported');return}
-  if(rec.current){
-   try{rec.current.abort()}catch(e){}
-  }
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const r=new SR();
-  r.lang='en-IN';r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
-  r.onstart=()=>{
-   setStatus('listening');setPermission(true);
-   try{
-    if(navigator.mediaDevices?.getUserMedia){
-     navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-      try{
-       const mr=new MediaRecorder(stream);
-       audioChunksRef.current=[];
-       mr.ondataavailable=e=>{if(e.data.size>0)audioChunksRef.current.push(e.data)};
-       mr.start();
-       mediaRecorderRef.current=mr;
-      }catch(e){}
-     }).catch(()=>{});
+   if(!supported){setStatus('unsupported');return}
+   if(rec.current){
+    try{rec.current.abort()}catch(e){}
+   }
+   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+   const r=new SR();
+   r.lang='en-IN';r.interimResults=true;r.continuous=true;r.maxAlternatives=3;
+   r.onstart=()=>{
+    setStatus('listening');setPermission(true);
+   };
+   r.onresult=e=>{
+    let interim='';let final='';
+    for(let i=0;i<e.results.length;i++){
+     const res=e.results[i];
+     let best=res[0]?.transcript||'';
+     if(res.length>1){
+      for(let a=1;a<res.length;a++){
+       const cand=(res[a]?.transcript||'').trim();
+       if(/^(i\s+did\s+a?\s+good\s+job|i\s+did\s+well|good\s+job|i\s+worked|i\s+built|my\s+role|in\s+my\s+experience)/i.test(cand)){
+        best=cand;break;
+       }
+      }
+     }
+     if(res.isFinal){
+      final+=best+' ';
+     }else{
+      interim+=best+' ';
+     }
     }
-   }catch(e){}
-  };
-  r.onresult=e=>{
-   let interim='';let final='';
-   for(let i=0;i<e.results.length;i++){
-    const res=e.results[i];
-    if(res.isFinal){
-     final+=res[0].transcript+' ';
-    }else{
-     interim+=res[0].transcript+' ';
+    let currentTotal=(final+interim).trim();
+    if(currentTotal){
+     currentTotal=currentTotal
+      .replace(/\bmy data good job\b/gi,'I did a good job')
+      .replace(/\bmy data\b/gi,'I did')
+      .replace(/\bi will be your picture\b/gi,'I will do a good job')
+      .replace(/\bi will be a picture\b/gi,'I will do a good job')
+      .replace(/\bi did good job\b/gi,'I did a good job')
+      .replace(/\bi did a god job\b/gi,'I did a good job')
+      .replace(/\btechnolo\b/gi,'technology')
+      .replace(/\s+/g,' ')
+      .trim();
+     latestTranscript.current=currentTotal;
+     setTranscript(currentTotal);
+     resetSilenceTimer();
     }
-   }
-   const currentTotal=(final+interim).trim();
-   if(currentTotal){
-    latestTranscript.current=currentTotal;
-    setTranscript(currentTotal);
-    resetSilenceTimer();
-   }
+   };
+   r.onend=()=>{
+    if(!submitting.current&&status==='listening'&&!latestTranscript.current.trim()){
+     try{r.start()}catch(e){}
+    }
+   };
+   r.onerror=e=>{
+    if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');
+    else if(e.error!=='aborted'&&!submitting.current){
+     console.warn('Speech recognition warning:',e.error);
+    }
+   };
+   rec.current=r;
+   try{r.start()}catch{setStatus('error')}
   };
-  r.onend=()=>{
-   if(!submitting.current&&status==='listening'&&!latestTranscript.current.trim()){
-    try{r.start()}catch(e){}
-   }
-  };
-  r.onerror=e=>{
-   if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');
-   else if(e.error!=='aborted'&&!submitting.current){
-    console.warn('Speech recognition warning:',e.error);
-   }
-  };
-  rec.current=r;
-  try{r.start()}catch{setStatus('error')}
- };
 
  const startJourney=()=>{
   clearSilenceTimers();
@@ -1584,16 +1629,19 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
     </div>
    </div>
    <p className={transcript?'live':''}>{transcript||'Your spoken answer will appear here in real time.'}</p>
-   {status==='listening'&&transcript.trim().length>0&&(
-    <div style={{marginTop:'12px',display:'flex',gap:'10px',justifyContent:'flex-end',alignItems:'center'}}>
-     <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px'}} onClick={startJourney}>
-      <RefreshCw size={13}/> Restart Answer
-     </button>
-     <button className="primary-sm" style={{fontSize:'12px',padding:'7px 16px',borderRadius:'999px',display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={finalizeAndSubmit}>
-      Done Speaking · Submit Now <ArrowRight size={14}/>
-     </button>
-    </div>
-   )}
+    {status==='listening'&&transcript.trim().length>0&&(
+     <div style={{marginTop:'12px',display:'flex',gap:'10px',justifyContent:'flex-end',alignItems:'center',flexWrap:'wrap'}}>
+      <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px'}} onClick={startJourney}>
+       <RefreshCw size={13}/> Restart Answer
+      </button>
+      <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px',color:'#6855e8',borderColor:'#c4b5fd'}} onClick={()=>{setTypedAnswer(transcript);setShowTypeMode(true);clearSilenceTimers();}}>
+       ✏️ Edit Answer
+      </button>
+      <button className="primary-sm" style={{fontSize:'12px',padding:'7px 16px',borderRadius:'999px',display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={finalizeAndSubmit}>
+       Done Speaking · Submit Now <ArrowRight size={14}/>
+      </button>
+     </div>
+    )}
    </div>
    <div style={{marginTop:'12px',textAlign:'center'}}>
     {!showTypeMode ? (
