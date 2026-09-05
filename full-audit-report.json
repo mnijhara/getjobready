@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:5050/",
+  "url": "https://getjobready.online/",
   "stages": {
     "Authentication": [
       {
@@ -127,34 +127,5 @@
     ]
   },
   "overall_passed": true,
-  "browser_errors": [
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 404 (Not Found)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
-    "ConsoleError: Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
-  ]
+  "browser_errors": []
 }

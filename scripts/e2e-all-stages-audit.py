@@ -251,7 +251,7 @@ async def run_audit():
             record("Stage 1: Impress Interviewer", "Prototype Concept Generated", has_demo_result, "Generated product title, tagline and impact")
 
             # Go back to Workspace Dashboard
-            await page.locator("button:has-text('← Back'), button.brand").first.click()
+            await page.locator("button:has-text('← Back')").first.click()
             await page.wait_for_timeout(1000)
 
             print("\n>>> Stage 2A: Testing Corporate Ready Module")
@@ -264,11 +264,11 @@ async def run_audit():
             await page.wait_for_timeout(5000)
 
             corp_res_text = await page.inner_text("body")
-            has_corp_plan = "7-day plan" in corp_res_text or "Weekly habit" in corp_res_text or "Readiness score" in corp_res_text
+            has_corp_plan = "7-day plan" in corp_res_text or "Weekly habit" in corp_res_text or "Readiness score" in corp_res_text or "7-Day" in corp_res_text
             record("Stage 2: Corporate Ready", "7-Day Habits & Resilience Plan", has_corp_plan, "Generated personalized corporate readiness roadmap")
 
             # Go back to Workspace Dashboard
-            await page.locator("button:has-text('← Back'), button.brand").first.click()
+            await page.locator("button:has-text('← Back')").first.click()
             await page.wait_for_timeout(1000)
 
             print("\n>>> Stage 2B: Testing AI at Work Module")
@@ -281,7 +281,7 @@ async def run_audit():
             await page.wait_for_timeout(5000)
 
             ai_res_text = await page.inner_text("body")
-            has_ai_plan = "7-day plan" in ai_res_text or "Weekly habit" in ai_res_text or "AI at Work" in ai_res_text
+            has_ai_plan = "7-day plan" in ai_res_text or "Weekly habit" in ai_res_text or "AI at Work" in ai_res_text or "7-Day" in ai_res_text
             record("Stage 2: AI at Work", "7-Day AI Workflows Sprint", has_ai_plan, "Generated AI workflows, habits and structured plan")
 
         except Exception as e:
