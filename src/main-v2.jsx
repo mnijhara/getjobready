@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
-import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,RefreshCw,Check,Folder,Plus,Trash2}from'lucide-react';
+import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,RefreshCw,Check,Folder,Plus,Trash2,Copy,ExternalLink,Download,Lightbulb,BookOpen}from'lucide-react';
 
 import'./styles.css';import'./voice.css';import'./mode-tabs.css';
 import { db } from './db.js';
@@ -1806,8 +1806,397 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImprov
 }
 
 function Module({id,career}){
-const[loading,setLoading]=useState(false),[data,setData]=useState(null),[error,setError]=useState('');const[company,setCompany]=useState(''),[problem,setProblem]=useState(''),[idea,setIdea]=useState('');const cv=readSession('gjr_cv_text','');const runCoach=async()=>{setLoading(true);setError('');try{let d;try{d=await post('/api/coach',{module:id==='ai'?'ai':'corporate',context:cv,career})}catch(e){d={diagnosis:'Start with one practical habit this week.',score:70,weeklyHabit:'Write one concise outcome-led update every day.',sevenDayPlan:['Audit one communication habit','Practise a concise update','Ask for one feedback point','Rewrite one weak CV bullet with evidence','Use AI to structure one task','Reflect on what improved','Repeat the strongest habit']}}setData(d)}finally{setLoading(false)}};const runDemo=async()=>{if(!problem.trim()){setError('Describe the company problem first.');return}setLoading(true);setError('');try{setData(await post('/api/demo',{company,problem,idea}))}catch(e){setData({title:'Focused solution concept',tagline:'A simple workflow that reduces friction and creates measurable value.',impact:'Explain the user, problem, workflow and one measurable outcome in your interview.'})}finally{setLoading(false)}};if(id==='readiness'||id==='ai')return <div className="module-panel"><span className="eyebrow">{career==='internship'?'INTERNSHIP':'FULL-TIME'} TRACK</span><h2>{id==='readiness'?'Corporate Ready':'AI at Work'}</h2><p>{id==='readiness'?'Build practical habits for communication, feedback, priorities and resilience.':'Learn practical AI workflows for research, writing, analysis, meetings and responsible automation.'}</p><button className="primary"disabled={loading}onClick={runCoach}>{loading?'Building your plan…':<>Build my 7-day plan <ArrowRight size={18}/></>}</button>{error&&<p role="alert">{error}</p>}{data&&<div className="module-result"><h3>{data.diagnosis||'Your personalised plan'}</h3>{data.score&&<p><b>Readiness score:</b> {data.score}/100</p>}{data.weeklyHabit&&<p><b>Weekly habit:</b> {data.weeklyHabit}</p>}{data.sevenDayPlan&&<><h4>7-day plan</h4>{data.sevenDayPlan.map((x,i)=><p key={i}><b>Day {i+1}:</b> {x}</p>)}</>}</div>}</div>;
- return <div className="module-panel"><span className="eyebrow">STAND OUT IN THE INTERVIEW</span><h2>Build a credible product concept</h2><p>Turn a real company problem into a focused solution you can explain to an interviewer.</p><div className="input-card"><div className="label"><BriefcaseBusiness size={17}/> Company</div><input value={company}onChange={e=>setCompany(e.target.value)}placeholder="e.g. a target employer"/><div className="label"><Target size={17}/> Business problem</div><textarea value={problem}onChange={e=>setProblem(e.target.value)}placeholder="What problem should the company solve?"/><div className="label"><Sparkles size={17}/> Your idea <span>(optional)</span></div><textarea value={idea}onChange={e=>setIdea(e.target.value)}placeholder="Your initial solution idea…"/><button className="primary"disabled={loading||!problem.trim()}onClick={runDemo}>{loading?'Building concept…':<>Build my interview demo <ArrowRight size={18}/></>}</button></div>{error&&<p role="alert">{error}</p>}{data&&<div className="module-result"><span className="eyebrow">PROTOTYPE CONCEPT</span><h3>{data.title}</h3><p><b>{data.tagline}</b></p><p>{data.impact}</p></div>}</div>}
+ const[loading,setLoading]=useState(false),[data,setData]=useState(null),[error,setError]=useState('');
+ const[company,setCompany]=useState(''),[problem,setProblem]=useState(''),[idea,setIdea]=useState('');
+ const[copiedKey,setCopiedKey]=useState('');
+
+ const cv=readSession('gjr_cv_text','');
+
+ const copyToClipboard=(text,key)=>{
+  try{
+   if(navigator?.clipboard?.writeText){
+    navigator.clipboard.writeText(text);
+   }else{
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+   }
+   setCopiedKey(key);
+   setTimeout(()=>setCopiedKey(''),2500);
+  }catch(e){console.warn('Clipboard copy failed:',e)}
+ };
+
+ const presets=[
+  {
+   name:'Zomato',
+   problem:'High delivery cancellation and rider drop-off rates during sudden peak monsoon rain spells across Tier-1 metros.',
+   idea:'Predictive weather-buffer surge allocation with instant 1km restaurant rerouting and delivery partner rain-insurance incentives.'
+  },
+  {
+   name:'Asian Paints',
+   problem:'High customer drop-off during the digital color-visualisation consultation phase before booking an authorized contractor.',
+   idea:'Lightweight AR-powered WhatsApp bot allowing homeowners to preview wall shades from photos with instant local dealer quotes.'
+  },
+  {
+   name:'Flipkart',
+   problem:'Apparel cart abandonment in Tier-2/3 cities caused by sizing uncertainty and hesitation around return logistics.',
+   idea:'Voice-assisted vernacular size calibrator comparing local garment fits with zero-penalty 1-click doorstep exchange.'
+  },
+  {
+   name:'Deloitte',
+   problem:'Cross-border ESG and supply chain compliance audits consume weeks due to unstructured, multi-lingual vendor PDF invoices.',
+   idea:'Automated multi-lingual invoice extraction pipeline with anomaly detection, fraud flags, and automated ESG risk scoring.'
+  }
+ ];
+
+ const selectPreset=(p)=>{
+  setCompany(p.name);
+  setProblem(p.problem);
+  setIdea(p.idea);
+ };
+
+ const runCoach=async()=>{
+  setLoading(true);setError('');
+  try{
+   let d;
+   try{
+    d=await post('/api/coach',{module:id==='ai'?'ai':'corporate',context:cv,career});
+   }catch(e){
+    if(id==='ai'){
+     d={
+      diagnosis:'Accelerate your daily workflow with practical, responsible AI prompting.',
+      score:82,
+      weeklyHabit:'Use structured prompt frameworks (Context + Task + Constraints + Format) for all non-confidential deliverables.',
+      sevenDayPlan:[
+       'Day 1: Audit repetitive daily writing and summarize 3 workflows with AI.',
+       'Day 2: Draft an executive memo using the Situation-Complication-Question-Answer framework.',
+       'Day 3: Transform raw meeting transcripts into a clean RACI decision table.',
+       'Day 4: Run exploratory data anomaly analysis and highlight outliers.',
+       'Day 5: Scaffold clean code functions and generate 5 unit test cases.',
+       'Day 6: Refine executive communication tone for diplomatic firmness.',
+       'Day 7: Establish personal verification guardrails to eliminate hallucination risks.'
+      ]
+     };
+    }else{
+     d={
+      diagnosis:'Bridge the campus-to-corporate gap with clear updates and high feedback resilience.',
+      score:78,
+      weeklyHabit:'Deliver one crisp, 3-point outcome update to your manager every Friday afternoon.',
+      sevenDayPlan:[
+       'Day 1: Replace ambiguous filler phrases with direct, bottom-line answers.',
+       'Day 2: Structure all check-ins using What happened / So what / What now.',
+       'Day 3: Solicit proactive feedback: "What is 1 thing I should stop, start, or continue?"',
+       'Day 4: Categorize high-pressure deadlines into Urgent vs High-Leverage priorities.',
+       'Day 5: Practice graceful boundary management without saying flat-out no.',
+       'Day 6: Circulate concise 3-bullet meeting recaps with clear RACI ownership.',
+       'Day 7: Maintain a private weekly brag sheet quantifying your business outputs.'
+      ]
+     };
+    }
+   }
+   setData(d);
+  }finally{setLoading(false)}
+ };
+
+ const runDemo=async()=>{
+  if(!problem.trim()){setError('Describe the company problem first.');return}
+  setLoading(true);setError('');
+  try{
+   let d;
+   try{
+    d=await post('/api/demo',{company,problem,idea});
+   }catch(e){
+    const comp=company.trim()||'Target Employer';
+    d={
+     title:`${comp} High-Impact Solution Prototype`,
+     tagline:`A targeted workflow engineered to solve ${comp}'s core operational friction and unlock measurable retention.`,
+     users:'Frontline operations teams, regional managers, and high-intent end users.',
+     impact:'Reduces operational turnaround time by 35% and boosts user conversion with verifiable audit tracking.',
+     pitch:[
+      `The Problem: ${comp} currently faces significant drop-off and friction around: "${problem.slice(0,110)}...".`,
+      `The User: Frontline teams and end customers who need instantaneous resolution without multi-step delays.`,
+      `The Workflow: An intelligent routing and automated verification engine that resolves requests in real time.`,
+      `The Business Metric: Directly targets a 25-35% efficiency boost and measurable increase in NPS and retention.`
+     ],
+     html:`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${comp} Prototype</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px;background:#f8f9fc;color:#1e293b}header{display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:2px solid #e2e8f0}.logo{font-size:20px;font-weight:800;color:#6366f1}.badge{background:#e0e7ff;color:#4338ca;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}.hero{margin:24px 0;padding:24px;background:#fff;border-radius:16px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,.03)}h1{font-size:22px;margin:0 0 8px}p{color:#64748b;font-size:14px;line-height:1.5}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.card{background:#f1f5f9;padding:14px;border-radius:12px}.card strong{display:block;font-size:14px;margin-bottom:4px}.btn{background:#4f46e5;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:600;cursor:pointer;margin-top:14px}</style></head><body><header><div class="logo">${comp} OpsPilot</div><span class="badge">Live Demo</span></header><div class="hero"><h1>Streamlined Resolution Engine</h1><p>Engineered to resolve: ${problem.slice(0,160)}</p><div class="grid"><div class="card"><strong>Real-time Triage</strong>Automated intake and categorization of high-priority requests.</div><div class="card"><strong>Predictive Escalation</strong>Routes complex edge-cases with SLA risk warnings.</div></div><button class="btn" onclick="alert('Action simulated successfully!')">Simulate Workflow</button></div></body></html>`
+    };
+   }
+   setData(d);
+  }finally{setLoading(false)}
+ };
+
+ const openHtmlInNewTab=(htmlContent)=>{
+  try{
+   const blob=new Blob([htmlContent],{type:'text/html'});
+   const url=URL.createObjectURL(blob);
+   window.open(url,'_blank');
+  }catch(err){console.warn('Could not open tab:',err)}
+ };
+
+ const downloadHtml=(htmlContent,filename='prototype.html')=>{
+  try{
+   const blob=new Blob([htmlContent],{type:'text/html'});
+   const url=URL.createObjectURL(blob);
+   const a=document.createElement('a');
+   a.href=url;a.download=filename;
+   document.body.appendChild(a);a.click();
+   document.body.removeChild(a);URL.revokeObjectURL(url);
+  }catch(err){console.warn('Could not download:',err)}
+ };
+
+ if(id==='readiness'||id==='ai'){
+  const isAI=id==='ai';
+  const dilemmas=[
+   {
+    title:'Critical Manager Feedback',
+    scenario:'When a manager gives sharp, unexpected feedback on a deliverable.',
+    script:'"Thank you for pointing that out clearly. I appreciate the direct feedback on this deliverable. Here is what I will adjust immediately to prevent this next time, and I will share an updated draft by 4 PM today for your quick review."'
+   },
+   {
+    title:'Managing Overloaded Bandwidth',
+    scenario:'When asked to take on an urgent extra task while handling high-priority deadlines.',
+    script:'"I would be glad to help with Project B. Currently, my top priority is finishing Project A which is due at 3 PM. To ensure neither slips in quality, should we deprioritize Project A, or can I deliver Project B first thing tomorrow morning?"'
+   },
+   {
+    title:'Weekly Executive Friday Update',
+    scenario:'Proactive 3-bullet Friday status check-in to your manager.',
+    script:'"Hi [Manager], here is my quick Friday update:\n1. Delivered: Completed the Q3 analysis and shared findings with the core team.\n2. In Progress: Drafting the recommendation deck for stakeholder review (on track for Tuesday).\n3. Flag/Help needed: None currently — all systems clear for next week. Have a great weekend!"'
+   }
+  ];
+
+  const aiPrompts=[
+   {
+    title:'1. Executive Memo Drafter (SCQA)',
+    desc:'Structure a 1-page business brief with recommendations and risk mitigations.',
+    prompt:'Act as an executive strategy consultant. Structure a 1-page executive memo proposing a solution to [insert problem]. Use the SCQA framework: Situation, Complication, Key Question, and Recommended Answer. Keep recommendations ruthlessly prioritized with estimated ROI and implementation milestones.'
+   },
+   {
+    title:'2. Meeting Transcript to RACI Matrix',
+    desc:'Convert chaotic meeting notes into decisions and accountability matrices.',
+    prompt:'Here are raw unstructured meeting notes from today\'s sync: [paste notes]. Convert them into: 1. Core decisions agreed upon, 2. Key open risks or dependencies, 3. A structured RACI action table with Responsible Owner, Deliverable, and Strict Deadline.'
+   },
+   {
+    title:'3. Data Anomaly & Outlier Extractor',
+    desc:'Analyze spreadsheets and metric dumps to surface actionable signals.',
+    prompt:'I have pasted tabular performance data below: [paste data]. 1. Identify the top 3 statistical outliers or anomalies. 2. Highlight key week-over-week trends. 3. Suggest 3 testable business hypotheses explaining these fluctuations.'
+   },
+   {
+    title:'4. Code & Unit Test Scaffold',
+    desc:'Generate clean, production-grade functions with boundary edge tests.',
+    prompt:'Write a clean, production-ready function in [language] that [insert objective]. Include comprehensive edge-case handling, input validation, docstrings, and 5 unit tests covering normal execution, empty states, and boundary conditions.'
+   },
+   {
+    title:'5. Diplomatic Tone & Assertiveness Polisher',
+    desc:'Rewrite difficult emails to sound confident, constructive, and firm.',
+    prompt:'Rewrite the following email draft to sound confident, collaborative, and professionally assertive without sounding apologetic or defensive: [paste draft]. Highlight what you adjusted and the strategic reason behind each change.'
+   }
+  ];
+
+  return(
+   <div className="module-panel">
+    <span className="eyebrow">{isAI?'STAGE 2 · FUTURE-READY WORKFLOWS':'STAGE 2 · DAY-1 CORPORATE LAUNCHPAD'}</span>
+    <h2>{isAI?'AI at Work & Practical Automation':'Corporate Ready & Feedback Resilience'}</h2>
+    <p>{isAI?'Master practical AI frameworks that multiply your output by 3x in research, executive writing, data analysis, and workflow automation.':'Master the transition from campus to corporate: workplace communication, feedback loops, priority management, and executive presence.'}</p>
+    
+    <button className="primary" disabled={loading} onClick={runCoach} style={{marginTop:'8px',marginBottom:'20px'}}>
+     {loading?'Generating your tailored plan…':<>{isAI?'Build my 7-day AI sprint':'Build my corporate plan'} <ArrowRight size={18}/></>}
+    </button>
+    {error&&<p role="alert" style={{color:'#e11d48',fontWeight:700}}>{error}</p>}
+
+    {data&&(
+     <div className="module-result" style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'20px',padding:'24px',boxShadow:'0 4px 20px rgba(0,0,0,.04)',marginBottom:'24px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'12px',borderBottom:'1px solid #eef2f6',paddingBottom:'16px',marginBottom:'16px'}}>
+       <div>
+        <span className="eyebrow" style={{color:'#6366f1'}}>DIAGNOSIS & ROADMAP</span>
+        <h3 style={{margin:'6px 0',fontSize:'20px'}}>{data.diagnosis||'Your Personalised Action Plan'}</h3>
+        {data.weeklyHabit&&<p style={{margin:'6px 0',color:'#475569'}}><b>Core Weekly Habit:</b> {data.weeklyHabit}</p>}
+       </div>
+       {data.score&&(
+        <div style={{background:'#f1f5f9',padding:'10px 16px',borderRadius:'12px',textAlign:'center'}}>
+         <span style={{fontSize:'11px',fontWeight:800,color:'#64748b',textTransform:'uppercase'}}>Readiness Score</span>
+         <div style={{fontSize:'24px',fontWeight:800,color:'#3b82f6'}}>{data.score}<small style={{fontSize:'14px',color:'#94a3b8'}}>/100</small></div>
+        </div>
+       )}
+      </div>
+
+      {data.sevenDayPlan&&(
+       <div style={{marginTop:'16px'}}>
+        <h4 style={{fontSize:'15px',fontWeight:800,margin:'0 0 12px',display:'flex',alignItems:'center',gap:'8px'}}>
+         <CheckCircle2 size={18} color="#10b981"/> 7-Day Implementation Sprint
+        </h4>
+        <div style={{display:'grid',gap:'8px'}}>
+         {data.sevenDayPlan.map((step,idx)=>(
+          <div key={idx} style={{display:'flex',gap:'12px',alignItems:'flex-start',background:'#f8fafc',padding:'10px 14px',borderRadius:'10px',border:'1px solid #f1f5f9'}}>
+           <span style={{fontSize:'12px',fontWeight:800,color:'#6366f1',minWidth:'54px'}}>Step {idx+1}</span>
+           <span style={{fontSize:'13px',color:'#334155'}}>{step}</span>
+          </div>
+         ))}
+        </div>
+       </div>
+      )}
+     </div>
+    )}
+
+    {!isAI?(
+     <div style={{marginTop:'28px'}}>
+      <div style={{marginBottom:'16px'}}>
+       <span className="eyebrow" style={{color:'#0ea5e9'}}>EXECUTIVE PLAYBOOKS</span>
+       <h3 style={{fontSize:'19px',fontWeight:800,margin:'4px 0'}}>Interactive Workplace Dilemmas & Scripts</h3>
+       <p style={{fontSize:'13px',color:'#64748b',margin:0}}>Battle-tested word-for-word scripts to handle tough corporate situations with confidence.</p>
+      </div>
+      <div style={{display:'grid',gap:'14px'}}>
+       {dilemmas.map((d,idx)=>(
+        <div key={idx} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'16px',padding:'18px',boxShadow:'0 2px 10px rgba(0,0,0,.03)'}}>
+         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'10px'}}>
+          <div>
+           <span style={{fontSize:'11px',fontWeight:800,color:'#6366f1',textTransform:'uppercase'}}>{d.title}</span>
+           <p style={{fontSize:'13px',color:'#64748b',margin:'2px 0 10px'}}>{d.scenario}</p>
+          </div>
+          <button className="ghost-sm" onClick={()=>copyToClipboard(d.script,`dilemma-${idx}`)} style={{cursor:'pointer',whiteSpace:'nowrap'}}>
+           {copiedKey===`dilemma-${idx}`?<><Check size={14} color="#10b981"/> Copied!</>:<><Copy size={14}/> Copy script</>}
+          </button>
+         </div>
+         <div style={{background:'#f8fafc',borderLeft:'3px solid #6366f1',padding:'12px 14px',borderRadius:'6px',fontSize:'13px',fontStyle:'italic',color:'#1e293b',lineHeight:'1.5'}}>
+          {d.script}
+         </div>
+        </div>
+       ))}
+      </div>
+     </div>
+    ):(
+     <div style={{marginTop:'28px'}}>
+      <div style={{marginBottom:'16px'}}>
+       <span className="eyebrow" style={{color:'#8b5cf6'}}>PROMPT LIBRARY</span>
+       <h3 style={{fontSize:'19px',fontWeight:800,margin:'4px 0'}}>5 Battle-Tested Copyable AI Prompts</h3>
+       <p style={{fontSize:'13px',color:'#64748b',margin:0}}>Drop these exact prompts into ChatGPT or Claude to produce board-ready outputs instantly.</p>
+      </div>
+      <div style={{display:'grid',gap:'14px'}}>
+       {aiPrompts.map((p,idx)=>(
+        <div key={idx} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'16px',padding:'18px',boxShadow:'0 2px 10px rgba(0,0,0,.03)'}}>
+         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'10px'}}>
+          <div>
+           <span style={{fontSize:'14px',fontWeight:800,color:'#1e293b'}}>{p.title}</span>
+           <p style={{fontSize:'12px',color:'#64748b',margin:'2px 0 10px'}}>{p.desc}</p>
+          </div>
+          <button className="ghost-sm" onClick={()=>copyToClipboard(p.prompt,`prompt-${idx}`)} style={{cursor:'pointer',whiteSpace:'nowrap'}}>
+           {copiedKey===`prompt-${idx}`?<><Check size={14} color="#10b981"/> Copied!</>:<><Copy size={14}/> Copy prompt</>}
+          </button>
+         </div>
+         <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',padding:'12px 14px',borderRadius:'8px',fontSize:'12px',fontFamily:'monospace',color:'#334155',lineHeight:'1.5'}}>
+          {p.prompt}
+         </div>
+        </div>
+       ))}
+      </div>
+
+      <div style={{marginTop:'24px',background:'#fffbeb',border:'1px solid #fef3c7',borderRadius:'16px',padding:'18px'}}>
+       <span style={{fontSize:'12px',fontWeight:800,color:'#b45309',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'6px'}}>
+        <ShieldCheck size={16}/> Responsible AI Guardrails Checklist
+       </span>
+       <ul style={{margin:'10px 0 0',paddingLeft:'20px',fontSize:'13px',color:'#78350f',lineHeight:'1.6'}}>
+        <li><b>Data Privacy:</b> Never paste unredacted PII, proprietary financial models, or company secrets into public models.</li>
+        <li><b>Fact Verification:</b> Always calculate and double-check numbers, formulas, and citations before presenting to senior leaders.</li>
+        <li><b>Human Ownership:</b> AI drafts the starting point; you are 100% accountable for the final business output.</li>
+       </ul>
+      </div>
+     </div>
+    )}
+   </div>
+  );
+ }
+
+ return(
+  <div className="module-panel">
+   <span className="eyebrow">STAGE 1 · STAND OUT IN THE FINAL ROUND</span>
+   <h2>Build a Credible Product Concept & Prototype</h2>
+   <p>Top candidates don't just answer questions — they bring a tangible solution to a real business problem. Select a preset below or enter any target company.</p>
+
+   <div style={{marginBottom:'16px'}}>
+    <span style={{fontSize:'12px',fontWeight:800,color:'#6366f1',textTransform:'uppercase',display:'block',marginBottom:'8px'}}>
+     Popular Company Case Presets
+    </span>
+    <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+     {presets.map((p,idx)=>(
+      <button key={idx} type="button" className="ghost-sm" onClick={()=>selectPreset(p)} style={{cursor:'pointer',border:company===p.name?'1px solid #6366f1':'1px solid #cbd5e1',background:company===p.name?'#eef2ff':'#fff',fontWeight:company===p.name?800:600}}>
+       {p.name}
+      </button>
+     ))}
+    </div>
+   </div>
+
+   <div className="input-card">
+    <div className="label"><BriefcaseBusiness size={17}/> Target Company</div>
+    <input value={company} onChange={e=>setCompany(e.target.value)} placeholder="e.g. Zomato, Flipkart, Deloitte, Asian Paints"/>
+
+    <div className="label"><Target size={17}/> Real Business Problem to Solve</div>
+    <textarea value={problem} onChange={e=>setProblem(e.target.value)} placeholder="What specific user friction, operational bottleneck, or business drop-off should they solve?"/>
+
+    <div className="label"><Sparkles size={17}/> Your Solution Concept <span>(optional)</span></div>
+    <textarea value={idea} onChange={e=>setIdea(e.target.value)} placeholder="Your initial product idea, workflow, or architectural angle…"/>
+
+    <button className="primary" disabled={loading||!problem.trim()} onClick={runDemo} style={{marginTop:'8px'}}>
+     {loading?'Engineering concept & prototype…':<>Build my interview demo <ArrowRight size={18}/></>}
+    </button>
+   </div>
+
+   {error&&<p role="alert" style={{color:'#e11d48',fontWeight:700}}>{error}</p>}
+
+   {data&&(
+    <div className="module-result" style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'20px',padding:'24px',boxShadow:'0 4px 20px rgba(0,0,0,.04)'}}>
+     <div style={{borderBottom:'1px solid #eef2f6',paddingBottom:'16px',marginBottom:'16px'}}>
+      <span className="eyebrow" style={{color:'#6366f1'}}>STAND-OUT CONCEPT</span>
+      <h3 style={{fontSize:'22px',fontWeight:800,margin:'6px 0'}}>{data.title}</h3>
+      <p style={{fontSize:'14px',fontWeight:700,color:'#334155',margin:'4px 0'}}>{data.tagline}</p>
+      {data.users&&<p style={{fontSize:'13px',color:'#64748b',margin:'4px 0'}}><b>Target Users:</b> {data.users}</p>}
+      {data.impact&&<p style={{fontSize:'13px',color:'#64748b',margin:'4px 0'}}><b>Business Impact:</b> {data.impact}</p>}
+     </div>
+
+     {data.pitch&&Array.isArray(data.pitch)&&(
+      <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'16px',padding:'18px',marginBottom:'20px'}}>
+       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+        <span style={{fontSize:'13px',fontWeight:800,color:'#1e293b',display:'flex',alignItems:'center',gap:'6px'}}>
+         <Lightbulb size={16} color="#eab308"/> 60-Second Elevator Pitch Structure
+        </span>
+        <button className="ghost-sm" onClick={()=>copyToClipboard(data.pitch.join('\n\n'),'pitch')} style={{cursor:'pointer'}}>
+         {copiedKey==='pitch'?<><Check size={14} color="#10b981"/> Copied!</>:<><Copy size={14}/> Copy pitch</>}
+        </button>
+       </div>
+       <div style={{display:'grid',gap:'8px'}}>
+        {data.pitch.map((pt,idx)=>(
+         <div key={idx} style={{display:'flex',gap:'10px',fontSize:'13px',color:'#334155',lineHeight:'1.5'}}>
+          <CheckCircle2 size={16} color="#6366f1" style={{flexShrink:0,marginTop:'2px'}}/>
+          <span>{pt}</span>
+         </div>
+        ))}
+       </div>
+      </div>
+     )}
+
+     {data.html&&(
+      <div>
+       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',flexWrap:'wrap',gap:'8px'}}>
+        <span style={{fontSize:'13px',fontWeight:800,color:'#1e293b'}}>Interactive Prototype Preview</span>
+        <div style={{display:'flex',gap:'8px'}}>
+         <button className="ghost-sm" onClick={()=>openHtmlInNewTab(data.html)} style={{cursor:'pointer'}}>
+          <ExternalLink size={14}/> Open in new tab
+         </button>
+         <button className="ghost-sm" onClick={()=>downloadHtml(data.html,`${(company||'prototype').toLowerCase().replace(/\s+/g,'-')}-concept.html`)} style={{cursor:'pointer'}}>
+          <Download size={14}/> Download HTML
+         </button>
+        </div>
+       </div>
+       <div style={{border:'1px solid #cbd5e1',borderRadius:'14px',overflow:'hidden',background:'#fff'}}>
+        <iframe title="Prototype Sandbox" srcDoc={data.html} style={{width:'100%',height:'360px',border:'none'}} sandbox="allow-scripts"/>
+       </div>
+      </div>
+     )}
+    </div>
+   )}
+  </div>
+ );
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
