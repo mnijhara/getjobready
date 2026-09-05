@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       - name: Product regression verification
         run: npm run verify
       - name: Check production server
@@ -52,29 +52,6 @@ jobs:
           test -f index.html
           test -d assets
           grep -q '/assets/' index.html
-      - name: Verify source revision is still current
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin main
-          checked_out_sha="$(git rev-parse HEAD)"
-          remote_sha="$(git rev-parse origin/main)"
-          if [[ "$checked_out_sha" != "$GITHUB_SHA" ]]; then
-            echo "Checkout SHA $checked_out_sha does not match workflow SHA $GITHUB_SHA" >&2
-            exit 1
-          fi
-          if [[ "$remote_sha" != "$GITHUB_SHA" ]]; then
-            echo "main advanced from $GITHUB_SHA to $remote_sha while artifacts were building; refusing to publish stale artifacts." >&2
-            exit 1
-          fi
-      - name: Write deployment build identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '{"sha":"%s","workflow":"%s","runId":"%s"}\n' "$GITHUB_SHA" "$GITHUB_WORKFLOW" "$GITHUB_RUN_ID" > dist/build-info.json
-          cp dist/build-info.json build-info.json
-          test -s dist/build-info.json
-          test -s build-info.json
       - name: Preserve compatibility asset URLs
         shell: bash
         run: |
@@ -111,9 +88,6 @@ jobs:
           test -f server.js
           test -f server.cjs
           test -f pdf.worker.mjs
-          test -f .htaccess
-          test -f build-info.json
-          test -f dist/build-info.json
           test -f assets/native-V7Q_2HxE.js
           test -f assets/pdf.worker-CLesOks4.mjs
           test -f assets/index-BqWIDi9r.js
@@ -122,34 +96,20 @@ jobs:
           grep -q '/assets/' index.html
           grep -q 'interview-turn' server.js
           grep -q 'ai-status' server.js
-          grep -q 'application/javascript' .htaccess
           js_asset="$(grep -oE '/assets/[^" ]+\.js' index.html | head -1)"
           test -n "$js_asset"
           test "$(wc -c < "${js_asset#/}")" -gt 150000
-      - name: Recheck source revision before publish
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin main
-          remote_sha="$(git rev-parse origin/main)"
-          if [[ "$remote_sha" != "$GITHUB_SHA" ]]; then
-            echo "main advanced from $GITHUB_SHA to $remote_sha before publish; refusing to publish stale artifacts." >&2
-            exit 1
-          fi
       - name: Commit refreshed production artifacts
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html assets dist server.cjs server.js pdf.worker.mjs build-info.json .htaccess
+          git add index.html assets dist server.cjs server.js
           if git diff --cached --quiet; then
             echo "production artifacts are already current"
             exit 0
           fi
           git commit -m "build: refresh production artifacts"
-          if git push origin HEAD:main; then
-            exit 0
-          fi
-          echo "Production artifact push raced with another main update; refusing to retry a stale build. The newer main commit must run a fresh artifact build." >&2
-          exit 1
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main

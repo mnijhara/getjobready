@@ -50,20 +50,21 @@ async function generate(prompt, options = {}) {
   if (!configured()) throw Object.assign(new Error('AI_NOT_CONFIGURED'), { code: 'AI_NOT_CONFIGURED' });
   if (Date.now() < workerCooldownUntil) throw new Error('AI_PROXY_COOLDOWN');
 
-  // The worker forwards this payload to Gemini. Gemini accepts the prompt as a text
-  // part inside contents; it does not accept the legacy top-level `prompt` or `json`
-  // fields. Keeping the request schema here provider-valid prevents 400s on CV uploads.
+  // The proxy receives the instruction in `prompt`. Keep only additional multimodal
+  // parts in `contents` so the same prompt is not tokenized twice on every request.
   const suppliedParts = options.parts || [{ text: prompt }];
-  const parts = suppliedParts.length ? suppliedParts : [{ text: prompt }];
+  const parts = suppliedParts.filter((part, index) => !(index === 0 && part?.text === prompt));
   const model = options.model || DEFAULT_MODEL;
   const generationConfig = {
     responseMimeType: options.responseMimeType || 'application/json',
     maxOutputTokens: options.maxOutputTokens || 6000,
   };
   const body = {
+    prompt,
     model,
-    contents: [{ parts }],
+    contents: parts.length ? [{ parts }] : [],
     generationConfig,
+    json: options.json !== false,
   };
 
   workerRequests += 1;

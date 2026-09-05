@@ -1,126 +1,136 @@
 (() => {
-  const MAX_FILE_BYTES = 5 * 1024 * 1024;
-  const CV_ACCEPT = '.pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain';
-  const SUPPORTED = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const WORKER = 'https://getjobready-ai-proxy.mnijhara.workers.dev';
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.matchMedia?.('(pointer: coarse)').matches ?? false);
+  if (!isMobile) return;
+
   const clean = (s) => String(s || '').replace(/\r\n/g, '\n').split('\n').map(x => x.trim()).filter(Boolean).join('\n');
-  const setEditorValue = (el, value) => {
-    if (!el) return;
-    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-      if (setter) setter.call(el, value); else el.value = value;
-    } else if (el.isContentEditable) el.textContent = value;
+  const setReactTextarea = (el, value) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    if (setter) setter.call(el, value); else el.value = value;
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   };
-  const setReactCV = (value, file) => {
-    try {
-      if (typeof window.__gjrSetCv === 'function') {
-        window.__gjrSetCv(value, file || null);
-        return true;
-      }
-    } catch (e) { console.warn('CV React state bridge failed; falling back to DOM editor.', e); }
-    return false;
-  };
-  const inferMime = async (file) => {
-    const reported = String(file?.type || '').toLowerCase().split(';')[0].trim();
-    try {
-      const head = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
-      const ascii = String.fromCharCode(...head.subarray(0, 16));
-      if (ascii.startsWith('%PDF-')) return 'application/pdf';
-      if (ascii.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      if (!SUPPORTED.includes(reported)) {
-        const text = new TextDecoder('utf-8', { fatal: true }).decode(head);
-        const nonPrintable = text.replace(/[\t\n\r\x20-\x7E]/g, '');
-        if (text.trim() && nonPrintable.length / Math.max(text.length, 1) < 0.08) return 'text/plain';
-      }
-    } catch {}
-    if (SUPPORTED.includes(reported)) return reported;
-    if (/\.pdf$/i.test(file?.name || '')) return 'application/pdf';
-    if (/\.txt$/i.test(file?.name || '')) return 'text/plain';
-    if (/\.docx$/i.test(file?.name || '')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    return reported;
-  };
   const toast = (msg, bad = false) => {
-    let el = document.getElementById('gjr-cv-upload-status');
+    let el = document.getElementById('gjr-mobile-upload-status');
     if (!el) {
-      el = document.createElement('div'); el.id = 'gjr-cv-upload-status';
+      el = document.createElement('div');
+      el.id = 'gjr-mobile-upload-status';
       Object.assign(el.style, { position:'fixed', left:'16px', right:'16px', bottom:'18px', zIndex:99999, padding:'13px 15px', borderRadius:'14px', background:bad?'#7f1d1d':'#171e31', color:'#fff', font:'700 13px/1.4 system-ui,sans-serif', boxShadow:'0 12px 35px rgba(0,0,0,.25)', textAlign:'center' });
       document.body.appendChild(el);
     }
-    el.textContent = msg; el.style.opacity = '1'; clearTimeout(el._timer); el._timer = setTimeout(() => { el.style.opacity = '0'; }, 4500);
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.opacity = '0'; }, 4500);
   };
-  const isCvInput = (input) => {
-    const label = input.closest('.input-card')?.querySelector('.label')?.textContent || '';
-    const accept = String(input.getAttribute('accept') || '').toLowerCase();
-    return /your\s*cv|cv\s*preparation|upload.*cv|resume/i.test(label) || accept.includes('.docx') || input.dataset.gjrCvInput === '1';
-  };
-  const patchCvInput = (input) => {
-    if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !isCvInput(input)) return;
-    input.dataset.gjrCvInput = '1'; input.accept = CV_ACCEPT;
-  };
+
   async function parsePdf(file) {
     try {
-      const lib = await import('pdfjs-dist'); const pdfjs = lib.default?.getDocument ? lib.default : lib;
-      pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs'; const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), disableWorker: true }).promise;
-      let out=''; for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const content=await page.getTextContent();out+=content.items.map(x=>x.str||'').join(' ')+'\n';} return clean(out);
-    } catch(e){ console.warn('CV PDF.js extraction failed; using server AI fallback.',e); return ''; }
-  }
-  async function parseDocx(file) {
-    try { const mammoth=await import('mammoth'); return clean((await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()})).value); }
-    catch(e){ console.warn('CV DOCX extraction failed; using server AI fallback.',e); return ''; }
-  }
-  async function aiExtract(file,mime) {
-    if(file.size>MAX_FILE_BYTES) throw new Error('CV file is over 5 MB.');
-    const bytes=new Uint8Array(await file.arrayBuffer()); let binary=''; for(let i=0;i<bytes.length;i+=0x8000) binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
-    const resolvedMime=mime||await inferMime(file); if(!SUPPORTED.includes(resolvedMime)) throw new Error('Unsupported CV file type.');
-    const r=await fetch('/api/extract-cv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:btoa(binary),mime:resolvedMime})});
-    const raw=await r.text(); let obj=null; try{obj=JSON.parse(raw);}catch{} if(!r.ok)throw new Error(obj?.error||`CV extraction failed (${r.status})`); const text=String(obj?.text||'').trim(); if(!text)throw new Error('No CV text returned'); return clean(text);
-  }
-  const findCvEditor = () => {
-    const cards=[...document.querySelectorAll('.input-card')];
-    const card=cards.find(el=>/your\s*cv|cv\s*preparation|upload.*cv|resume/i.test(el.textContent||''));
-    if(card)return {card,editor:card.querySelector('textarea,[contenteditable="true"],input:not([type="file"])')};
-    const heading=[...document.querySelectorAll('h1,h2,h3,h4,button,[role="button"]')].find(el=>/cv\s*preparation|upload.*cv|resume/i.test(el.textContent||''));
-    if(heading){const section=heading.closest('section,article,div');return {card:section,editor:section?.querySelector('textarea,[contenteditable="true"],input:not([type="file"])')};}
-    const fallbackEditor=document.querySelector('textarea[name="cv"],textarea[placeholder*="CV" i],textarea[placeholder*="resume" i],[contenteditable="true"][aria-label*="CV" i]');
-    if(fallbackEditor)return {card:fallbackEditor.closest('section,article,div')||document.body,editor:fallbackEditor};
-    return null;
-  };
-  async function handle(input,file){
-    if(!file||!isCvInput(input))return; if(file.size>MAX_FILE_BYTES){toast('Please keep your CV under 5 MB.',true);return;}
-    const mime=await inferMime(file); if(!(SUPPORTED.includes(mime)||/\.(pdf|docx|txt)$/i.test(file.name))){toast('Please choose a PDF, DOCX or TXT CV.',true);return;}
-    toast('Reading your CV…');
-    try{
-      let text='';
-      if(mime==='text/plain')text=await file.text();
-      else if(mime==='application/pdf')text=await parsePdf(file);
-      else if(mime==='application/vnd.openxmlformats-officedocument.wordprocessingml.document')text=await parseDocx(file);
-      if(!text.trim()){toast('Reading the document securely with AI…');text=await aiExtract(file,mime);}
-      text=clean(text);if(!text)throw new Error('No readable CV content was found.');
-      const bridged=setReactCV(text,file);
-      if(!bridged){
-        const target=findCvEditor()?.editor;
-        if(!target)throw new Error('CV editor is not ready. Please try again.');
-        setEditorValue(target,text);
+      const lib = await import('pdfjs-dist');
+      const pdfjs = lib.default?.getDocument ? lib.default : lib;
+      pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+      const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), disableWorker: true }).promise;
+      let out = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        out += content.items.map(x => x.str || '').join(' ') + '\n';
       }
-      try{sessionStorage.setItem('gjr_cv_text',text);}catch{}
-      toast('CV uploaded successfully. You can review it now.');
+      out = clean(out);
+      if (out) return out;
+    } catch (e) {
+      console.warn('Mobile PDF.js extraction failed; using document AI fallback.', e);
     }
-    catch(e){console.error('CV upload failed',e);toast(e?.message==='CV file is over 5 MB.'?'Please keep your CV under 5 MB.':'We could not read this CV. Please retry or paste the CV text below.',true);}
+    return '';
   }
-  const ensureCvUploadControl=()=>{
-    const editor=findCvEditor();
-    if(!editor?.card)return;
-    const existing=[...editor.card.querySelectorAll('input[type="file"]')].find(isCvInput);if(existing){patchCvInput(existing);return;}if(editor.card.querySelector('[data-gjr-cv-upload-fallback="1"]'))return;
-    const wrap=document.createElement('div');wrap.dataset.gjrCvUploadFallback='1';Object.assign(wrap.style,{display:'flex',alignItems:'center',gap:'10px',margin:'10px 0 12px',flexWrap:'wrap'});
-    const button=document.createElement('button');button.type='button';button.textContent='Upload CV';button.setAttribute('aria-label','Upload CV');Object.assign(button.style,{border:'1px solid rgba(99,102,241,.35)',borderRadius:'10px',padding:'9px 13px',font:'700 13px/1 system-ui,sans-serif',cursor:'pointer'});
-    const hint=document.createElement('span');hint.textContent='PDF, DOCX or TXT · max 5 MB';Object.assign(hint.style,{font:'500 12px/1.3 system-ui,sans-serif',opacity:'.7'});
-    const input=document.createElement('input');input.type='file';input.dataset.gjrCvInput='1';input.accept=CV_ACCEPT;input.setAttribute('aria-label','Choose CV file');Object.assign(input.style,{position:'absolute',width:'1px',height:'1px',opacity:'0',pointerEvents:'none'});
-    button.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{const file=e.target.files?.[0];if(file)handle(input,file);});wrap.append(button,hint,input);
-    const anchor=editor.editor||editor.card.firstElementChild;if(anchor?.parentElement)anchor.parentElement.insertBefore(wrap,anchor);else editor.card.prepend(wrap);patchCvInput(input);
-  };
-  const patchExistingInputs=()=>document.querySelectorAll('input[type="file"]').forEach(patchCvInput);
-  patchExistingInputs();ensureCvUploadControl();new MutationObserver(()=>{patchExistingInputs();ensureCvUploadControl();}).observe(document.documentElement,{childList:true,subtree:true});
-  document.addEventListener('change',e=>{const input=e.target;if(!(input instanceof HTMLInputElement)||input.type!=='file'||!isCvInput(input))return;const file=input.files?.[0];if(!file)return;e.preventDefault();e.stopImmediatePropagation();handle(input,file);},true);
+
+  async function parseDocx(file) {
+    try {
+      const mammoth = await import('mammoth');
+      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+      const out = clean(result.value);
+      if (out) return out;
+    } catch (e) {
+      console.warn('Mobile DOCX extraction failed; using document AI fallback.', e);
+    }
+    return '';
+  }
+
+  async function aiExtract(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    const data = btoa(binary);
+    const mime = file.type || (/.pdf$/i.test(file.name) ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    const prompt = `Extract the student's CV from this uploaded document. Return ONLY the readable CV text, preserving names, headings, dates, employers, education, skills, projects, achievements and bullet content. Do not invent, summarize, improve, or omit factual information. If the document is scanned/image-based, read the visible text with visual document understanding.`;
+    const r = await fetch(`${WORKER}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }] }], model: 'gemini-3.7-flash', generationConfig: { maxOutputTokens: 7000 } })
+    });
+    if (!r.ok) throw new Error(`AI extraction failed (${r.status})`);
+    const raw = await r.text();
+    let obj;
+    try { obj = JSON.parse(raw); } catch { obj = null; }
+    const text = obj?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || obj?.text || obj?.output || obj?.response || raw;
+    const out = clean(String(text).replace(/^```(?:text)?\s*/i, '').replace(/\s*```$/i, ''));
+    if (!out) throw new Error('No CV text returned');
+    return out;
+  }
+
+  async function handle(input, file) {
+    if (!file) return;
+    const isCvInput = input.accept?.includes('.docx');
+    if (!isCvInput) return;
+    const allowed = /\.(pdf|docx|txt)$/i.test(file.name) || file.type === 'application/pdf' || file.type === 'text/plain' || file.type?.includes('wordprocessingml');
+    if (!allowed) return;
+
+    input.dataset.gjrMobileHandled = '1';
+    const textarea = document.querySelector('#cvText') || document.querySelector('.input-card textarea') || document.querySelector('textarea');
+    if (!textarea) return;
+    toast('Reading your CV…');
+    try {
+      let text = '';
+      if (/\.txt$/i.test(file.name) || file.type === 'text/plain') text = await file.text();
+      else if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') text = await parsePdf(file);
+      else if (/\.docx$/i.test(file.name) || file.type?.includes('wordprocessingml')) text = await parseDocx(file);
+      if (!text.trim() && (/\.pdf$/i.test(file.name) || /\.docx$/i.test(file.name) || file.type === 'application/pdf' || file.type?.includes('wordprocessingml'))) {
+        toast('Reading the document with AI…');
+        text = await aiExtract(file);
+      }
+      text = clean(text);
+      if (!text) throw new Error('No readable CV content was found.');
+      setReactTextarea(textarea, text);
+      if (typeof window.__gjrSetCv === 'function') {
+        window.__gjrSetCv(text, file);
+      }
+      try { sessionStorage.setItem('gjr_cv_text', text); } catch {}
+      const label = input.closest('label');
+      const nameEl = label?.querySelector('b');
+      const statusEl = label?.querySelector('span');
+      if (nameEl) nameEl.textContent = file.name;
+      if (statusEl) statusEl.textContent = 'CV loaded · ready for review';
+      toast('CV uploaded successfully. You can review it now.');
+    } catch (e) {
+      console.error('Mobile CV upload failed', e);
+      toast('We could not read this CV. Please retry or paste the CV text below.', true);
+    }
+  }
+
+  document.addEventListener('change', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !input.accept?.includes('.docx')) return;
+    const file = input.files?.[0];
+    if (!file) return;
+    const allowed = /\.(pdf|docx|txt)$/i.test(file.name) || file.type === 'application/pdf' || file.type === 'text/plain' || file.type?.includes('wordprocessingml');
+    if (!allowed) return;
+
+    const textarea = document.querySelector('#cvText') || document.querySelector('.input-card textarea') || document.querySelector('textarea');
+    if (!textarea) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    handle(input, file);
+  }, true);
 })();

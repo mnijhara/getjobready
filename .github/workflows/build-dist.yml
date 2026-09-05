@@ -66,6 +66,27 @@ jobs:
           bundle_bytes="$(wc -c < "$asset_path")"
           test "$bundle_bytes" -gt 100000
           echo "GetJobReady production artifact verified for ${GITHUB_SHA} (${bundle_bytes} byte client bundle)"
+      - name: Sync production artifact to Hostinger entrypoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main || true
+          cp dist/index.html index.html
+          rsync -a dist/assets/ assets/ || cp -R dist/assets/* assets/
+          cp dist/pdf.worker.mjs pdf.worker.mjs
+          if [[ -f dist/favicon.svg ]]; then cp dist/favicon.svg favicon.svg; fi
+          if [[ -f dist/logo.svg ]]; then cp dist/logo.svg logo.svg; fi
+          if [[ -f dist/manifest.webmanifest ]]; then cp dist/manifest.webmanifest manifest.webmanifest; fi
+          git add index.html assets pdf.worker.mjs favicon.svg logo.svg manifest.webmanifest dist
+          if git diff --cached --quiet; then
+            echo "Production entrypoint already matches the generated artifact."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "build: sync production artifacts to repository root"
+            git pull --rebase --autostash origin main || true
+            git push origin HEAD:main || true
+          fi
       - name: Smoke test
         run: |
           PORT=4173 NODE_ENV=production node server.cjs > /tmp/getjobready.log 2>&1 &

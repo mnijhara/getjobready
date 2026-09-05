@@ -9,6 +9,8 @@ const root = __dirname;
 // Deployment parity marker: keep the Hostinger Node entrypoint tied to the GitHub build.
 const allowedOrigin = (process.env.PUBLIC_BASE_URL || 'https://getjobready.online').replace(/\/$/, '');
 app.disable('x-powered-by');
+// GetJobReady is normally behind a single trusted reverse proxy. Trust only that
+// first hop so req.ip uses the real client address for per-student rate limiting.
 app.set('trust proxy', 1);
 app.use(cors({ origin: (origin, callback) => { if (!origin || !allowedOrigin || origin === allowedOrigin) return callback(null, true); return callback(null, false); }, methods: ['GET','POST','OPTIONS'], credentials: false }));
 app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','SAMEORIGIN');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','microphone=(self), camera=(), geolocation=()');if(req.path.startsWith('/api/')){res.setHeader('Cache-Control','no-store, max-age=0');res.setHeader('Pragma','no-cache');}next();});
@@ -22,48 +24,6 @@ app.use('/api', (req,res,next)=>{if(req.path==='/health'||req.path==='/ai-status
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'getjobready', ai: publicStatus() }));
 app.get('/api/ai-status', (req, res) => res.json(publicStatus()));
-
-// Normalize CV MIME on the server too. Browsers can report application/octet-stream (or
-// another stale MIME), and direct API callers must not be able to make a valid CV take
-// the wrong extraction route. Magic bytes win over the reported browser MIME.
-const resolveCvMime = (reportedMime, data) => {
-  const normalized = String(reportedMime || '').toLowerCase().split(';')[0].trim();
-  try {
-    const bytes = Buffer.from(String(data || '').slice(0, 4096), 'base64');
-    const head = bytes.toString('latin1', 0, 16);
-    if (head.startsWith('%PDF-')) return 'application/pdf';
-    if (head.startsWith('PK')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    if (!['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(normalized)) {
-      const text = bytes.toString('utf8');
-      const nonPrintable = text.replace(/[\t\n\r\x20-\x7E]/g, '');
-      if (text.trim() && nonPrintable.length / Math.max(text.length, 1) < 0.08) return 'text/plain';
-    }
-  } catch {}
-  return normalized;
-};
-
-// Extract plain CV text for browser upload fallbacks. The frontend uses this endpoint
-// when local PDF.js/Mammoth extraction is unavailable or returns no readable text.
-// Keep this separate from /api/analyze-upload because that endpoint intentionally returns
-// a structured readiness report, not raw CV text.
-app.post('/api/extract-cv', async (req, res) => {
-  const { data = '', mime = 'application/pdf' } = req.body || {};
-  if (!data) return res.status(400).json({ error: 'CV file data is required.' });
-  if (data.length > 7_000_000) return res.status(413).json({ error: 'CV file is too large. Please keep it under 5 MB.' });
-  const allowedMimes = ['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-  const resolvedMime = resolveCvMime(mime, data);
-  if (!allowedMimes.includes(resolvedMime)) return res.status(415).json({ error: 'Unsupported CV file type.' });
-  try {
-    const prompt = `Read the attached CV and return ONLY the readable CV text, preserving names, headings, dates, employers, education, projects, skills and bullet content. Do not summarize, analyse, rewrite, invent or add anything. Preserve the source wording as closely as possible. If the document is an image/scanned PDF, use visual understanding to transcribe its readable text. Output plain text only.`;
-    const text = await generate(prompt, { parts: [{ text: prompt }, { inlineData: { mimeType: resolvedMime, data } }], json: false, responseMimeType: 'text/plain', maxOutputTokens: 12000 });
-    const clean = String(text || '').trim();
-    if (!clean) return res.status(422).json({ error: 'No readable CV text was found in the uploaded document.' });
-    return res.json({ text: clean, mime: resolvedMime });
-  } catch (error) {
-    console.error('extract-cv:', error.message);
-    return res.status(503).json({ error: 'CV extraction is temporarily unavailable. Please retry in a moment.' });
-  }
-});
 
 const analysisPrompt = (cv, jd, career, mode='specific') => mode === 'general'
   ? `You are an expert campus recruiter and CV strategist. Analyse this student's CV WITHOUT assuming a specific job. Return ONLY valid JSON with exactly these keys: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4; rewrite only when source evidence supports it and never invent facts), plan (exactly 7 actionable steps), interviewQuestions (exactly 5 general interview questions grounded in the CV). Questions must test the candidate's actual projects, experience, achievements, strengths, weaknesses, teamwork, ownership, problem solving and behavioural readiness. Do not invent employers, skills, achievements or a target role.\n\nCV:\n${String(cv).slice(0,40000)}`
@@ -81,13 +41,12 @@ app.post('/api/analyze-upload', async (req, res) => {
   if (!data) return res.status(400).json({ error: 'CV file data is required.' });
   if (data.length > 7_000_000) return res.status(413).json({ error: 'CV file is too large. Please keep it under 5 MB.' });
   const allowedMimes = ['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-  const resolvedMime = resolveCvMime(mime, data);
-  if (!allowedMimes.includes(resolvedMime)) return res.status(415).json({ error: 'Unsupported CV file type.' });
+  if (!allowedMimes.includes(mime)) return res.status(415).json({ error: 'Unsupported CV file type.' });
   try {
     const prompt = mode === 'general'
       ? `You are an expert campus recruiter and CV strategist. Read the attached CV WITHOUT assuming a target job. Return ONLY valid JSON with exactly: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4 without inventing facts), plan (exactly 7 actionable steps), interviewQuestions (exactly 5 general interview questions grounded in this CV). Questions must cover the candidate's actual projects, experience, achievements, teamwork, ownership, problem solving and behavioural readiness. Do not invent facts or assume a role.`
       : `You are an expert campus recruiter. Read the attached CV and analyse it against the target job description. Career mode: ${career}. Return ONLY valid JSON with exactly: score (0-100), headline, summary, highlights (max 4), gaps (max 5), cvImprovements (max 5), rewrittenBullets (max 4 without inventing facts), plan (exactly 7), interviewQuestions (exactly 5 role-specific questions). Target JD:\n${String(jd).slice(0,30000)}`;
-    return res.json(await generate('', { parts: [{ text: prompt }, { inlineData: { mimeType: resolvedMime, data } }] }));
+    return res.json(await generate('', { parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }] }));
   } catch (error) { console.error('analyze-upload:', error.message); return res.status(503).json({ error: 'AI analysis is temporarily unavailable. Please retry in a moment.' }); }
 });
 

@@ -154,6 +154,18 @@ function detectDomain(cvText, jdText, roleName){
  return 'General';
 }
 
+function truncateAtWord(str, maxLen){
+ if(!str)return '';
+ const clean=str.replace(/\s+/g,' ').trim();
+ if(clean.length<=maxLen)return clean;
+ const sub=clean.slice(0,maxLen);
+ const lastSpace=sub.lastIndexOf(' ');
+ if(lastSpace>Math.floor(maxLen*0.6)){
+  return sub.slice(0,lastSpace).replace(/[,;.\-—]+$/,'').trim();
+ }
+ return sub.replace(/[,;.\-—]+$/,'').trim();
+}
+
 function generateTailoredCVQuestions(cvText,jd,role){
  const cv=cvText||'';
  const lines=cv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
@@ -168,18 +180,19 @@ function generateTailoredCVQuestions(cvText,jd,role){
 
  const b1=bullets[0]||'your key achievements';
  const b2=bullets[1]||'a major project';
- const comp=companies[0]||'your previous organisation or project';
+ const rawComp=companies[0]||'your previous organisation or project';
+ const comp=truncateAtWord(rawComp,55);
  const domain=detectDomain(cv, jd, role);
  const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test((role||'')+' '+(jd||'')+' '+cv.slice(0,300));
  const isEngineerToMBA=/\b(b\.?tech|b\.?e\.?|computer science|electrical|mechanical|civil|engineering)\b/i.test(cv)&&/\b(mba|pgdm|marketing|sales|finance|consulting|hr)\b/i.test(cv);
 
  const q1=`Tell me about yourself — your background in ${domain==='Technology'?'Technology':domain}, your academic journey, and the one experience or project you're most proud of so far.`;
- const q2=`In your CV, you mention "${b1.slice(0,85)}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
+ const q2=`In your CV, you mention "${truncateAtWord(b1,95)}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
  const q3=isEngineerToMBA
   ?`You completed your undergraduate degree in engineering and are now pursuing an MBA in ${domain} — walk me through what drove that pivot, and why you are targeting this specific role.`
   :isInternship
   ?`Tell me about your summer internship or key project. What was your day-to-day responsibility, what data, tools or AI did you use, and what's the one number that proves your business impact?`
-  :`Tell me about a major project at ${comp.slice(0,40)}. What was your personal ownership, what challenge did you face, and what was the quantifiable outcome?`;
+  :`Tell me about a major project at ${comp}. What was your personal ownership, what challenge did you face, and what was the quantifiable outcome?`;
  const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or analytics frameworks — in your work or studies? Give me a specific example where it made you faster or more effective.`;
  const q5=domain==='Marketing'||domain==='Consulting'||domain==='General Management'
   ?`Describe a time when you faced conflict with a team member, dealer, or stakeholder, or when a project hit an unexpected bottleneck. How did you handle it and what was the resolution?`
@@ -1224,17 +1237,76 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
 
 function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,history,onTurn,onDone}){
  const[status,setStatus]=useState('starting'),[transcript,setTranscript]=useState(''),[turns,setTurns]=useState(history||[]),[permission,setPermission]=useState(false);
+ const[silenceCountdown,setSilenceCountdown]=useState(null);
  const rec=useRef(null),started=useRef(false),submitting=useRef(false),latestTranscript=useRef('');
+ const silenceTimerRef=useRef(null),countdownIntervalRef=useRef(null),speechFinalizedRef=useRef('');
  const mediaRecorderRef=useRef(null),audioChunksRef=useRef([]);
  const supported=typeof window!=='undefined'&&('webkitSpeechRecognition'in window||'SpeechRecognition'in window);
  useEffect(()=>{setTurns(history||[])},[history]);
+
+ const clearSilenceTimers=()=>{
+  if(silenceTimerRef.current){clearTimeout(silenceTimerRef.current);silenceTimerRef.current=null;}
+  if(countdownIntervalRef.current){clearInterval(countdownIntervalRef.current);countdownIntervalRef.current=null;}
+  setSilenceCountdown(null);
+ };
+
+ const finalizeAndSubmit=async()=>{
+  if(submitting.current)return;
+  clearSilenceTimers();
+  const answer=latestTranscript.current.trim();
+  if(!answer){
+   setStatus('idle');
+   return;
+  }
+  submitting.current=true;
+  setStatus('thinking');
+  if(rec.current){
+   try{rec.current.stop()}catch(e){}
+  }
+  let audioDataUrl='';
+  if(mediaRecorderRef.current&&mediaRecorderRef.current.state!=='inactive'){
+   try{
+    mediaRecorderRef.current.stop();
+    mediaRecorderRef.current.stream?.getTracks()?.forEach(t=>t.stop());
+    if(audioChunksRef.current.length>0){
+     const blob=new Blob(audioChunksRef.current,{type:'audio/webm'});
+     audioDataUrl=await new Promise(res=>{
+      const reader=new FileReader();
+      reader.onloadend=()=>res(reader.result);
+      reader.readAsDataURL(blob);
+     });
+    }
+   }catch(e){}
+  }
+  submit(answer,audioDataUrl).finally(()=>{submitting.current=false});
+ };
+
+ const resetSilenceTimer=()=>{
+  clearSilenceTimers();
+  let remaining=2;
+  setSilenceCountdown(remaining);
+  countdownIntervalRef.current=setInterval(()=>{
+   remaining-=1;
+   if(remaining>0){
+    setSilenceCountdown(remaining);
+   }else{
+    if(countdownIntervalRef.current){clearInterval(countdownIntervalRef.current);countdownIntervalRef.current=null;}
+   }
+  },1000);
+
+  silenceTimerRef.current=setTimeout(()=>{
+   finalizeAndSubmit();
+  },2400);
+ };
 
  const speakAndListen=()=>{
   if(started.current)return;
   started.current=true;
   setStatus('starting');
   latestTranscript.current='';
+  speechFinalizedRef.current='';
   setTranscript('');
+  clearSilenceTimers();
   window.speechSynthesis?.cancel();
   
   const u=new SpeechSynthesisUtterance(question);
@@ -1244,14 +1316,18 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
   if(best)u.voice=best;
   u.rate=1;u.pitch=1;
   u.onend=()=>beginRecognition();
+  u.onerror=()=>beginRecognition();
   window.speechSynthesis?.speak(u);
  };
 
  const beginRecognition=()=>{
   if(!supported){setStatus('unsupported');return}
+  if(rec.current){
+   try{rec.current.abort()}catch(e){}
+  }
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const r=new SR();
-  r.lang='en-IN';r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+  r.lang='en-IN';r.interimResults=true;r.continuous=true;r.maxAlternatives=1;
   r.onstart=()=>{
    setStatus('listening');setPermission(true);
    try{
@@ -1269,45 +1345,43 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
    }catch(e){}
   };
   r.onresult=e=>{
-   let text='';
-   for(let i=0;i<e.results.length;i++){text+=e.results[i][0].transcript+' '}
-   latestTranscript.current=text.trim();
-   setTranscript(text.trim());
-  };
-  r.onend=async()=>{
-   const answer=latestTranscript.current.trim();
-   let audioDataUrl='';
-   if(mediaRecorderRef.current&&mediaRecorderRef.current.state!=='inactive'){
-    try{
-     mediaRecorderRef.current.stop();
-     mediaRecorderRef.current.stream?.getTracks()?.forEach(t=>t.stop());
-     if(audioChunksRef.current.length>0){
-      const blob=new Blob(audioChunksRef.current,{type:'audio/webm'});
-      audioDataUrl=await new Promise(res=>{
-       const reader=new FileReader();
-       reader.onloadend=()=>res(reader.result);
-       reader.readAsDataURL(blob);
-      });
-     }
-    }catch(e){}
+   let interim='';let final='';
+   for(let i=0;i<e.results.length;i++){
+    const res=e.results[i];
+    if(res.isFinal){
+     final+=res[0].transcript+' ';
+    }else{
+     interim+=res[0].transcript+' ';
+    }
    }
-   if(answer&&!submitting.current){
-    setStatus('thinking');
-    submitting.current=true;
-    submit(answer,audioDataUrl).finally(()=>{submitting.current=false});
-   }else if(!answer&&!submitting.current){
-    setStatus('idle');
+   const currentTotal=(final+interim).trim();
+   if(currentTotal){
+    latestTranscript.current=currentTotal;
+    setTranscript(currentTotal);
+    resetSilenceTimer();
+   }
+  };
+  r.onend=()=>{
+   if(!submitting.current&&status==='listening'&&!latestTranscript.current.trim()){
+    try{r.start()}catch(e){}
    }
   };
   r.onerror=e=>{
    if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');
-   else if(e.error!=='aborted')setStatus('error');
+   else if(e.error!=='aborted'&&!submitting.current){
+    console.warn('Speech recognition warning:',e.error);
+   }
   };
   rec.current=r;
   try{r.start()}catch{setStatus('error')}
  };
 
- const startJourney=()=>{started.current=false;speakAndListen()};
+ const startJourney=()=>{
+  clearSilenceTimers();
+  submitting.current=false;
+  started.current=false;
+  speakAndListen();
+ };
 
  const submit=async(answer,audioUrl='')=>{
   try{
@@ -1347,13 +1421,20 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
  useEffect(()=>{
   setStatus('starting');
   started.current=false;
+  submitting.current=false;
   setTranscript('');
   latestTranscript.current='';
+  clearSilenceTimers();
   window.speechSynthesis?.cancel();
   document.documentElement.scrollTop=0;
   document.body.scrollTop=0;
   const t=setTimeout(()=>{if(!started.current)startJourney()},600);
-  return()=>{clearTimeout(t);rec.current?.abort();window.speechSynthesis?.cancel()}
+  return()=>{
+   clearTimeout(t);
+   clearSilenceTimers();
+   rec.current?.abort();
+   window.speechSynthesis?.cancel();
+  };
  },[question,turn]);
 
  return <div className="interview">
@@ -1373,8 +1454,24 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
    </div>
   </div>
   <div className="transcript-card">
-   <div className="transcript-head"><div className="label"><Headphones size={17}/> Live transcript</div><span>{transcript?'Capturing':'Waiting for your answer'}</span></div>
+   <div className="transcript-head">
+    <div className="label"><Headphones size={17}/> Live transcript</div>
+    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+     {status==='listening'&&silenceCountdown!==null&&<span style={{color:'#6855e8',background:'#f0edff',padding:'2px 8px',borderRadius:'999px',fontSize:'11px',fontWeight:700}}>Auto-submitting in {silenceCountdown}s</span>}
+     <span>{transcript?'Capturing':'Waiting for your answer'}</span>
+    </div>
+   </div>
    <p className={transcript?'live':''}>{transcript||'Your spoken answer will appear here in real time.'}</p>
+   {status==='listening'&&transcript.trim().length>0&&(
+    <div style={{marginTop:'12px',display:'flex',gap:'10px',justifyContent:'flex-end',alignItems:'center'}}>
+     <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px'}} onClick={startJourney}>
+      <RefreshCw size={13}/> Restart Answer
+     </button>
+     <button className="primary-sm" style={{fontSize:'12px',padding:'7px 16px',borderRadius:'999px',display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={finalizeAndSubmit}>
+      Done Speaking · Submit Now <ArrowRight size={14}/>
+     </button>
+    </div>
+   )}
   </div>
   {permission&&<div className="interview-hint"><Volume2 size={15}/> Question audio · automatic answer capture · 100% hands-free</div>}
  </div>

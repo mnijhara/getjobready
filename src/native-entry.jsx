@@ -1,6 +1,2 @@
-// Canonical production entrypoint. Keeping this tiny wrapper prevents the deployment
-// pipeline from accidentally reusing a stale legacy HTML entry module.
-import './getjobready-cloud.js';
-import './cv-extract-bridge.js';
-import './mobile-cv-upload.js';
+// Canonical production entrypoint.
 import './main-v2.jsx';

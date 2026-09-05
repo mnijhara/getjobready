@@ -16,11 +16,8 @@
   </FilesMatch>
 </IfModule>
 
-# Correct MIME Types for application assets. Module scripts are rejected by browsers
-# when Apache falls back to text/plain, so declare both JS extensions explicitly.
+# Correct MIME Types for Favicons and Social Images
 <IfModule mod_mime.c>
-  AddType application/javascript .js
-  AddType text/javascript .mjs
   AddType image/svg+xml .svg
   AddType image/png .png
   AddType image/x-icon .ico .cur

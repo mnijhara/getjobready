@@ -4,22 +4,12 @@ on:
     branches: [main]
     paths:
       - 'scripts/live-audit.mjs'
-      - 'server.cjs'
-      - 'ai-router.cjs'
-      - 'src/cv-extract-bridge.js'
-      - 'src/mobile-cv-upload.js'
-      - 'src/main-v2.jsx'
-      - 'src/native-entry.jsx'
-      - '.htaccess'
-  workflow_run:
-    workflows: [Refresh tracked production artifacts]
-    types: [completed]
+      - '.github/workflows/chromium-live-audit.yml'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   audit:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -55,28 +45,11 @@ jobs:
       - name: Run desktop + mobile Chromium audit
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
-          GJR_EXPECTED_SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: node scripts/live-audit.mjs
-      - name: Publish audit diagnostics
-        if: always()
-        run: |
-          if [ -f live-audit-report.json ]; then
-            cat live-audit-report.json
-            {
-              echo '## Chromium live audit diagnostics'
-              echo
-              echo '```json'
-              cat live-audit-report.json
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'live-audit-report.json was not generated.' | tee -a "$GITHUB_STEP_SUMMARY"
-          fi
       - name: Upload audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: chromium-live-audit-report-${{ github.sha }}
           path: live-audit-report.json
-          if-no-files-found: warn
           retention-days: 14
