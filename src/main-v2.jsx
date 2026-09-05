@@ -274,166 +274,35 @@ function cleanBullet(raw){
 }
 
 function generateTailoredCVQuestions(cvText,jd,role){
- const rawCv=(cvText||'')
-  .replace(/(\b[A-Za-z]{2,})-\s*[\r\n]+\s*([a-z]{2,}\b)/g,'$1$2')
-  .replace(/\bTechnolo(?:\.|\b)(?!\w)/gi,'Technology')
-  .replace(/\bEngin(?:\.|\b)(?!\w)/gi,'Engineering')
-  .replace(/\s+([,;.])/g,'$1');
-
- const lines=rawCv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
- const companies=[];const bullets=[];
- lines.forEach(l=>{
-  if(l.includes(' · ')||l.includes(' - ')||l.includes(' — ')||l.includes(' | ')){
-   const c=cleanCompany(l.split(/[·\-—|]/)[0]?.trim());
-   if(c&&c.length>3&&c.length<70&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS)/i.test(c)){
-    companies.push(c);
-   }
-  }else if(l.length>35&&l.length<180&&!/(SUMMARY|COMPETENCIES|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|LEADERSHIP|@|\.com|\.in|\+91|linkedin)/i.test(l)){
-   bullets.push(cleanBullet(l));
-  }
- });
-
- const b1=cleanBullet(bullets[0]||'your key achievements');
- const b2=cleanBullet(bullets[1]||'a major project');
- const rawComp=companies[0]||'your previous organisation or project';
- const comp=cleanCompany(truncateAtWord(rawComp,55));
- const domain=detectDomain(rawCv, jd, role);
- const isInternship=/(intern|summer|trainee|pgdm|mba|bcom|year|semester)/i.test((role||'')+' '+(jd||'')+' '+rawCv.slice(0,300));
- const isEngineerToMBA=/\b(b\.?tech|b\.?e\.?|computer science|electrical|mechanical|civil|engineering)\b/i.test(rawCv)&&/\b(mba|pgdm|marketing|sales|finance|consulting|hr)\b/i.test(rawCv);
-
- const q1=`Tell me about yourself — your background in ${domain==='Technology'?'Technology':domain}, your academic journey, and the one experience or project you're most proud of so far.`;
- const q2=`In your CV, you mention "${cleanBullet(truncateAtWord(b1,95))}" — walk me through the exact situation, your specific role, the actions you personally took, and the measurable result.`;
- const q3=isEngineerToMBA
-  ?`You completed your undergraduate degree in engineering and are now pursuing an MBA in ${domain} — walk me through what drove that pivot, and why you are targeting this specific role.`
-  :isInternship
-  ?`Tell me about your summer internship or key project. What was your day-to-day responsibility, what data, tools or AI did you use, and what's the one number that proves your business impact?`
-  :`Tell me about a major project at ${comp}. What was your personal ownership, what challenge did you face, and what was the quantifiable outcome?`;
- const q4=`How are you using AI tools — like ChatGPT, Claude, Copilot, or analytics frameworks — in your work or studies? Give me a specific example where it made you faster or more effective.`;
- const q5=domain==='Marketing'||domain==='Consulting'||domain==='General Management'
-  ?`Describe a time when you faced conflict with a team member, dealer, or stakeholder, or when a project hit an unexpected bottleneck. How did you handle it and what was the resolution?`
-  :`Describe a time when something went wrong, a deadline was missed, or you faced a technical roadblock. How did you debug or resolve it and what would you do differently?`;
- const q6=`If you joined ${role?'the '+role+' team':'this team'} tomorrow, what's your 30-day plan to add real value, build relationships, and prove yourself quickly?`;
-
+ const rawCv=cleanExtractedCVText(cvText||'');
+ const lines=rawCv.split(/\n/).map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
+ const useful=lines.filter(l=>l.length>=35&&!/^(EDUCATION|PROFESSIONAL EXPERIENCE|KEY PROJECTS|TECHNICAL SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS)$/i.test(l));
+ const projectLine=useful.find(l=>/project|developed|built|implemented|designed|created|intern|experience|worked/i.test(l))||useful[0]||'';
+ const skillLine=lines.find(l=>/react|node|python|java|sql|aws|cloud|javascript|c\+\+/i.test(l))||'';
+ const target=String(role||jd||'').trim();
+ const q1='Walk me through your background and the experience or project on your CV that you are most proud of. What did you personally contribute?';
+ const q2=projectLine?'Your CV mentions "'+truncateAtWord(cleanBullet(projectLine),120)+'". What was the situation, what was your responsibility, what did you personally do, and what was the outcome?':'Tell me about one project or experience on your CV. What problem were you solving, what did you personally do, and what was the outcome?';
+ const q3='Tell me about one project or experience from your CV in more depth. What was the biggest challenge and how did you handle it?';
+ const q4=skillLine?'Which skill or technology listed on your CV would you be most comfortable discussing in depth? Give me a concrete example of how you used it.':'Which skill from your CV are you strongest in? Give me a concrete example of how you used it.';
+ const q5='Tell me about a difficult problem, setback, disagreement, or unexpected challenge you actually experienced in the work or projects listed on your CV. How did you respond?';
+ const q6=target?'If you joined the '+truncateAtWord(target,80)+' team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?':'If you joined this team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?';
  return[q1,q2,q3,q4,q5,q6];
 }
 
 function evaluateInterviewTurnLocal(question,answer,history){
- const cleanAns=answer.trim();
- const words=cleanAns.split(/\s+/).filter(Boolean);
- const wordCount=words.length;
- const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$|^build\s*a\s*good\s*job$|^i\s*did\s*a?\s*good\s*job$)/i.test(cleanAns);
+ const cleanAns=String(answer||'').trim(); const words=cleanAns.split(/\s+/).filter(Boolean); const wordCount=words.length;
+ const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(cleanAns);
  const isRepetitive=wordCount>4&&new Set(words.map(w=>w.toLowerCase())).size<wordCount*0.35;
- let turnScore=0;let note='';
-
- if(wordCount<=3||isGibberish||cleanAns.length<12){
-  turnScore=0;
-  note=`0/100 — Immediate Rejection. Spoke only ${wordCount} word${wordCount===1?'':'s'} ("${cleanAns}"). Contains zero STAR structure, project details, or technical metrics. Compare with the strong model answer below.`;
- }else if(wordCount<10||isRepetitive){
-  turnScore=10;
-  note=`10/100 — Severely Incomplete (${wordCount} words). A single vague statement is not an interview answer. Explain the Situation, your specific Action, and the measurable Result.`;
- }else if(wordCount<25){
-  turnScore=25;
-  note=`25/100 — Lacks STAR Depth (${wordCount} words). Mentions high-level activities but lacks specific technical decisions, individual ownership ("I architected / I built"), and quantifiable results.`;
- }else if(wordCount<45){
-  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|latency|bottleneck|\b\d+[- ]*(?:day|days|week|weeks|month|months|year|years|ms|s|sec|min|mins|minute|minutes|hour|hours|hr|hrs|users|req|test|cr|lakh|rs|k|dealers|stores|outlets|clients|operations|candidates|recruiters|interviews|deliverables|tickets|phases)\b)/i.test(cleanAns);
-  const hasOwnership=/\b(i\s+(?:have\s+)?(?:built|designed|architected|implemented|led|developed|analyzed|formulated|conducted|managed|spearheaded|engineered|re-engineered|created|resolved|integrated|leverage|integrate|use|aim|take|took|will\s+(?:take|lead|build|immerse|pick|deliver|document|submit)))|(my\s+role|my\s+goal|my\s+priority|my\s+responsibility|my\s+30-day\s+plan|i\s+took\s+ownership)\b/i.test(cleanAns);
-  if(!hasMetrics&&!hasOwnership){
-   turnScore=40;
-   note=`40/100 — Needs STAR Structure & Metrics. Missing personal ownership verbs ("I built / I led...") and measurable results (%, scale, time saved, revenue).`;
-  }else if(!hasMetrics){
-   turnScore=50;
-   note=`50/100 — Solid structure but missing numbers. Recruiters look for quantifiable proof: % improvement, growth, latency reduction, or scale.`;
-  }else{
-   turnScore=60;
-   note=`60/100 — Good attempt with metrics, but expand on the specific methods, decisions made, and obstacles overcome.`;
-  }
- }else{
-  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|latency|bottleneck|\b\d+[- ]*(?:day|days|week|weeks|month|months|year|years|ms|s|sec|min|mins|minute|minutes|hour|hours|hr|hrs|users|req|test|cr|lakh|rs|k|dealers|stores|outlets|clients|operations|candidates|recruiters|interviews|deliverables|tickets|phases)\b)/i.test(cleanAns);
-  const hasOwnership=/\b(i\s+(?:have\s+)?(?:built|designed|architected|implemented|led|developed|analyzed|formulated|conducted|managed|spearheaded|engineered|re-engineered|created|resolved|integrated|leverage|integrate|use|aim|take|took|will\s+(?:take|lead|build|immerse|pick|deliver|document|submit)))|(my\s+role|my\s+goal|my\s+priority|my\s+responsibility|my\s+30-day\s+plan|i\s+took\s+ownership)\b/i.test(cleanAns);
-  const hasDepth=/(api|database|sql|nosql|cache|redis|node|react|python|cloud|aws|docker|microservice|architecture|pipeline|roi|revenue|margin|ebitda|dealer|retail|distribution|sales|channel|turnover|cost|customer|client|attrition|sourcing|valuation|dcf|pricing|market\s*share|penetration|retention|conversion|growth|gtm|spss|tableau|power\s*bi|websocket|cloudflare|r2|jest|copilot|claude|chatgpt|llm|prompt|dead-letter|queue|codebase|tickets|pull\s*request|deployments|integration\s*tests)/i.test(cleanAns);
-
-  if(hasMetrics&&hasOwnership&&hasDepth){
-   turnScore=Math.min(95,80+Math.min(15,Math.floor((wordCount-45)/5)));
-   note=`Strong STAR Answer (${turnScore}/100). Demonstrates clear Situation, personal Action, deep domain context, and measurable outcomes.`;
-  }else if(hasOwnership&&hasMetrics){
-   turnScore=78;
-   note=`78/100 — Good STAR structure with metrics and ownership. Mention specific domain methods, tools or business frameworks to reach 90+.`;
-  }else if(hasMetrics||hasOwnership){
-   turnScore=70;
-   note=`70/100 — Includes solid details, but ensure you emphasize BOTH your direct role ("I built", "I formulated", "I led") AND quantifiable impact (%, scale, time saved).`;
-  }else{
-   turnScore=55;
-   note=`55/100 — Clear explanation, but missing quantifiable impact (percentages, revenue, time saved, or scale).`;
-  }
- }
-
- const fillerMatches=cleanAns.match(/\b(um|uh|er|ah|like|you know|basically|actually|literally)\b/gi)||[];
- const fillers=fillerMatches.length;
- const fillerList=[...new Set(fillerMatches.map(f=>f.toLowerCase()))];
- if(fillers>0){
-  note+=` (${fillers} verbal crutch${fillers>1?'es':''} detected: ${fillerList.map(f=>`"${f}"`).join(', ')}. Recruiters prefer silent pauses over filler words).`;
- }
-
- // Generate a model answer based on the specific question type
- const q=question.toLowerCase();
- let modelAnswer='';
- const quoteMatch=question.match(/"([^"]+)"/);
- const quotedSnippet=quoteMatch?quoteMatch[1]:'';
-
- if(/tell me about yourself|background in technology|academic journey|proud of so far/i.test(q)){
-  modelAnswer=`"I'm a final-year Computer Science student with a strong foundation in backend development, data structures, and cloud technologies. Over the past two years, I've built production-grade systems including API microservices and automated testing pipelines. The project I'm most proud of is an automated storage optimization tool that reduced cloud storage overhead by 35% across 10,000+ daily test files. I'm eager to bring my hands-on backend and problem-solving skills to this engineering team."`;
- }else if(/ai tools|chatgpt|claude|copilot|frameworks|faster or more effective/i.test(q)){
-  modelAnswer=`"I use modern AI tools daily to accelerate development velocity and code quality. Specifically, I use GitHub Copilot to write unit test scaffolding and boilerplate algorithms, and Claude/ChatGPT to simulate edge cases and explain legacy stack error logs. For instance, when integrating Cloudflare R2 APIs, I used LLM prompts to quickly compare SDK caching strategies, saving roughly 4 hours of trial-and-error. I always manually review and write tests for any AI-assisted code to maintain strict security and performance standards."`;
- }else if(/went wrong|deadline was missed|roadblock|debug or resolve|what would you do differently/i.test(q)){
-  modelAnswer=`"During a critical project milestone, an API endpoint began failing under concurrent load 48 hours before release. [Situation/Task] As the backend lead, I had to diagnose the bottleneck immediately without delaying the team. [Action] I used distributed tracing to locate an unindexed database query causing thread starvation, wrote an asynchronous worker to offload heavy jobs, and added rate-limiting middleware. [Result] We resolved the issue within 6 hours, stress-tested up to 5,000 concurrent requests with zero errors, and delivered on schedule. Going forward, I instituted automated load testing before every major release."`;
- }else if(/30-day plan|30 day|joined this team tomorrow|add real value|prove yourself/i.test(q)){
-  modelAnswer=`"In my first 30 days, my priority is 30% learning, 40% execution, and 30% relationship building. In Week 1, I'll deep-dive into the codebase, understand the deployment pipelines, and set up 1-on-1s with my mentor and peers to align on expectations. By Week 2 and 3, I aim to resolve at least 2 backlog bugs and ship my first pull request to demonstrate reliable execution. By Day 30, I will document any friction points I noticed in onboarding and present a proactive roadmap for my next quarter deliverables."`;
- }else if(/in your cv|cloudflare|r2|batch storage/i.test(q)||quotedSnippet){
-  modelAnswer=`"In my CV project involving batch storage optimization: [Situation] Our team faced high latency and rising storage costs when running automated test suites. [Task] I took full ownership of designing a scalable batch storage system using Cloudflare R2. [Action] I architected the storage pipeline with Hono.js microservices, wrote worker scripts to batch process test assets asynchronously, and implemented cache headers for fast retrieval. [Result] This reduced batch upload latency by 42% and cut monthly storage costs by 30% while scaling to handle 50,000+ test runs per week."`;
- }else if(/summer internship|key technical project|day-to-day responsibility|one number that shows your impact/i.test(q)){
-  modelAnswer=`"During my summer internship as a Backend Developer: [Situation/Task] I was responsible for maintaining microservice endpoints and improving test automation speed. [Action] On a day-to-day basis, I developed REST APIs in Node.js, integrated Redis caching, and automated test result storage. [Result] The key number showing my impact was reducing end-to-end test execution time by 55%, enabling our engineering team to ship pull requests twice as fast every sprint."`;
- }else{
-  modelAnswer=`"[Situation & Task] Outline the specific project, context, and problem you were assigned. [Action] Detail what YOU specifically coded, designed, or led — mention specific technologies and decisions. [Result] Conclude with quantifiable impact — percentages, performance gains, revenue, or hours saved."`;
- }
-
- const allTurns=[...history,{question,answer,evaluation:{score:turnScore,notes:note,modelAnswer,fillers,fillerList}}];
- const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score!==undefined?t.evaluation.score:0),0)/allTurns.length);
-
-
- const strengths=[];const improvements=[];
- if(avgScore<30){
-  strengths.push('None identified — all submitted answers were under 10 words or generic placeholders.');
-  improvements.push('All submitted answers were too brief or generic. A recruiter will reject these immediately.');
-  improvements.push('Every answer must use the STAR method: Situation → Task → Action → Result.');
-  improvements.push('Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.');
-  improvements.push('Review the Model Answers below for each question to see what hiring managers look for.');
- }else if(avgScore<55){
-  strengths.push('Attempted structured responses across key competencies');
-  improvements.push('Quantify every outcome with numbers: %, time saved, user count, or team size.');
-  improvements.push('Highlight YOUR individual ownership — use "I built", "I architected", "I resolved" instead of passive phrasing.');
-  improvements.push('Demonstrate technical depth by naming specific frameworks, databases, and debugging tools.');
- }else if(avgScore<75){
-  strengths.push('Clear communication with relevant technical context');
-  strengths.push('Addressed core questions with structured STAR thinking');
-  improvements.push('Sharpen metrics — add exact benchmark numbers and business impact.');
-  improvements.push('Practice concise 60-second delivery to keep recruiters engaged.');
- }else{
-  strengths.push('Exceptional STAR delivery with strong ownership verbs and quantified impact');
-  strengths.push('Demonstrated deep technical mastery and clear business thinking');
-  improvements.push('Refine for executive-level 45-second elevator pitch speed.');
- }
-
-
- return{
-  done:allTurns.length>=6,
-  evaluation:{score:turnScore,notes:note,modelAnswer,fillers,fillerList},
-  finalFeedback:{
-   score:avgScore,
-   strengths,
-   improvements,
-   nextAction:avgScore>=75?'Ready for recruiter rounds! Practice 1 more role-specific JD.':avgScore>=50?'Repeat with structured 45-second STAR answers using examples from your CV.':'Review the Model Answers below and practise again with real STAR answers from your CV.'
-  }
- };
+ let turnScore=0; let note='';
+ if(wordCount<=3||isGibberish||cleanAns.length<12){turnScore=0;note='0/100 — The answer is too short or generic. Give a specific example from your CV and explain what you personally did and what happened.';}
+ else if(wordCount<10||isRepetitive){turnScore=10;note='10/100 — Severely incomplete. Use a real CV example and explain Situation, Task, Action and Result.';}
+ else if(wordCount<25){turnScore=25;note='25/100 — Needs STAR depth. Add context, your individual ownership, the decisions you made and the actual outcome.';}
+ else{const hasOwnership=/\b(i|my)\b.*\b(built|designed|implemented|led|developed|analysed|analyzed|created|resolved|integrated|managed|conducted|worked|owned|handled|improved|used|delivered|tested)\b/i.test(cleanAns)||/\bmy\s+(role|responsibility|contribution|work)\b/i.test(cleanAns);const hasResult=/\b(result|outcome|impact|improved|reduced|increased|achieved|delivered|learned|success)\b|%|\b\d+\b/i.test(cleanAns);turnScore=hasOwnership&&hasResult?85:(hasOwnership||hasResult?70:55);note=turnScore>=85?'Strong STAR answer. You explained your contribution and outcome clearly.':turnScore>=70?'Good detail. Make your personal contribution and actual outcome even clearer.':'Add a real CV example and structure it as Situation → Task → Action → Result.';}
+ const fillerMatches=cleanAns.match(/\b(um|uh|er|ah|like|you know|basically|actually|literally)\b/gi)||[];const fillers=fillerMatches.length;const fillerList=[...new Set(fillerMatches.map(f=>f.toLowerCase()))];if(fillers)note+=' ('+fillers+' verbal crutch'+(fillers>1?'es':'')+' detected.)';
+ const q=String(question||'').trim();const quoted=(q.match(/"([^"]+)"/)||[])[1]||'';
+ const modelAnswer=quoted?'Use only the exact CV evidence referenced by this question. Situation — explain the real context; Task — state your actual responsibility; Action — describe what you personally did and the technologies or methods you actually used; Result — state the real outcome from your CV. Do not invent metrics, tools, employers or achievements.':'Build this answer from your real CV. Situation — give the context. Task — explain your responsibility. Action — describe what you personally did, using only technologies or methods you actually used. Result — give the real outcome, or what you learned if the CV does not quantify it. Never invent a metric, employer, tool, achievement or responsibility.';
+ const prior=Array.isArray(history)?history:[];const allTurns=[...prior,{question:q,answer:cleanAns,evaluation:{score:turnScore}}];const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score??0),0)/allTurns.length);const improvements=[];if(turnScore<70)improvements.push('Use a real CV example and answer with Situation → Task → Action → Result.');improvements.push('Only state facts, technologies and outcomes supported by the CV or question context.');
+ return{done:allTurns.length>=6,evaluation:{score:turnScore,notes:note,modelAnswer,fillers,fillerList},finalFeedback:allTurns.length>=6?{score:avgScore,strengths:turnScore>=70?['Used specific detail and personal ownership where present']:[],improvements,nextAction:'Practise again using real STAR stories from your CV.'}:null};
 }
 
 function localReview(cv,jd,mode){
