@@ -559,6 +559,25 @@ async function runStudentAudit(baseUrl, isLive = false) {
 }
 
 async function main() {
+  if (process.env.AUDIT_TARGET === 'live') {
+    console.log('--- Running Student Journey Audit on Live Production ---');
+    const liveReport = await runStudentAudit(LIVE_BASE, true);
+    fs.writeFileSync('audit-live-report.json', JSON.stringify(liveReport, null, 2));
+
+    console.log('\n======================================================');
+    console.log('🏁 LIVE PRODUCTION AUDIT SUMMARY REPORT');
+    console.log('======================================================');
+    console.log(`Live Production Passed:  ${liveReport.passed ? '✅ YES' : '❌ NO'}`);
+    console.log(`Total Steps Executed:   ${liveReport.steps.length}`);
+    console.log(`Total Screenshots Saved: ${liveReport.screenshots.length}`);
+    console.log('======================================================\n');
+
+    if (!liveReport.passed) {
+      process.exit(1);
+    }
+    return;
+  }
+
   console.log('--- Ensuring clean port 4196 for audit ---');
   try {
     const { execSync } = await import('node:child_process');
