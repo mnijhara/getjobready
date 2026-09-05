@@ -86,6 +86,111 @@ app.post('/api/coach', async (req, res) => {
   try { return res.json(await generate(prompt)); } catch (error) { console.error('coach:', error.message); return res.status(503).json({ error: 'AI coaching is temporarily unavailable. Please retry in a moment.' }); }
 });
 
+app.post('/api/aimentor', async (req, res) => {
+  const body = req.body || {};
+  const message = String(body.message || body.candidateMessage || body.userMessage || '').trim();
+  const history = body.history || body.messages || [];
+  const career = body.career || 'job';
+  const cv = body.cv || '';
+  const topic = body.topic || 'general';
+
+  if (!message) return res.status(400).json({ error: 'Message is required.' });
+
+  const prompt = `You are Alex Rivera, Principal AI Workflow Strategist & Enterprise AI Mentor at GetJobReady.
+Your mission is to guide a student or early-career candidate entering a ${career === 'internship' ? 'summer internship' : 'corporate job'} on how to use generative AI (ChatGPT, Claude, Microsoft Copilot, Cursor) effectively and responsibly in their daily work, and how they can learn more.
+
+Candidate Context (CV/Profile):
+${cv ? String(cv).slice(0, 4000) : 'General student / early career candidate'}
+
+Recent discussion history:
+${JSON.stringify(Array.isArray(history) ? history.slice(-6) : [])}
+
+The student just asked or said:
+"${String(message).slice(0, 3000)}"
+
+Respond with elite, practical, enterprise-grade mentorship.
+Return ONLY valid JSON with exactly these fields:
+- reply: (string) Your direct, encouraging, and actionable response (3-4 concise paragraphs max). Explain the strategy, recommended tooling, how to structure the workflow, and what mistakes to avoid.
+- recommendedPrompt: (string) A production-grade copyable prompt template with clear bracketed placeholders [like this] that they can paste directly into ChatGPT or Claude.
+- keyTakeaways: (array of 2-3 strings) Short, punchy rules or principles (e.g. "Always use Context + Task + Constraints + Format").
+- recommendedCourse: (string) Specific course recommendation (e.g. "DeepLearning.AI: Generative AI for Everyone (Coursera)" or "Vanderbilt University: Prompt Engineering for ChatGPT").
+- nextQuestion: (string) A proactive follow-up question to help them deepen their AI skills.`;
+
+  try {
+    const data = await generate(prompt, { maxOutputTokens: 2000 });
+    if (!data || typeof data !== 'object') throw new Error('Invalid AI mentor response');
+    return res.json({
+      reply: data.reply || "Here is how you can approach this with modern AI workflows.",
+      recommendedPrompt: data.recommendedPrompt || "",
+      keyTakeaways: Array.isArray(data.keyTakeaways) ? data.keyTakeaways : ["Structure prompts with Context, Task, and Constraints.", "Always verify numbers and calculations independently."],
+      recommendedCourse: data.recommendedCourse || "DeepLearning.AI: Generative AI for Everyone (Coursera)",
+      nextQuestion: data.nextQuestion || "What specific project or document would you like to automate next?"
+    });
+  } catch (error) {
+    console.error('aimentor:', error.message);
+    const lower = message.toLowerCase();
+    let reply = "Generative AI can 3x your productivity when applied to repetitive drafting, synthesis, and structured analysis. The key is never treating the model as an oracle, but rather as a brilliant junior analyst that requires clear context, precise constraints, and independent verification.";
+    let promptTemplate = `Act as an expert business consultant. Review the following notes and draft an executive synthesis using the Situation, Complication, Question, and Answer (SCQA) framework. Notes: [insert your rough notes here]. Keep recommendations prioritized with estimated business impact.`;
+    let takeaways = [
+      "Use the CTC-F model: Context, Task, Constraints, and Format.",
+      "Never paste unredacted confidential company data into public models.",
+      "Human in the loop: you remain 100% accountable for every number and fact."
+    ];
+    let course = "DeepLearning.AI: Generative AI for Everyone by Andrew Ng";
+    let nextQ = "Would you like to explore an executive memo prompt or meeting transcript summarization next?";
+
+    if (lower.includes('course') || lower.includes('learn') || lower.includes('start') || lower.includes('certif')) {
+      reply = "To build a rock-solid foundation in workplace AI, start with Andrew Ng's 'Generative AI for Everyone' on Coursera (100% free audit) to understand foundational capabilities and limitations. Next, complete Vanderbilt University's 'Prompt Engineering for ChatGPT' to master advanced prompt design patterns, and earn Microsoft's free 'Career Essentials in Generative AI' certificate on LinkedIn Learning.";
+      promptTemplate = `Act as a senior learning coach. Help me design a 14-day study sprint to master prompt engineering and AI workflow automation for my upcoming [insert role/industry]. Include daily 30-minute practice tasks and verification milestones.`;
+      takeaways = [
+        "Audit free courses on Coursera (select 'Audit course' to access all videos and materials for $0).",
+        "Practice building 1 real workflow daily instead of just passively watching videos.",
+        "Add verified credentials to your LinkedIn profile to signal forward-thinking agility."
+      ];
+      course = "Vanderbilt University: Prompt Engineering for ChatGPT (Coursera)";
+      nextQ = "Are you looking to focus more on non-technical business workflows (writing/strategy) or technical workflows (coding/data analysis)?";
+    } else if (lower.includes('memo') || lower.includes('writ') || lower.includes('scqa') || lower.includes('draft')) {
+      reply = "For high-stakes executive writing, never ask AI to simply 'write a memo'. High-performing professionals use the SCQA framework (Situation, Complication, Key Question, and Answer) combined with strict length and tone constraints to eliminate fluff.";
+      promptTemplate = `Act as an engagement manager at McKinsey. Convert the following bullet points into a crisp 1-page executive brief for senior leadership. Use the SCQA framework: Situation, Complication, Key Question, and Answer. Focus ruthlessly on bottom-line decisions and include a risk mitigation table. Input: [paste data].`;
+      takeaways = [
+        "Supply a strong reference persona and target audience.",
+        "Set strict negative constraints (e.g. 'No corporate buzzwords or vague filler').",
+        "Request alternative recommendation angles to stress-test your thinking."
+      ];
+      course = "University of Leeds: Communication and Interpersonal Skills at Work (FutureLearn)";
+      nextQ = "Would you like to see how to adapt this prompt for a weekly Friday manager update?";
+    } else if (lower.includes('meeting') || lower.includes('raci') || lower.includes('transcript') || lower.includes('notes')) {
+      reply = "Transforming messy meeting transcripts into structured action tables is one of the highest-leverage AI workflows. The model excels at clustering dialogue into decisions, open risks, and strict RACI accountability matrices.";
+      promptTemplate = `I have pasted the raw transcript of a team alignment meeting below. Extract: 1. Decisions agreed upon, 2. Key open questions or roadblocks, 3. A Markdown RACI table with columns: Action Item, Responsible Owner, Accountable Stakeholder, Deadline. Transcript: [paste transcript].`;
+      takeaways = [
+        "Instruct the model to distinguish between 'agreed decisions' and 'informal suggestions'.",
+        "Always demand a table format with clear ownership columns.",
+        "Verify timestamps and speaker names against the original recording."
+      ];
+      course = "Google: Project Execution: Running the Project & Managing Risk (Coursera)";
+      nextQ = "Do your team meetings usually happen on Zoom, Teams, or Google Meet?";
+    } else if (lower.includes('data') || lower.includes('excel') || lower.includes('anomal') || lower.includes('outlier')) {
+      reply = "When analyzing spreadsheets and metrics with AI, use Python-assisted analysis (like Advanced Data Analysis in ChatGPT or Claude Artifacts). Always prompt the model to inspect column distributions, calculate percentage variances, and generate hypothesis explanations for anomalies.";
+      promptTemplate = `I have provided tabular business performance data below. 1. Identify the top 3 statistical outliers or week-over-week drops. 2. Calculate variance percentages for key KPIs. 3. Formulate 3 testable business hypotheses that could explain these variances. Data: [paste tabular rows].`;
+      takeaways = [
+        "Ask the model to show the exact formula or code used to calculate metrics.",
+        "Spot-check summary totals manually before presenting to stakeholders.",
+        "Pair anomaly detection with qualitative hypotheses for executive impact."
+      ];
+      course = "Harvard CS50: Introduction to Artificial Intelligence with Python (edX)";
+      nextQ = "What type of data are you working with — sales, marketing, finance, or operations?";
+    }
+
+    return res.json({
+      reply,
+      recommendedPrompt: promptTemplate,
+      keyTakeaways: takeaways,
+      recommendedCourse: course,
+      nextQuestion: nextQ
+    });
+  }
+});
+
 app.post('/api/roleplay', async (req, res) => {
   const body = req.body || {};
   const message = String(body.message || body.candidateMessage || '').trim();

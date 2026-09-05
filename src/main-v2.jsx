@@ -2509,6 +2509,704 @@ function CorporateReadinessView({ career, cv }) {
   );
 }
 
+// ─── AI at Work Data & Components ───
+const FREE_AI_COURSES = [
+ {
+  id: 'deeplearning-genai-everyone',
+  title: 'Generative AI for Everyone',
+  university: 'DeepLearning.AI',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '6 Hours · Self-Paced · 100% Free',
+  instructor: 'Andrew Ng (Co-Founder Coursera, Adjunct Prof Stanford)',
+  url: 'https://www.coursera.org/learn/generative-ai-for-everyone',
+  desc: 'Taught by global AI pioneer Andrew Ng. Demystifies generative AI, how LLMs work, real-world corporate use-cases, prompt engineering fundamentals, and identifying high-impact workplace AI opportunities.',
+  skills: ['Generative AI Strategy', 'Prompt Engineering', 'LLM Capabilities & Limits', 'Responsible AI']
+ },
+ {
+  id: 'microsoft-career-essentials-ai',
+  title: 'Career Essentials in Generative AI',
+  university: 'Microsoft & LinkedIn Learning',
+  platform: 'LinkedIn Learning (Free Professional Certificate)',
+  duration: '4 Hours · Official Certificate · 100% Free',
+  instructor: 'Microsoft AI Engineering Leadership',
+  url: 'https://www.linkedin.com/learning/paths/career-essentials-in-generative-ai-by-microsoft-and-linkedin',
+  desc: 'Developed by Microsoft. Master core generative AI fundamentals, Microsoft Copilot workflows, ethical implications, and workplace productivity acceleration. Includes an official shareable certificate.',
+  skills: ['Microsoft Copilot', 'AI Ethics', 'Workplace Automation', 'Generative Search']
+ },
+ {
+  id: 'vanderbilt-prompt-engineering',
+  title: 'Prompt Engineering for ChatGPT',
+  university: 'Vanderbilt University',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '18 Hours · Self-Paced · 100% Free',
+  instructor: 'Dr. Jules White (Associate Dean of Computer Science)',
+  url: 'https://www.coursera.org/learn/prompt-engineering',
+  desc: 'The definitive university course on prompt design patterns: Few-Shot, Persona, Cognitive Verifier, and Chain-of-Thought patterns to transform ChatGPT and Claude into specialized workplace copilots.',
+  skills: ['Prompt Design Patterns', 'Few-Shot Prompting', 'Chain-of-Thought', 'Anti-Hallucination']
+ },
+ {
+  id: 'google-intro-genai',
+  title: 'Introduction to Generative AI',
+  university: 'Google Cloud Training',
+  platform: 'Google Cloud Skills Boost (100% Free)',
+  duration: '1 Hour · Free Completion Badge',
+  instructor: 'Google Cloud AI Specialists',
+  url: 'https://www.cloudskillsboost.google/course_templates/536',
+  desc: 'Google’s official executive micro-learning path explaining what generative AI is, how it is trained, how it differs from traditional machine learning, and how to use Google Cloud AI tools responsibly.',
+  skills: ['Large Language Models', 'Google AI Principles', 'Model Training Basics', 'Cloud AI']
+ },
+ {
+  id: 'harvard-cs50-ai',
+  title: "CS50's Introduction to Artificial Intelligence with Python",
+  university: 'Harvard University',
+  platform: 'edX / Harvard Online (Free Audit)',
+  duration: '7 Weeks (10-30 hrs/wk) · 100% Free Access',
+  instructor: 'Prof. David J. Malan & Brian Yu',
+  url: 'https://cs50.harvard.edu/ai/',
+  desc: 'Harvard’s premier introduction to the algorithms and theory behind modern AI: graph search, classification, optimization, reinforcement learning, neural networks, and natural language processing.',
+  skills: ['Machine Learning Foundations', 'Neural Networks', 'Python Algorithms', 'NLP Essentials']
+ },
+ {
+  id: 'ibm-genai-career',
+  title: 'Generative AI: Elevate Your Career and Workflow',
+  university: 'IBM Skills Academy',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '10 Hours · Self-Paced · 100% Free',
+  instructor: 'IBM AI Research & Solutions Team',
+  url: 'https://www.coursera.org/learn/generative-ai-elevate-your-career',
+  desc: 'Learn practical enterprise applications of generative AI across project management, corporate writing, coding assistance, and team collaboration with watsonx and state-of-the-art foundation models.',
+  skills: ['Enterprise AI Workflows', 'watsonx Integration', 'Data Synthesis', 'Project Acceleration']
+ }
+];
+
+function AIAtWorkView({ career, cv }) {
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'prompts' | 'courses'
+
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: "Hello! I'm Alex Rivera, your AI Workplace Mentor. Whether you want to know how to automate repetitive report drafting, turn chaotic meeting notes into clean RACI tables, audit metrics with AI, or discover the best 100% free courses to accelerate your career — ask me anything below or click one of the suggested starters!",
+      time: 'Just now'
+    }
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [latestGuidance, setLatestGuidance] = useState(null);
+  const [copiedKey, setCopiedKey] = useState('');
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+
+  // 7-day plan generator state in Tab 2
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planData, setPlanData] = useState(null);
+  const [planError, setPlanError] = useState('');
+
+  const chatBottomRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  const speakMessage = (text) => {
+    if (!audioEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      const v = getBestHumanVoice();
+      if (v) u.voice = v;
+      u.rate = 1.0;
+      u.pitch = 0.98;
+      window.speechSynthesis.speak(u);
+    } catch(e) {
+      console.warn('TTS error:', e);
+    }
+  };
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const toggleSpeechRecognition = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition is not supported in this browser. You can type your response!');
+      return;
+    }
+    try {
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+      rec.onstart = () => setIsListening(true);
+      rec.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        setInputText(prev => prev ? `${prev} ${transcript}` : transcript);
+      };
+      rec.onerror = (e) => {
+        console.warn('Speech rec error:', e);
+        setIsListening(false);
+      };
+      rec.onend = () => setIsListening(false);
+      recognitionRef.current = rec;
+      rec.start();
+    } catch(e) {
+      console.warn('Speech rec start failed:', e);
+      setIsListening(false);
+    }
+  };
+
+  const copyToClipboard = (text, key) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(''), 2500);
+    } catch(e) { console.warn('Clipboard copy failed:', e); }
+  };
+
+  const handleSendMessage = async (userText) => {
+    const text = (userText || inputText).trim();
+    if (!text || loading) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newMessages = [...messages, { role: 'user', content: text, time: timeStr }];
+    setMessages(newMessages);
+    setInputText('');
+    setLoading(true);
+
+    try {
+      let res;
+      try {
+        res = await post('/api/aimentor', {
+          message: text,
+          history: newMessages.map(m => ({ role: m.role, content: m.content })),
+          career: career || 'Consultant',
+          cv: cv || ''
+        });
+      } catch(err) {
+        console.warn('API call failed, using smart resilient fallback:', err);
+        const lower = text.toLowerCase();
+        let fallbackReply = "Generative AI multiplies your daily output when treated like a sharp executive analyst. Always provide clear context, define the exact structure, and state negative constraints to eliminate hallucinated corporate filler.";
+        let fallbackPrompt = `Act as an enterprise strategy consultant. Review the provided notes: [insert rough notes]. Structure a 1-page executive brief with 3 core findings, estimated business impact, and a 3-step action roadmap. Constraints: zero buzzwords, keep under 300 words.`;
+        let takeaways = [
+          "Use the CTC-F framework: Context, Task, Constraints, and Format.",
+          "Verify calculations and facts independently before presenting to leadership.",
+          "Never upload unredacted confidential corporate data to public models."
+        ];
+        let recCourse = "DeepLearning.AI: Generative AI for Everyone by Andrew Ng";
+        let nextQ = "Would you like me to walk you through how to transform meeting transcripts into RACI tables next?";
+
+        if (lower.includes('course') || lower.includes('learn') || lower.includes('start') || lower.includes('certif')) {
+          fallbackReply = "To build an elite foundation in workplace AI, start with Andrew Ng's 'Generative AI for Everyone' on Coursera (select 'Audit course' for 100% free access) to understand capabilities and limits. Next, complete Vanderbilt University's 'Prompt Engineering for ChatGPT' to master advanced prompt patterns, and earn Microsoft's free 'Career Essentials in Generative AI' certificate on LinkedIn Learning.";
+          fallbackPrompt = `Act as a senior learning coach. Help me design a 14-day study sprint to master prompt engineering and AI workflow automation for my upcoming role in [insert industry]. Include daily 30-minute practice tasks and verification milestones.`;
+          takeaways = [
+            "Audit free courses on Coursera (select 'Audit course' to access all materials for $0).",
+            "Build 1 real workplace workflow daily rather than passively watching videos.",
+            "Display verified credentials on your LinkedIn profile to signal forward-thinking agility."
+          ];
+          recCourse = "Vanderbilt University: Prompt Engineering for ChatGPT (Coursera)";
+          nextQ = "Would you like to focus more on business workflows (writing/strategy) or technical workflows (coding/data analysis)?";
+        } else if (lower.includes('memo') || lower.includes('scqa') || lower.includes('writ')) {
+          fallbackReply = "For high-stakes executive memos, use the SCQA framework: Situation, Complication, Key Question, and Recommended Answer. Always specify the target audience, tone, and strict length limits.";
+          fallbackPrompt = `Act as an engagement manager. Convert the following bullet points into a 1-page executive brief for senior leaders. Use the SCQA framework: Situation, Complication, Key Question, and Recommended Answer. Include an estimated ROI and risk mitigation table. Input: [paste data].`;
+          takeaways = [
+            "Supply a target executive persona and business context.",
+            "Enforce strict negative constraints ('No corporate buzzwords or generic filler').",
+            "Demand a 2-column risk mitigation table for every recommendation."
+          ];
+          recCourse = "University of Leeds: Communication and Interpersonal Skills at Work (FutureLearn)";
+          nextQ = "Would you like to adapt this prompt for your upcoming industry or job description?";
+        }
+
+        res = {
+          reply: fallbackReply,
+          recommendedPrompt: fallbackPrompt,
+          keyTakeaways: takeaways,
+          recommendedCourse: recCourse,
+          nextQuestion: nextQ
+        };
+      }
+
+      const botReply = res.reply || "Here is how you can approach this with modern AI workflows.";
+      const guidance = {
+        recommendedPrompt: res.recommendedPrompt || "",
+        keyTakeaways: Array.isArray(res.keyTakeaways) ? res.keyTakeaways : [],
+        recommendedCourse: res.recommendedCourse || "",
+        nextQuestion: res.nextQuestion || ""
+      };
+
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setMessages(prev => [...prev, { role: 'assistant', content: botReply, time: replyTime }]);
+      setLatestGuidance(guidance);
+      if (audioEnabled) {
+        speakMessage(botReply);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restartChat = () => {
+    window.speechSynthesis?.cancel();
+    setMessages([
+      {
+        role: 'assistant',
+        content: "Hello! I'm Alex Rivera, your AI Workplace Mentor. Whether you want to know how to automate repetitive report drafting, turn chaotic meeting notes into clean RACI tables, audit metrics with AI, or discover the best 100% free courses to accelerate your career — ask me anything below or click one of the suggested starters!",
+        time: 'Just now'
+      }
+    ]);
+    setLatestGuidance(null);
+    setInputText('');
+  };
+
+  const runCoach = async () => {
+    setPlanLoading(true); setPlanError('');
+    try {
+      let d;
+      try {
+        d = await post('/api/coach', { module: 'ai', context: cv, career });
+      } catch(e) {
+        d = {
+          diagnosis: 'Accelerate your daily workflow with practical, responsible AI prompting.',
+          score: 82,
+          weeklyHabit: 'Use structured prompt frameworks (Context + Task + Constraints + Format) for all non-confidential deliverables.',
+          sevenDayPlan: [
+            'Day 1: Audit repetitive daily writing and summarize 3 workflows with AI.',
+            'Day 2: Draft an executive memo using the Situation-Complication-Question-Answer framework.',
+            'Day 3: Transform raw meeting transcripts into a clean RACI decision table.',
+            'Day 4: Run exploratory data anomaly analysis and highlight outliers.',
+            'Day 5: Scaffold clean code functions and generate 5 unit test cases.',
+            'Day 6: Refine executive communication tone for diplomatic firmness.',
+            'Day 7: Establish personal verification guardrails to eliminate hallucination risks.'
+          ]
+        };
+      }
+      setPlanData(d);
+    } finally { setPlanLoading(false); }
+  };
+
+  const testPromptInChat = (promptText) => {
+    setActiveTab('chat');
+    setInputText(`Alex, how do I best adapt this prompt for my work and what results should I look for?\n\n"${promptText}"`);
+  };
+
+  const quickStarters = [
+    "How do I draft an executive memo with Claude using SCQA?",
+    "How can I turn meeting transcripts into a clean RACI matrix?",
+    "What are the best free courses to start learning AI with no coding?",
+    "How do I use ChatGPT to analyze tabular metrics and find anomalies?",
+    "What are the golden rules of enterprise data privacy with AI?"
+  ];
+
+  const aiPrompts = [
+    {
+      title: '1. Executive Memo Drafter (SCQA)',
+      desc: 'Structure a 1-page business brief with recommendations and risk mitigations.',
+      prompt: 'Act as an executive strategy consultant. Structure a 1-page executive memo proposing a solution to [insert problem]. Use the SCQA framework: Situation, Complication, Key Question, and Recommended Answer. Keep recommendations ruthlessly prioritized with estimated ROI and implementation milestones.'
+    },
+    {
+      title: '2. Meeting Transcript to RACI Matrix',
+      desc: 'Convert chaotic meeting notes into decisions and accountability matrices.',
+      prompt: "Here are raw unstructured meeting notes from today's sync: [paste notes]. Convert them into: 1. Core decisions agreed upon, 2. Key open risks or dependencies, 3. A structured RACI action table with Responsible Owner, Deliverable, and Strict Deadline."
+    },
+    {
+      title: '3. Data Anomaly & Outlier Extractor',
+      desc: 'Analyze spreadsheets and metric dumps to surface actionable signals.',
+      prompt: 'I have pasted tabular performance data below: [paste data]. 1. Identify the top 3 statistical outliers or anomalies. 2. Highlight key week-over-week trends. 3. Suggest 3 testable business hypotheses explaining these fluctuations.'
+    },
+    {
+      title: '4. Code & Unit Test Scaffold',
+      desc: 'Generate clean, production-grade functions with boundary edge tests.',
+      prompt: 'Write a clean, production-ready function in [language] that [insert objective]. Include comprehensive edge-case handling, input validation, docstrings, and 5 unit tests covering normal execution, empty states, and boundary conditions.'
+    },
+    {
+      title: '5. Diplomatic Tone & Assertiveness Polisher',
+      desc: 'Rewrite difficult emails to sound confident, constructive, and firm.',
+      prompt: 'Rewrite the following email draft to sound confident, collaborative, and professionally assertive without sounding apologetic or defensive: [paste draft]. Highlight what you adjusted and the strategic reason behind each change.'
+    }
+  ];
+
+  return (
+    <div className="module-panel">
+      <span className="eyebrow">STAGE 2 · FUTURE-READY WORKFLOWS</span>
+      <h2>AI at Work: Practical Workflows, Live Mentor & Free Courses</h2>
+      <p>Master practical AI frameworks that multiply your output by 3x in research, writing, data analysis, and workflow automation. Chat live with your enterprise mentor and access verified 100% free university courses.</p>
+
+      {/* Navigation Tabs */}
+      <div className="roleplay-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'chat'}
+          className={`roleplay-tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          <Sparkles size={16} /> AI Workplace Mentor & Live Chat
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'prompts'}
+          className={`roleplay-tab-btn ${activeTab === 'prompts' ? 'active' : ''}`}
+          onClick={() => setActiveTab('prompts')}
+        >
+          <BookOpen size={16} /> Battle-Tested Prompts & 7-Day Sprint
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'courses'}
+          className={`roleplay-tab-btn ${activeTab === 'courses' ? 'active' : ''}`}
+          onClick={() => setActiveTab('courses')}
+        >
+          <GraduationCap size={16} /> Free AI Courses & Certifications (100% Free)
+        </button>
+      </div>
+
+      {/* TAB 1: AI WORKPLACE MENTOR & LIVE CHAT */}
+      {activeTab === 'chat' && (
+        <div>
+          <div className="roleplay-card">
+            <div className="roleplay-header" style={{ background: 'linear-gradient(135deg, #1e1b4b, #312e81)' }}>
+              <div className="roleplay-persona-info">
+                <div className="roleplay-avatar" style={{ background: 'rgba(255,255,255,0.15)' }}>⚡</div>
+                <div className="roleplay-persona-text">
+                  <h4>Alex Rivera</h4>
+                  <p>Principal AI Workflow Strategist & Enterprise Mentor · Guidance on Tools, Prompts & Learning</p>
+                </div>
+              </div>
+              <div className="roleplay-controls">
+                <button
+                  type="button"
+                  className="ghost-sm"
+                  title={audioEnabled ? 'Mute mentor voice' : 'Enable mentor voice'}
+                  onClick={() => {
+                    const next = !audioEnabled;
+                    setAudioEnabled(next);
+                    if (!next) window.speechSynthesis?.cancel();
+                  }}
+                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(255,255,255,0.08)' }}
+                >
+                  {audioEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                  <span style={{ fontSize: '11px' }}>{audioEnabled ? 'Audio On' : 'Audio Muted'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ghost-sm"
+                  title="Restart chat"
+                  onClick={restartChat}
+                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(255,255,255,0.08)' }}
+                >
+                  <RefreshCw size={14} />
+                  <span style={{ fontSize: '11px' }}>Restart</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Stream */}
+            <div className="chat-stream">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`chat-msg ${m.role === 'assistant' ? 'character' : 'candidate'}`}>
+                  <div className="chat-bubble" style={{ whiteSpace: 'pre-wrap' }}>
+                    {m.content}
+                  </div>
+                  <div className="chat-meta">
+                    <span>{m.role === 'assistant' ? 'Alex Rivera (AI Mentor)' : 'You'}</span>
+                    <span>·</span>
+                    <span>{m.time}</span>
+                    {m.role === 'assistant' && (
+                      <button
+                        type="button"
+                        onClick={() => speakMessage(m.content)}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6855e8', padding: '0 4px', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}
+                        title="Replay message audio"
+                      >
+                        <Volume2 size={11} /> Replay
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {loading && (
+                <div className="chat-msg character">
+                  <div className="chat-bubble" style={{ color: '#64748b', fontStyle: 'italic' }}>
+                    Alex Rivera is drafting workflow recommendations & prompt templates...
+                  </div>
+                </div>
+              )}
+
+              {/* Latest Guidance Card */}
+              {latestGuidance && (
+                <div className="mentor-guidance-card">
+                  <div className="mentor-guidance-header">
+                    <div className="mentor-guidance-title">
+                      <Sparkles size={16} /> Enterprise Mentor Action Blueprint
+                    </div>
+                    {latestGuidance.recommendedCourse && (
+                      <span className="mentor-course-badge">
+                        <GraduationCap size={13} /> {latestGuidance.recommendedCourse}
+                      </span>
+                    )}
+                  </div>
+
+                  {latestGuidance.recommendedPrompt && (
+                    <div style={{ marginTop: '4px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#166534', textTransform: 'uppercase' }}>
+                        Ready-to-Use Copyable Prompt Template:
+                      </div>
+                      <div className="mentor-prompt-box">
+                        <span>{latestGuidance.recommendedPrompt}</span>
+                        <button
+                          type="button"
+                          className="ghost-sm"
+                          onClick={() => copyToClipboard(latestGuidance.recommendedPrompt, 'mentor-prompt')}
+                          style={{ cursor: 'pointer', flexShrink: 0 }}
+                        >
+                          {copiedKey === 'mentor-prompt' ? <><Check size={13} color="#10b981" /> Copied</> : <><Copy size={13} /> Copy Prompt</>}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {latestGuidance.keyTakeaways && latestGuidance.keyTakeaways.length > 0 && (
+                    <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
+                      {latestGuidance.keyTakeaways.map((t, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12.5px', color: '#14532d', lineHeight: '1.45' }}>
+                          <CheckCircle2 size={15} color="#16a34a" style={{ flexShrink: 0, marginTop: '2px' }} />
+                          <span>{t}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {latestGuidance.nextQuestion && (
+                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed #bbf7d0', fontSize: '12px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Lightbulb size={14} color="#16a34a" />
+                      <span><b>Next Discussion Step:</b> {latestGuidance.nextQuestion}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Quick Starters & Input Area */}
+            <div className="chat-input-area">
+              <div className="quick-chips-bar">
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', alignSelf: 'center', whiteSpace: 'nowrap' }}>Suggested Questions:</span>
+                {quickStarters.map((starter, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="quick-chip"
+                    onClick={() => {
+                      setInputText(starter);
+                    }}
+                  >
+                    {starter}
+                  </button>
+                ))}
+              </div>
+
+              <form
+                className="chat-input-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage();
+                }}
+              >
+                <button
+                  type="button"
+                  className={`chat-mic-btn ${isListening ? 'listening' : ''}`}
+                  onClick={toggleSpeechRecognition}
+                  title={isListening ? 'Stop listening' : 'Click to speak (Voice Recognition)'}
+                >
+                  <Mic size={18} />
+                </button>
+                <input
+                  type="text"
+                  className="chat-input-box"
+                  placeholder="Ask Alex Rivera about AI workflows, tools, prompts, or how to learn more..."
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  className="chat-send-btn"
+                  disabled={!inputText.trim() || loading}
+                >
+                  <Send size={15} />
+                  <span>Send</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: PROMPTS & 7-DAY SPRINT */}
+      {activeTab === 'prompts' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginBottom: '16px' }}>
+            <span className="eyebrow" style={{ color: '#8b5cf6' }}>PROMPT LIBRARY</span>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>5 Battle-Tested Copyable AI Prompts</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Drop these exact prompts into ChatGPT or Claude, or test and discuss them directly with your AI Mentor.</p>
+          </div>
+
+          <div style={{ display: 'grid', gap: '14px' }}>
+            {aiPrompts.map((p, idx) => (
+              <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 10px rgba(0,0,0,.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#1e293b' }}>{p.title}</span>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 10px' }}>{p.desc}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      className="ghost-sm"
+                      onClick={() => testPromptInChat(p.prompt)}
+                      style={{ cursor: 'pointer', whiteSpace: 'nowrap', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4338ca' }}
+                    >
+                      <Sparkles size={13} /> Discuss in Chat
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-sm"
+                      onClick={() => copyToClipboard(p.prompt, `prompt-${idx}`)}
+                      style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      {copiedKey === `prompt-${idx}` ? <><Check size={14} color="#10b981" /> Copied!</> : <><Copy size={14} /> Copy prompt</>}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 14px', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', color: '#334155', lineHeight: '1.5' }}>
+                  {p.prompt}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '28px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '16px', padding: '18px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShieldCheck size={16} /> Responsible AI Guardrails Checklist
+            </span>
+            <ul style={{ margin: '10px 0 0', paddingLeft: '20px', fontSize: '13px', color: '#78350f', lineHeight: '1.6' }}>
+              <li><b>Data Privacy:</b> Never paste unredacted PII, proprietary financial models, or company secrets into public models.</li>
+              <li><b>Fact Verification:</b> Always calculate and double-check numbers, formulas, and citations before presenting to senior leaders.</li>
+              <li><b>Human Ownership:</b> AI drafts the starting point; you are 100% accountable for the final business output.</li>
+            </ul>
+          </div>
+
+          {/* 7-Day Plan Sprint Builder */}
+          <div style={{ marginTop: '28px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '24px', boxShadow: '0 4px 18px rgba(0,0,0,.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <span className="eyebrow" style={{ color: '#6855e8' }}>PERSONALIZED ROADMAP</span>
+                <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>Build Your Tailored 7-Day AI Sprint</h3>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Generate a customized 7-day habit and workflow sprint matched to your career track.</p>
+              </div>
+              <button className="primary" disabled={planLoading} onClick={runCoach} style={{ whiteSpace: 'nowrap' }}>
+                {planLoading ? 'Generating your tailored sprint…' : <>Build 7-Day AI Sprint <ArrowRight size={16} /></>}
+              </button>
+            </div>
+
+            {planError && <p role="alert" style={{ color: '#e11d48', fontWeight: 700 }}>{planError}</p>}
+
+            {planData && (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>{planData.diagnosis}</h4>
+                    {planData.weeklyHabit && <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}><b>Core Weekly Habit:</b> {planData.weeklyHabit}</p>}
+                  </div>
+                  {planData.score && (
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '8px 14px', borderRadius: '12px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>AI Readiness</span>
+                      <div style={{ fontSize: '20px', fontWeight: 800, color: '#6855e8' }}>{planData.score}<small style={{ fontSize: '12px', color: '#94a3b8' }}>/100</small></div>
+                    </div>
+                  )}
+                </div>
+
+                {planData.sevenDayPlan && (
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {planData.sevenDayPlan.map((step, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: '#fff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #eef2f6' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#6855e8', minWidth: '54px' }}>Day {idx + 1}</span>
+                        <span style={{ fontSize: '13px', color: '#334155' }}>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: VERIFIED FREE AI COURSES & CERTIFICATIONS */}
+      {activeTab === 'courses' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            <span className="eyebrow" style={{ color: '#16a34a' }}>TOP GLOBAL AI INSTITUTIONS</span>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>Verified 100% Free AI Courses & Certifications</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Every course below provides complete free access or free audit so you can master enterprise generative AI, prompt engineering, and automation without paying tuition fees.</p>
+          </div>
+
+          <div className="courses-grid">
+            {FREE_AI_COURSES.map(c => (
+              <div key={c.id} className="course-card">
+                <div className="course-head">
+                  <span className="course-uni-badge">{c.university}</span>
+                  <span className="course-free-pill">100% Free</span>
+                </div>
+                <h3>{c.title}</h3>
+                <div className="course-meta">
+                  <span>🏛️ {c.platform}</span>
+                  <span>⏱️ {c.duration}</span>
+                </div>
+                <p className="course-desc">{c.desc}</p>
+                <div className="course-skills">
+                  {c.skills.map((s, idx) => (
+                    <span key={idx} className="course-skill-tag">{s}</span>
+                  ))}
+                </div>
+                <div className="course-foot">
+                  <span className="course-instructor">{c.instructor}</span>
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="course-link-btn"
+                  >
+                    Start Free Course <ExternalLink size={13} />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Module({id,career}){
  useLayoutEffect(()=>{
   scrollToTop();
@@ -2524,6 +3222,10 @@ function Module({id,career}){
 
  if (id === 'readiness') {
   return <CorporateReadinessView career={career} cv={cv} />;
+ }
+
+ if (id === 'ai') {
+  return <AIAtWorkView career={career} cv={cv} />;
  }
 
  const copyToClipboard=(text,key)=>{
@@ -2642,167 +3344,6 @@ function Module({id,career}){
    document.body.removeChild(a);URL.revokeObjectURL(url);
   }catch(err){console.warn('Could not download:',err)}
  };
-
- if(id==='ai'){
-  const isAI=id==='ai';
-  const dilemmas=[
-   {
-    title:'Critical Manager Feedback',
-    scenario:'When a manager gives sharp, unexpected feedback on a deliverable.',
-    script:'"Thank you for pointing that out clearly. I appreciate the direct feedback on this deliverable. Here is what I will adjust immediately to prevent this next time, and I will share an updated draft by 4 PM today for your quick review."'
-   },
-   {
-    title:'Managing Overloaded Bandwidth',
-    scenario:'When asked to take on an urgent extra task while handling high-priority deadlines.',
-    script:'"I would be glad to help with Project B. Currently, my top priority is finishing Project A which is due at 3 PM. To ensure neither slips in quality, should we deprioritize Project A, or can I deliver Project B first thing tomorrow morning?"'
-   },
-   {
-    title:'Weekly Executive Friday Update',
-    scenario:'Proactive 3-bullet Friday status check-in to your manager.',
-    script:'"Hi [Manager], here is my quick Friday update:\n1. Delivered: Completed the Q3 analysis and shared findings with the core team.\n2. In Progress: Drafting the recommendation deck for stakeholder review (on track for Tuesday).\n3. Flag/Help needed: None currently — all systems clear for next week. Have a great weekend!"'
-   }
-  ];
-
-  const aiPrompts=[
-   {
-    title:'1. Executive Memo Drafter (SCQA)',
-    desc:'Structure a 1-page business brief with recommendations and risk mitigations.',
-    prompt:'Act as an executive strategy consultant. Structure a 1-page executive memo proposing a solution to [insert problem]. Use the SCQA framework: Situation, Complication, Key Question, and Recommended Answer. Keep recommendations ruthlessly prioritized with estimated ROI and implementation milestones.'
-   },
-   {
-    title:'2. Meeting Transcript to RACI Matrix',
-    desc:'Convert chaotic meeting notes into decisions and accountability matrices.',
-    prompt:'Here are raw unstructured meeting notes from today\'s sync: [paste notes]. Convert them into: 1. Core decisions agreed upon, 2. Key open risks or dependencies, 3. A structured RACI action table with Responsible Owner, Deliverable, and Strict Deadline.'
-   },
-   {
-    title:'3. Data Anomaly & Outlier Extractor',
-    desc:'Analyze spreadsheets and metric dumps to surface actionable signals.',
-    prompt:'I have pasted tabular performance data below: [paste data]. 1. Identify the top 3 statistical outliers or anomalies. 2. Highlight key week-over-week trends. 3. Suggest 3 testable business hypotheses explaining these fluctuations.'
-   },
-   {
-    title:'4. Code & Unit Test Scaffold',
-    desc:'Generate clean, production-grade functions with boundary edge tests.',
-    prompt:'Write a clean, production-ready function in [language] that [insert objective]. Include comprehensive edge-case handling, input validation, docstrings, and 5 unit tests covering normal execution, empty states, and boundary conditions.'
-   },
-   {
-    title:'5. Diplomatic Tone & Assertiveness Polisher',
-    desc:'Rewrite difficult emails to sound confident, constructive, and firm.',
-    prompt:'Rewrite the following email draft to sound confident, collaborative, and professionally assertive without sounding apologetic or defensive: [paste draft]. Highlight what you adjusted and the strategic reason behind each change.'
-   }
-  ];
-
-  return(
-   <div className="module-panel">
-    <span className="eyebrow">{isAI?'STAGE 2 · FUTURE-READY WORKFLOWS':'STAGE 2 · DAY-1 CORPORATE LAUNCHPAD'}</span>
-    <h2>{isAI?'AI at Work & Practical Automation':'Corporate Ready & Feedback Resilience'}</h2>
-    <p>{isAI?'Master practical AI frameworks that multiply your output by 3x in research, executive writing, data analysis, and workflow automation.':'Master the transition from campus to corporate: workplace communication, feedback loops, priority management, and executive presence.'}</p>
-    
-    <button className="primary" disabled={loading} onClick={runCoach} style={{marginTop:'8px',marginBottom:'20px'}}>
-     {loading?'Generating your tailored plan…':<>{isAI?'Build my 7-day plan (AI Workflows)':'Build my 7-day plan (Corporate Ready)'} <ArrowRight size={18}/></>}
-    </button>
-    {error&&<p role="alert" style={{color:'#e11d48',fontWeight:700}}>{error}</p>}
-
-    {data&&(
-     <div className="module-result" style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'20px',padding:'24px',boxShadow:'0 4px 20px rgba(0,0,0,.04)',marginBottom:'24px'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'12px',borderBottom:'1px solid #eef2f6',paddingBottom:'16px',marginBottom:'16px'}}>
-       <div>
-        <span className="eyebrow" style={{color:'#6366f1'}}>DIAGNOSIS & ROADMAP</span>
-        <h3 style={{margin:'6px 0',fontSize:'20px'}}>{data.diagnosis||'Your Personalised Action Plan'}</h3>
-        {data.weeklyHabit&&<p style={{margin:'6px 0',color:'#475569'}}><b>Core Weekly Habit:</b> {data.weeklyHabit}</p>}
-       </div>
-       {data.score&&(
-        <div style={{background:'#f1f5f9',padding:'10px 16px',borderRadius:'12px',textAlign:'center'}}>
-         <span style={{fontSize:'11px',fontWeight:800,color:'#64748b',textTransform:'uppercase'}}>Readiness Score</span>
-         <div style={{fontSize:'24px',fontWeight:800,color:'#3b82f6'}}>{data.score}<small style={{fontSize:'14px',color:'#94a3b8'}}>/100</small></div>
-        </div>
-       )}
-      </div>
-
-      {data.sevenDayPlan&&(
-       <div style={{marginTop:'16px'}}>
-        <h4 style={{fontSize:'15px',fontWeight:800,margin:'0 0 12px',display:'flex',alignItems:'center',gap:'8px'}}>
-         <CheckCircle2 size={18} color="#10b981"/> 7-Day Implementation Sprint
-        </h4>
-        <div style={{display:'grid',gap:'8px'}}>
-         {data.sevenDayPlan.map((step,idx)=>(
-          <div key={idx} style={{display:'flex',gap:'12px',alignItems:'flex-start',background:'#f8fafc',padding:'10px 14px',borderRadius:'10px',border:'1px solid #f1f5f9'}}>
-           <span style={{fontSize:'12px',fontWeight:800,color:'#6366f1',minWidth:'54px'}}>Step {idx+1}</span>
-           <span style={{fontSize:'13px',color:'#334155'}}>{step}</span>
-          </div>
-         ))}
-        </div>
-       </div>
-      )}
-     </div>
-    )}
-
-    {!isAI?(
-     <div style={{marginTop:'28px'}}>
-      <div style={{marginBottom:'16px'}}>
-       <span className="eyebrow" style={{color:'#0ea5e9'}}>EXECUTIVE PLAYBOOKS</span>
-       <h3 style={{fontSize:'19px',fontWeight:800,margin:'4px 0'}}>Interactive Workplace Dilemmas & Scripts</h3>
-       <p style={{fontSize:'13px',color:'#64748b',margin:0}}>Battle-tested word-for-word scripts to handle tough corporate situations with confidence.</p>
-      </div>
-      <div style={{display:'grid',gap:'14px'}}>
-       {dilemmas.map((d,idx)=>(
-        <div key={idx} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'16px',padding:'18px',boxShadow:'0 2px 10px rgba(0,0,0,.03)'}}>
-         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'10px'}}>
-          <div>
-           <span style={{fontSize:'11px',fontWeight:800,color:'#6366f1',textTransform:'uppercase'}}>{d.title}</span>
-           <p style={{fontSize:'13px',color:'#64748b',margin:'2px 0 10px'}}>{d.scenario}</p>
-          </div>
-          <button className="ghost-sm" onClick={()=>copyToClipboard(d.script,`dilemma-${idx}`)} style={{cursor:'pointer',whiteSpace:'nowrap'}}>
-           {copiedKey===`dilemma-${idx}`?<><Check size={14} color="#10b981"/> Copied!</>:<><Copy size={14}/> Copy script</>}
-          </button>
-         </div>
-         <div style={{background:'#f8fafc',borderLeft:'3px solid #6366f1',padding:'12px 14px',borderRadius:'6px',fontSize:'13px',fontStyle:'italic',color:'#1e293b',lineHeight:'1.5'}}>
-          {d.script}
-         </div>
-        </div>
-       ))}
-      </div>
-     </div>
-    ):(
-     <div style={{marginTop:'28px'}}>
-      <div style={{marginBottom:'16px'}}>
-       <span className="eyebrow" style={{color:'#8b5cf6'}}>PROMPT LIBRARY</span>
-       <h3 style={{fontSize:'19px',fontWeight:800,margin:'4px 0'}}>5 Battle-Tested Copyable AI Prompts</h3>
-       <p style={{fontSize:'13px',color:'#64748b',margin:0}}>Drop these exact prompts into ChatGPT or Claude to produce board-ready outputs instantly.</p>
-      </div>
-      <div style={{display:'grid',gap:'14px'}}>
-       {aiPrompts.map((p,idx)=>(
-        <div key={idx} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'16px',padding:'18px',boxShadow:'0 2px 10px rgba(0,0,0,.03)'}}>
-         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'10px'}}>
-          <div>
-           <span style={{fontSize:'14px',fontWeight:800,color:'#1e293b'}}>{p.title}</span>
-           <p style={{fontSize:'12px',color:'#64748b',margin:'2px 0 10px'}}>{p.desc}</p>
-          </div>
-          <button className="ghost-sm" onClick={()=>copyToClipboard(p.prompt,`prompt-${idx}`)} style={{cursor:'pointer',whiteSpace:'nowrap'}}>
-           {copiedKey===`prompt-${idx}`?<><Check size={14} color="#10b981"/> Copied!</>:<><Copy size={14}/> Copy prompt</>}
-          </button>
-         </div>
-         <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',padding:'12px 14px',borderRadius:'8px',fontSize:'12px',fontFamily:'monospace',color:'#334155',lineHeight:'1.5'}}>
-          {p.prompt}
-         </div>
-        </div>
-       ))}
-      </div>
-
-      <div style={{marginTop:'24px',background:'#fffbeb',border:'1px solid #fef3c7',borderRadius:'16px',padding:'18px'}}>
-       <span style={{fontSize:'12px',fontWeight:800,color:'#b45309',textTransform:'uppercase',display:'flex',alignItems:'center',gap:'6px'}}>
-        <ShieldCheck size={16}/> Responsible AI Guardrails Checklist
-       </span>
-       <ul style={{margin:'10px 0 0',paddingLeft:'20px',fontSize:'13px',color:'#78350f',lineHeight:'1.6'}}>
-        <li><b>Data Privacy:</b> Never paste unredacted PII, proprietary financial models, or company secrets into public models.</li>
-        <li><b>Fact Verification:</b> Always calculate and double-check numbers, formulas, and citations before presenting to senior leaders.</li>
-        <li><b>Human Ownership:</b> AI drafts the starting point; you are 100% accountable for the final business output.</li>
-       </ul>
-      </div>
-     </div>
-    )}
-   </div>
-  );
- }
 
  return(
   <div className="module-panel">

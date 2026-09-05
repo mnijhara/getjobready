@@ -343,3 +343,11 @@ button.danger:hover { background: rgba(239,68,68,0.08) !important; }
 .framework-step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
 .framework-letter { width: 32px; height: 32px; border-radius: 10px; background: #ede9fe; color: #6855e8; font: 800 14px Manrope; display: grid; place-items: center; flex: none; }
 
+/* ─── AI Mentor & Workflow Hub ─── */
+.mentor-guidance-card { margin-top: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 16px; animation: screenFadeIn .25s ease; width: 100%; box-sizing: border-box; }
+.mentor-guidance-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #dcfce7; padding-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.mentor-guidance-title { font: 800 12px Manrope; text-transform: uppercase; letter-spacing: .08em; color: #166534; display: flex; align-items: center; gap: 6px; }
+.mentor-prompt-box { background: #ffffff; border: 1px solid #bbf7d0; border-left: 3px solid #16a34a; padding: 12px 14px; border-radius: 8px; margin-top: 8px; font-family: monospace; font-size: 12px; color: #14532d; line-height: 1.5; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.mentor-course-badge { font-size: 11px; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+
+

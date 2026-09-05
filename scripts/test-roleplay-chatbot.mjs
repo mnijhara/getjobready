@@ -1,17 +1,19 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 
+const TARGET_URL = process.env.TARGET_URL ? process.env.TARGET_URL.replace(/\/$/, '') + '/' : '';
 const PORT = 4189;
-const BASE = `http://127.0.0.1:${PORT}/`;
+const BASE = TARGET_URL || `http://127.0.0.1:${PORT}/`;
 
 async function main() {
-  console.log('--- Starting server for Role-Play Chatbot & Free Courses Test ---');
-  const server = spawn(process.execPath, ['server.cjs'], {
-    env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production' },
-    stdio: 'inherit'
-  });
+  let server = null;
+  if (!TARGET_URL) {
+    console.log('--- Starting local server for Role-Play Chatbot & Free Courses Test ---');
+    server = spawn(process.execPath, ['server.cjs'], {
+      env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production' },
+      stdio: 'inherit'
+    });
 
-  try {
     // Wait for server to start
     for (let i = 0; i < 30; i++) {
       try {
@@ -21,9 +23,13 @@ async function main() {
         await new Promise(r => setTimeout(r, 200));
       }
     }
+  } else {
+    console.log(`--- Testing against remote TARGET_URL: ${TARGET_URL} ---`);
+  }
 
+  try {
     console.log('--- Server is live. Running direct API test on /api/roleplay ---');
-    const apiRes = await fetch(`http://127.0.0.1:${PORT}/api/roleplay`, {
+    const apiRes = await fetch(`${BASE}api/roleplay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -176,7 +182,7 @@ async function main() {
     await browser.close();
     console.log('🎉 ALL ROLEPLAY CHATBOT & FREE COURSES TESTS PASSED!');
   } finally {
-    server.kill('SIGTERM');
+    if (server) server.kill('SIGTERM');
   }
 }
 
