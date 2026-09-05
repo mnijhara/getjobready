@@ -17,7 +17,7 @@ const safeQuestions = `function generateTailoredCVQuestions(cvText,jd,role){
  const q2=projectLine?'Your CV mentions "'+truncateAtWord(cleanBullet(projectLine),120)+'". What was the situation, what was your responsibility, what did you personally do, and what was the outcome?':'Tell me about one project or experience on your CV. What problem were you solving, what did you personally do, and what was the outcome?';
  const q3='Tell me about one project or experience from your CV in more depth. What was the biggest challenge and how did you handle it?';
  // Mandatory AI question: ask this in every interview, regardless of whether AI appears on the CV.
- const q4='How have you used AI in your job/SIP? Give me a specific example of how it made you more effective.';
+ const q4='How have you used AI in your job, internship, or SIP? Please share a specific example of how you used AI to improve your work, solve a problem, or become more effective.';
  const q5='Tell me about a difficult problem, setback, disagreement, or unexpected challenge you actually experienced in the work or projects listed on your CV. How did you respond?';
  const q6=target?'If you joined the '+truncateAtWord(target,80)+' team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?':'If you joined this team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?';
  return[q1,q2,q3,q4,q5,q6];
