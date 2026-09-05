@@ -12,12 +12,12 @@ const safeQuestions = `function generateTailoredCVQuestions(cvText,jd,role){
  const lines=rawCv.split(/\\n/).map(l=>l.replace(/^[•\\-▪*◆]\\s*/,'').trim()).filter(Boolean);
  const useful=lines.filter(l=>l.length>=35&&!/^(EDUCATION|PROFESSIONAL EXPERIENCE|KEY PROJECTS|TECHNICAL SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS)$/i.test(l));
  const projectLine=useful.find(l=>/project|developed|built|implemented|designed|created|intern|experience|worked/i.test(l))||useful[0]||'';
- const skillLine=lines.find(l=>/react|node|python|java|sql|aws|cloud|javascript|c\\+\\+/i.test(l))||'';
  const target=String(role||jd||'').trim();
  const q1='Walk me through your background and the experience or project on your CV that you are most proud of. What did you personally contribute?';
  const q2=projectLine?'Your CV mentions "'+truncateAtWord(cleanBullet(projectLine),120)+'". What was the situation, what was your responsibility, what did you personally do, and what was the outcome?':'Tell me about one project or experience on your CV. What problem were you solving, what did you personally do, and what was the outcome?';
  const q3='Tell me about one project or experience from your CV in more depth. What was the biggest challenge and how did you handle it?';
- const q4=skillLine?'Which skill or technology listed on your CV would you be most comfortable discussing in depth? Give me a concrete example of how you used it.':'Which skill from your CV are you strongest in? Give me a concrete example of how you used it.';
+ // Mandatory AI question: ask this in every interview, regardless of whether AI appears on the CV.
+ const q4='How have you used AI in your job/SIP? Give me a specific example of how it made you more effective.';
  const q5='Tell me about a difficult problem, setback, disagreement, or unexpected challenge you actually experienced in the work or projects listed on your CV. How did you respond?';
  const q6=target?'If you joined the '+truncateAtWord(target,80)+' team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?':'If you joined this team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?';
  return[q1,q2,q3,q4,q5,q6];
