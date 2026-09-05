@@ -5,11 +5,14 @@ on:
     paths:
       - 'scripts/live-audit.mjs'
       - 'scripts/student-api-audit.mjs'
+      - 'scripts/voice-capture-regression.mjs'
       - '.github/workflows/chromium-live-audit.yml'
       - 'package.json'
       - 'server.cjs'
       - 'server.js'
       - '.htaccess'
+      - 'src/native-entry.jsx'
+      - 'src/voice-recognition-guard.js'
   workflow_dispatch:
 permissions:
   contents: read
@@ -49,6 +52,8 @@ jobs:
           PY
       - name: Run Chromium API student journey
         run: node scripts/student-api-audit.mjs
+      - name: Run voice transcript regression
+        run: node scripts/voice-capture-regression.mjs
       - name: Run desktop + mobile Chromium UI audit
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
