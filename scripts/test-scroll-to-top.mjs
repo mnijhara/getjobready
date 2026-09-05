@@ -1,19 +1,20 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 
-const PORT = 4178;
-const BASE = `http://127.0.0.1:${PORT}`;
+const PORT = process.env.PORT || 4178;
+const BASE = process.env.TARGET_URL || `http://127.0.0.1:${PORT}`;
 
 async function main() {
-  console.log('=== Verifying Scroll-to-Top Behavior on Screen Navigation ===');
+  console.log(`=== Verifying Scroll-to-Top Behavior on Screen Navigation at ${BASE} ===`);
   
-  // Start server
-  const server = spawn('node', ['server.cjs'], {
-    env: { ...process.env, PORT: String(PORT) },
-    stdio: 'pipe'
-  });
-
-  await new Promise(res => setTimeout(res, 1200));
+  let server = null;
+  if (!process.env.TARGET_URL) {
+    server = spawn('node', ['server.cjs'], {
+      env: { ...process.env, PORT: String(PORT) },
+      stdio: 'pipe'
+    });
+    await new Promise(res => setTimeout(res, 1200));
+  }
 
   let browser;
   try {
@@ -115,7 +116,7 @@ async function main() {
     console.log('\n=== ALL SCROLL-TO-TOP TESTS PASSED PERFECTLY ===');
   } finally {
     if (browser) await browser.close();
-    server.kill();
+    if (server) server.kill();
   }
 }
 
