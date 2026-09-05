@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useRef,useState}from'react';
+import React,{useEffect,useLayoutEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,RefreshCw,Check,Folder,Plus,Trash2,Copy,ExternalLink,Download,Lightbulb,BookOpen}from'lucide-react';
 
@@ -17,6 +17,24 @@ const fallback=mode=>({score:72,headline:mode==='general'?'Your CV has a solid b
 
 const readSession=(key,f='')=>{try{return sessionStorage.getItem(key)||f}catch{return f}};
 const saveSession=(key,v)=>{try{sessionStorage.setItem(key,v)}catch{}};
+
+function scrollToTop(){
+ const root=typeof document!=='undefined'?document.documentElement:null;
+ const prevScrollBehavior=root?root.style.scrollBehavior:'';
+ if(root)root.style.scrollBehavior='auto';
+ try{
+  window.scrollTo({top:0,left:0,behavior:'instant'});
+ }catch{
+  try{window.scrollTo(0,0)}catch{}
+ }
+ if(root)root.scrollTop=0;
+ if(typeof document!=='undefined'&&document.body)document.body.scrollTop=0;
+ if(root){
+  requestAnimationFrame(()=>{
+   root.style.scrollBehavior=prevScrollBehavior;
+  });
+ }
+}
 
 async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const ct=r.headers.get('content-type')||'';if(!ct.includes('application/json')){throw new Error('API unavailable')}const text=await r.text();if(!text||text.startsWith('<!doctype')||text.startsWith('<html')){throw new Error('API unavailable')}let data;try{data=JSON.parse(text)}catch(e){throw new Error('API unavailable')}if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);return data}
 
@@ -516,19 +534,30 @@ function App(){
  const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
  const[masterSaved,setMasterSaved]=useState(false);
  const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
- const handleLogin=email=>{db.saveProfile(email);setProfile({email});db.syncServerData(email).then(()=>{setCv(db.getMasterCV());setProfile(db.getProfile())}).catch(()=>{});setJd('');setAppId(null);setRoleName('');setScreen('home');db.syncFromCloud().catch(()=>{})};
- const handleLogout=()=>{db.logout();setProfile(null);setCv('');setJd('');setAppId(null);setRoleName('');setScreen('home')};
+
+ useLayoutEffect(()=>{
+  scrollToTop();
+  const raf=requestAnimationFrame(scrollToTop);
+  const t=setTimeout(scrollToTop,50);
+  return ()=>{
+   cancelAnimationFrame(raf);
+   clearTimeout(t);
+  };
+ },[screen]);
+
+ const handleLogin=email=>{db.saveProfile(email);setProfile({email});db.syncServerData(email).then(()=>{setCv(db.getMasterCV());setProfile(db.getProfile())}).catch(()=>{});setJd('');setAppId(null);setRoleName('');scrollToTop();setScreen('home');db.syncFromCloud().catch(()=>{})};
+ const handleLogout=()=>{db.logout();setProfile(null);setCv('');setJd('');setAppId(null);setRoleName('');scrollToTop();setScreen('home')};
  const promptNewApp=()=>{setRoleName('');setShowRoleModal(true)};
  // New Application: ALWAYS go to resume screen with specific/JD mode when master exists
- const confirmNewApp=name=>{const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=db.getMasterCV();setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);const mode=masterCV?'specific':'general';setPrep(mode);saveSession('gjr_cv_mode',mode);setShowRoleModal(false);setScreen('resume')};
+ const confirmNewApp=name=>{scrollToTop();const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=db.getMasterCV();setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);const mode=masterCV?'specific':'general';setPrep(mode);saveSession('gjr_cv_mode',mode);setShowRoleModal(false);setScreen('resume')};
  // Open app → go straight to cvstudio
- const openApp=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
+ const openApp=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
  // Edit CV for a specific app
- const editCV=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
+ const editCV=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
  // Start interview directly for a specific app (skip CV studio)
- const directInterview=a=>{setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
- const openMasterCV=()=>{const masterCV=db.getMasterCV();setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
- const choosePrep=m=>{setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
+ const directInterview=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
+ const openMasterCV=()=>{scrollToTop();const masterCV=db.getMasterCV();setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
+ const choosePrep=m=>{scrollToTop();setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
  useEffect(()=>{
   db.syncFromCloud().catch(()=>{});
@@ -635,33 +664,40 @@ function App(){
   setAnswers(iv.answers||[]);
   setScreen('feedback');
  };
- const goHome=()=>setScreen('home');
-  if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport} onModule={setScreen}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
- if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
- if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}isMasterCV={appId==='master'}onSave={saveFinal}onContinue={startInterview}onGoHome={goHome}onCustomRoleInterview={(role,comp,text)=>{setRoleName(comp?`${comp} – ${role}`:role);if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')}}/></Workspace>;
+  const goHome=()=>{scrollToTop();setScreen('home')};
+   if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport} onModule={setScreen}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}onHome={goHome}/>}
+  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
+  if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}isMasterCV={appId==='master'}onSave={saveFinal}onContinue={startInterview}onGoHome={goHome}onCustomRoleInterview={(role,comp,text)=>{setRoleName(comp?`${comp} – ${role}`:role);if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')}}/></Workspace>;
 
 
- if(screen==='interview'){
-  const totalQs=questions.length||6;
-  const isLastTurn=qIndex>=totalQs-1;
-  return <Workspace title="AI Audio Interview" compact back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[Math.min(qIndex,totalQs-1)]}turn={qIndex+1}maxTurns={totalQs}history={answers}onTurn={(d,a,audioUrl)=>{const newAnswers=[...answers,{question:questions[qIndex],answer:a,audioUrl,evaluation:d?.evaluation}];setAnswers(newAnswers);const nextIdx=qIndex+1;if(nextIdx>=totalQs||d.done){saveInterviewResult(d.finalFeedback,newAnswers);}else{setQIndex(nextIdx);}}}onDone={saveInterviewResult}/></Workspace>;
+  if(screen==='interview'){
+   const totalQs=questions.length||6;
+   const isLastTurn=qIndex>=totalQs-1;
+   return <Workspace title="AI Audio Interview" compact back={()=>setScreen('cvstudio')} onHome={goHome}><VoiceInterview cv={cv}jd={jd}mode={prep}career={career}roleName={roleName}question={questions[Math.min(qIndex,totalQs-1)]}turn={qIndex+1}maxTurns={totalQs}history={answers}onTurn={(d,a,audioUrl)=>{const newAnswers=[...answers,{question:questions[qIndex],answer:a,audioUrl,evaluation:d?.evaluation}];setAnswers(newAnswers);const nextIdx=qIndex+1;if(nextIdx>=totalQs||d.done){saveInterviewResult(d.finalFeedback,newAnswers);}else{setQIndex(nextIdx);}}}onDone={saveInterviewResult}/></Workspace>;
+  }
+
+
+
+
+
+  if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback} answers={answers} onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}} onHome={goHome} onPractiseAgain={()=>{setAnswers([]);setQIndex(0);setScreen('interview')}} onImproveCV={()=>{setScreen('cvstudio')}} onModule={mid=>{const resolved=mid==='resilience'?'readiness':mid;setScreen(resolved)}}/></Workspace>;
+
+  return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
  }
 
+function Header({onHow,back,onHome}){return <header><div className="header-left">{back&&<button className="back"onClick={()=>{scrollToTop();back()}}>← Back</button>}</div><button className="brand"onClick={()=>{scrollToTop();if(onHome)onHome()}}style={{background:'none',border:'none',padding:0,cursor:onHome?'pointer':'default'}}><img src="/logo.svg" alt="GetJobReady Logo" style={{width:'42px',height:'42px',borderRadius:'14px',objectFit:'contain',display:'block'}} /><span>GetJobReady<span className="dot">.online</span></span></button>{onHow?<button className="ghost"onClick={onHow}><Sparkles size={15}/> How it works</button>:<div className="header-spacer"/>}</header>}
 
 
+function Home({career,setCareer,choosePrep,openModule,onLogin,onHome}){const[how,setHow]=useState(false),[showLogin,setShowLogin]=useState(false),[email,setEmail]=useState('');return <div className="app"><Header onHow={()=>setHow(true)} onHome={onHome}/><main className="hero"><div><span className="trust-badge"><Sparkles size={13}/> Trusted by students at IIMs, ISBs &amp; top B-schools</span></div><div className="eyebrow">{career==='internship'?'INTERNSHIP TRACK':'FULL-TIME TRACK'} · AI-POWERED CAREER READINESS</div><h1>Your degree got you here.<br/><em>Let's get you hired.</em></h1><p className="lead">{career==='internship'?'Build a strong campus story, sharpen your CV and practise with a real AI voice interviewer before the big day.':'Improve your CV for the exact role, then practise a hands-free AI interview that adapts to your answers.'}</p><div className="career-toggle"><button className={career==='internship'?'active':''}onClick={()=>setCareer('internship')}>☀️ Internship</button><button className={career==='job'?'active':''}onClick={()=>setCareer('job')}>💼 Full-time</button></div><button className="primary hero-btn"onClick={()=>setShowLogin(true)}>Enter Workspace <ArrowRight size={18}/></button><div className="hero-stats"><div className="stat"><span className="stat-num">4</span><span className="stat-label">Prep Steps</span></div><div className="stat"><span className="stat-num">100%</span><span className="stat-label">Voice-powered</span></div><div className="stat"><span className="stat-num">Free</span><span className="stat-label">No sign-up</span></div></div><div className="proof"><span><CheckCircle2 size={16}/> CV review before interview</span><span><CheckCircle2 size={16}/> Hands-free voice interview</span><span><CheckCircle2 size={16}/> Instant feedback &amp; transcript</span></div></main><div className="stage-divider"><h3 className="stage-title"><span className="stage-badge">Stage 1</span> Placement Interview Gauntlet</h3><span className="stage-desc">Calibrate CV, voice simulation &amp; final round pitch</span></div><section className="module-grid" style={{gridTemplateColumns:'repeat(3,1fr)',paddingBottom:'20px'}}>{modules.slice(0,3).map(m=><button className="module-card"key={m.id}onClick={()=>m.id==='resume'?setShowLogin(true):m.id==='interview'?setShowLogin(true):openModule(m.id)}><div className="module-top"><span className="module-icon"><m.icon size={21}/></span><span className="pill">{m.tag}</span></div><h3>{m.title}</h3><p>{m.text}</p><span className="card-link">{m.id==='interview'?'Start with your CV':'Open'} <ChevronRight size={16}/></span></button>)}</section><div className="stage-divider"><h3 className="stage-title"><span className="stage-badge">Stage 2</span> Day-1 Corporate Launchpad</h3><span className="stage-desc">Workplace habits, feedback resilience &amp; AI workflows</span></div><section className="module-grid" style={{gridTemplateColumns:'repeat(2,1fr)',maxWidth:'840px',paddingBottom:'48px'}}>{modules.slice(3,5).map(m=><button className="module-card"key={m.id}onClick={()=>openModule(m.id)}><div className="module-top"><span className="module-icon"><m.icon size={21}/></span><span className="pill">{m.tag}</span></div><h3>{m.title}</h3><p>{m.text}</p><span className="card-link">Open <ChevronRight size={16}/></span></button>)}</section><section className="roadmap"><div><span className="eyebrow">THE JOURNEY</span><h2>Prepare → practise → improve.</h2></div><div className="steps"><div><b>01</b><span>Prepare</span><small>CV review + editor</small></div><div><b>02</b><span>Practise</span><small>Hands-free voice</small></div><div><b>03</b><span>Improve</span><small>Transcript + feedback</small></div></div></section><footer>Built for students entering their first internship or corporate role.</footer>{how&&<div className="modal"onClick={e=>e.target===e.currentTarget&&setHow(false)}><div className="modal-card"><button className="modal-x"onClick={()=>setHow(false)}><X size={18}/></button><span className="eyebrow">HOW GETJOBREADY WORKS</span><h2>Prepare → practise → improve.</h2><div className="how-steps"><div><b>01</b><strong>Upload your CV</strong><span>Use General CV mode or add one specific JD.</span></div><div><b>02</b><strong>Improve before interviewing</strong><span>AI reviews your CV and gives you an editable version. If AI is temporarily unavailable, the CV studio still opens with a useful local review.</span></div><div><b>03</b><strong>Have a real voice interview</strong><span>AI asks the question aloud, then your answer is captured into the live transcript automatically.</span></div><div><b>04</b><strong>Get adaptive feedback</strong><span>Review your transcript, strengths and next actions.</span></div></div><button className="primary wide"onClick={()=>{setHow(false);setShowLogin(true)}}>Enter Workspace <ArrowRight size={18}/></button></div></div>}{showLogin&&<div className="modal"onClick={e=>e.target===e.currentTarget&&setShowLogin(false)}><div className="modal-card login-card"><button className="modal-x"onClick={()=>setShowLogin(false)}><X size={18}/></button><span className="eyebrow">ACCESS WORKSPACE</span><h2>Enter your email</h2><p>We'll save your CVs and interview history securely on your device.</p><input type="email"className="login-input"placeholder="student@university.edu"value={email}onChange={e=>setEmail(e.target.value)}onKeyDown={e=>e.key==='Enter'&&email.includes('@')&&onLogin(email)}/><button className="primary wide"onClick={()=>{if(email.includes('@'))onLogin(email);else alert('Please enter a valid email.')}}>Continue <ArrowRight size={18}/></button></div></div>}</div>}
 
-
- if(screen==='feedback')return <Workspace title="Interview Feedback" subtitle="Your transcript, strengths and next actions." icon={<MessageSquareText/>} back={()=>setScreen('home')} onHome={goHome}><Feedback data={result?.feedback} answers={answers} onSyncSpokenWins={bullets=>{setCv(prev=>prev+'\n\n'+bullets);saveSession('gjr_cv_text',cv+'\n\n'+bullets);if(profile)db.saveApplication({id:appId,role:roleName||'General CV',cv:cv+'\n\n'+bullets,score:result?.score,jd,result})}} onHome={goHome} onPractiseAgain={()=>{setAnswers([]);setQIndex(0);setScreen('interview')}} onImproveCV={()=>{setScreen('cvstudio')}} onModule={mid=>{const resolved=mid==='resilience'?'readiness':mid;setScreen(resolved)}}/></Workspace>;
-
- return <Workspace title={modules.find(x=>x.id===screen)?.title||'GetJobReady'} subtitle={modules.find(x=>x.id===screen)?.text||''} icon={<Sparkles/>} back={()=>setScreen('home')} onHome={goHome}><Module id={screen}career={career}/></Workspace>
-}
-
-function Header({onHow,back,onHome}){return <header><div className="header-left">{back&&<button className="back"onClick={back}>← Back</button>}</div><button className="brand"onClick={onHome}style={{background:'none',border:'none',padding:0,cursor:onHome?'pointer':'default'}}><img src="/logo.svg" alt="GetJobReady Logo" style={{width:'42px',height:'42px',borderRadius:'14px',objectFit:'contain',display:'block'}} /><span>GetJobReady<span className="dot">.online</span></span></button>{onHow?<button className="ghost"onClick={onHow}><Sparkles size={15}/> How it works</button>:<div className="header-spacer"/>}</header>}
-
-
-function Home({career,setCareer,choosePrep,openModule,onLogin}){const[how,setHow]=useState(false),[showLogin,setShowLogin]=useState(false),[email,setEmail]=useState('');return <div className="app"><Header onHow={()=>setHow(true)}/><main className="hero"><div><span className="trust-badge"><Sparkles size={13}/> Trusted by students at IIMs, ISBs &amp; top B-schools</span></div><div className="eyebrow">{career==='internship'?'INTERNSHIP TRACK':'FULL-TIME TRACK'} · AI-POWERED CAREER READINESS</div><h1>Your degree got you here.<br/><em>Let's get you hired.</em></h1><p className="lead">{career==='internship'?'Build a strong campus story, sharpen your CV and practise with a real AI voice interviewer before the big day.':'Improve your CV for the exact role, then practise a hands-free AI interview that adapts to your answers.'}</p><div className="career-toggle"><button className={career==='internship'?'active':''}onClick={()=>setCareer('internship')}>☀️ Internship</button><button className={career==='job'?'active':''}onClick={()=>setCareer('job')}>💼 Full-time</button></div><button className="primary hero-btn"onClick={()=>setShowLogin(true)}>Enter Workspace <ArrowRight size={18}/></button><div className="hero-stats"><div className="stat"><span className="stat-num">4</span><span className="stat-label">Prep Steps</span></div><div className="stat"><span className="stat-num">100%</span><span className="stat-label">Voice-powered</span></div><div className="stat"><span className="stat-num">Free</span><span className="stat-label">No sign-up</span></div></div><div className="proof"><span><CheckCircle2 size={16}/> CV review before interview</span><span><CheckCircle2 size={16}/> Hands-free voice interview</span><span><CheckCircle2 size={16}/> Instant feedback &amp; transcript</span></div></main><div className="stage-divider"><h3 className="stage-title"><span className="stage-badge">Stage 1</span> Placement Interview Gauntlet</h3><span className="stage-desc">Calibrate CV, voice simulation &amp; final round pitch</span></div><section className="module-grid" style={{gridTemplateColumns:'repeat(3,1fr)',paddingBottom:'20px'}}>{modules.slice(0,3).map(m=><button className="module-card"key={m.id}onClick={()=>m.id==='resume'?setShowLogin(true):m.id==='interview'?setShowLogin(true):openModule(m.id)}><div className="module-top"><span className="module-icon"><m.icon size={21}/></span><span className="pill">{m.tag}</span></div><h3>{m.title}</h3><p>{m.text}</p><span className="card-link">{m.id==='interview'?'Start with your CV':'Open'} <ChevronRight size={16}/></span></button>)}</section><div className="stage-divider"><h3 className="stage-title"><span className="stage-badge">Stage 2</span> Day-1 Corporate Launchpad</h3><span className="stage-desc">Workplace habits, feedback resilience &amp; AI workflows</span></div><section className="module-grid" style={{gridTemplateColumns:'repeat(2,1fr)',maxWidth:'840px',paddingBottom:'48px'}}>{modules.slice(3,5).map(m=><button className="module-card"key={m.id}onClick={()=>openModule(m.id)}><div className="module-top"><span className="module-icon"><m.icon size={21}/></span><span className="pill">{m.tag}</span></div><h3>{m.title}</h3><p>{m.text}</p><span className="card-link">Open <ChevronRight size={16}/></span></button>)}</section><section className="roadmap"><div><span className="eyebrow">THE JOURNEY</span><h2>Prepare → practise → improve.</h2></div><div className="steps"><div><b>01</b><span>Prepare</span><small>CV review + editor</small></div><div><b>02</b><span>Practise</span><small>Hands-free voice</small></div><div><b>03</b><span>Improve</span><small>Transcript + feedback</small></div></div></section><footer>Built for students entering their first internship or corporate role.</footer>{how&&<div className="modal"onClick={e=>e.target===e.currentTarget&&setHow(false)}><div className="modal-card"><button className="modal-x"onClick={()=>setHow(false)}><X size={18}/></button><span className="eyebrow">HOW GETJOBREADY WORKS</span><h2>Prepare → practise → improve.</h2><div className="how-steps"><div><b>01</b><strong>Upload your CV</strong><span>Use General CV mode or add one specific JD.</span></div><div><b>02</b><strong>Improve before interviewing</strong><span>AI reviews your CV and gives you an editable version. If AI is temporarily unavailable, the CV studio still opens with a useful local review.</span></div><div><b>03</b><strong>Have a real voice interview</strong><span>AI asks the question aloud, then your answer is captured into the live transcript automatically.</span></div><div><b>04</b><strong>Get adaptive feedback</strong><span>Review your transcript, strengths and next actions.</span></div></div><button className="primary wide"onClick={()=>{setHow(false);setShowLogin(true)}}>Enter Workspace <ArrowRight size={18}/></button></div></div>}{showLogin&&<div className="modal"onClick={e=>e.target===e.currentTarget&&setShowLogin(false)}><div className="modal-card login-card"><button className="modal-x"onClick={()=>setShowLogin(false)}><X size={18}/></button><span className="eyebrow">ACCESS WORKSPACE</span><h2>Enter your email</h2><p>We'll save your CVs and interview history securely on your device.</p><input type="email"className="login-input"placeholder="student@university.edu"value={email}onChange={e=>setEmail(e.target.value)}onKeyDown={e=>e.key==='Enter'&&email.includes('@')&&onLogin(email)}/><button className="primary wide"onClick={()=>{if(email.includes('@'))onLogin(email);else alert('Please enter a valid email.')}}>Continue <ArrowRight size={18}/></button></div></div>}</div>}
-
-function Workspace({title,subtitle,icon,back,onHome,children,compact}){return <div className="app"><Header back={back} onHome={onHome}/><main className={compact?'workspace workspace-compact':'workspace'}>{!compact&&<div className="workspace-head"><span className="big-icon">{icon}</span><div><div className="eyebrow">YOUR PREPARATION</div><h1>{title}</h1><p>{subtitle}</p></div></div>}{children}</main></div>}
+function Workspace({title,subtitle,icon,back,onHome,children,compact}){
+ useLayoutEffect(()=>{
+  scrollToTop();
+  const raf=requestAnimationFrame(scrollToTop);
+  const t=setTimeout(scrollToTop,50);
+  return ()=>{cancelAnimationFrame(raf);clearTimeout(t)};
+ },[]);
+ return <div className="app"><Header back={back} onHome={onHome}/><main className={compact?'workspace workspace-compact':'workspace'}>{!compact&&<div className="workspace-head"><span className="big-icon">{icon}</span><div><div className="eyebrow">YOUR PREPARATION</div><h1>{title}</h1><p>{subtitle}</p></div></div>}{children}</main></div>}
 
 function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,analyze,loading}){
  const presets=[
@@ -1495,8 +1531,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
   latestTranscript.current='';
   clearSilenceTimers();
   window.speechSynthesis?.cancel();
-  document.documentElement.scrollTop=0;
-  document.body.scrollTop=0;
+  scrollToTop();
   const t=setTimeout(()=>{if(!started.current)startJourney()},600);
   return()=>{
    clearTimeout(t);
@@ -1590,7 +1625,12 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
 }
 
 function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImproveCV,onModule}){
- useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[]);
+ useLayoutEffect(()=>{
+  scrollToTop();
+  const raf=requestAnimationFrame(scrollToTop);
+  const t=setTimeout(scrollToTop,50);
+  return ()=>{cancelAnimationFrame(raf);clearTimeout(t)};
+ },[]);
  const d=data||{score:0,strengths:['None identified — all submitted answers were under 10 words or generic placeholders.'],improvements:['All submitted answers were too brief or generic. A recruiter will reject these immediately.','Every answer must use the STAR method: Situation → Task → Action → Result.','Speak for 45–60 seconds per question, referencing specific projects and tech stacks from your CV.','Review the Model Answers below for each question to see what hiring managers look for.'],nextAction:'Review the model answers below and practise again with real STAR answers from your CV.'};
  const[copied,setCopied]=useState(false);const[synced,setSynced]=useState(false);
  const[activeAudio,setActiveAudio]=useState(null);
@@ -1756,6 +1796,12 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImprov
 }
 
 function Module({id,career}){
+ useLayoutEffect(()=>{
+  scrollToTop();
+  const raf=requestAnimationFrame(scrollToTop);
+  const t=setTimeout(scrollToTop,50);
+  return ()=>{cancelAnimationFrame(raf);clearTimeout(t)};
+ },[id]);
  const[loading,setLoading]=useState(false),[data,setData]=useState(null),[error,setError]=useState('');
  const[company,setCompany]=useState(''),[problem,setProblem]=useState(''),[idea,setIdea]=useState('');
  const[copiedKey,setCopiedKey]=useState('');
