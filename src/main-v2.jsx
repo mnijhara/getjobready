@@ -166,6 +166,82 @@ function truncateAtWord(str, maxLen){
  return sub.replace(/[,;.\-—]+$/,'').trim();
 }
 
+let cachedVoices = [];
+function refreshVoices() {
+ if (typeof window !== 'undefined' && window.speechSynthesis) {
+  try {
+   const list = window.speechSynthesis.getVoices() || [];
+   if (list.length > 0) cachedVoices = list;
+  } catch (e) {}
+ }
+}
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+ refreshVoices();
+ if (window.speechSynthesis.onvoiceschanged !== undefined) {
+  window.speechSynthesis.onvoiceschanged = refreshVoices;
+ }
+}
+
+function getBestHumanVoice(callback) {
+ if (typeof window === 'undefined' || !window.speechSynthesis) {
+  if (callback) callback(null);
+  return null;
+ }
+
+ const select = () => {
+  let vList = window.speechSynthesis.getVoices() || [];
+  if (!vList.length && cachedVoices.length) vList = cachedVoices;
+  if (!vList.length) return null;
+
+  // Filter out harsh, robotic novelty voices
+  const isRobotic = v => /(Fred|Albert|Bad News|Bahh|Bells|Boing|Cellos|Deranged|Good News|Hysterical|Pipe Organ|Trinoids|Whisper|Zarvox|Junior|Ralph|Kathy|Vicki|Victoria|Agnes|Bruce)/i.test(v.name);
+  const en = vList.filter(v => !isRobotic(v) && v.lang && v.lang.toLowerCase().startsWith('en'));
+
+  // Priority 1: Natural / Online Neural voices (Edge / Chrome Natural)
+  let best = en.find(v => /Natural/i.test(v.name));
+
+  // Priority 2: Google Neural English voices (Chrome Android & Desktop)
+  if (!best) best = en.find(v => /Google/i.test(v.name) && (v.name.includes('UK') || v.name.includes('US') || v.name.includes('India') || v.name.includes('Female')));
+  if (!best) best = en.find(v => /Google/i.test(v.name));
+
+  // Priority 3: Apple Enhanced / Premium Siri voices (macOS & iOS)
+  if (!best) best = en.find(v => /Enhanced|Premium/i.test(v.name));
+
+  // Priority 4: Well-known natural human personas
+  if (!best) best = en.find(v => /(Samantha|Karen|Daniel|Oliver|Moira|Rishi|Neerja|Aria|Jenny|Guy|Serena)/i.test(v.name));
+
+  // Priority 5: Regional English voices (India, UK, US, AU)
+  if (!best) best = en.find(v => /^en[-_](IN|GB|US|AU|CA)/i.test(v.lang));
+
+  // Priority 6: Any non-robotic English voice
+  if (!best && en.length > 0) best = en[0];
+
+  return best || vList[0] || null;
+ };
+
+ const immediate = select();
+ if (immediate) {
+  if (callback) callback(immediate);
+  return immediate;
+ }
+
+ // Asynchronous resolution if voices list is initializing in Chrome
+ if (callback) {
+  let done = false;
+  const finish = () => {
+   if (done) return;
+   done = true;
+   refreshVoices();
+   callback(select());
+  };
+  if (window.speechSynthesis) {
+   window.speechSynthesis.onvoiceschanged = finish;
+  }
+  setTimeout(finish, 250);
+ }
+ return null;
+}
+
 function generateTailoredCVQuestions(cvText,jd,role){
  const cv=cvText||'';
  const lines=cv.split('\n').map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
@@ -1309,15 +1385,20 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
   clearSilenceTimers();
   window.speechSynthesis?.cancel();
   
-  const u=new SpeechSynthesisUtterance(question);
-  const voices=window.speechSynthesis?.getVoices()||[];
-  let best=voices.find(v=>v.lang.startsWith('en')&&(v.name.includes('Google')||v.name.includes('Premium')||v.name.includes('Natural')));
-  if(!best)best=voices.find(v=>v.lang.startsWith('en-IN')||v.lang.startsWith('en-GB')||v.lang.startsWith('en-US'));
-  if(best)u.voice=best;
-  u.rate=1;u.pitch=1;
-  u.onend=()=>beginRecognition();
-  u.onerror=()=>beginRecognition();
-  window.speechSynthesis?.speak(u);
+  getBestHumanVoice(bestVoice=>{
+   if(!started.current)return;
+   const u=new SpeechSynthesisUtterance(question);
+   if(bestVoice){
+    u.voice=bestVoice;
+    u.lang=bestVoice.lang||'en-IN';
+   }else{
+    u.lang='en-IN';
+   }
+   u.rate=0.98;u.pitch=1;
+   u.onend=()=>beginRecognition();
+   u.onerror=()=>beginRecognition();
+   window.speechSynthesis?.speak(u);
+  });
  };
 
  const beginRecognition=()=>{
@@ -1491,16 +1572,20 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImprov
    return;
   }
   window.speechSynthesis?.cancel();
-  const u=new SpeechSynthesisUtterance(text);
-  const voices=window.speechSynthesis?.getVoices()||[];
-  let best=voices.find(v=>v.lang.startsWith('en')&&(v.name.includes('Google')||v.name.includes('Natural')||v.name.includes('Premium')));
-  if(!best)best=voices.find(v=>v.lang.startsWith('en-IN')||v.lang.startsWith('en-GB')||v.lang.startsWith('en-US'));
-  if(best)u.voice=best;
-  u.rate=1;
-  u.onend=()=>setActiveAudio(null);
-  u.onerror=()=>setActiveAudio(null);
-  setActiveAudio(id);
-  window.speechSynthesis?.speak(u);
+  getBestHumanVoice(bestVoice=>{
+   const u=new SpeechSynthesisUtterance(text);
+   if(bestVoice){
+    u.voice=bestVoice;
+    u.lang=bestVoice.lang||'en-IN';
+   }else{
+    u.lang='en-IN';
+   }
+   u.rate=0.98;
+   u.onend=()=>setActiveAudio(null);
+   u.onerror=()=>setActiveAudio(null);
+   setActiveAudio(id);
+   window.speechSynthesis?.speak(u);
+  });
  };
 
  const copyReport=()=>{

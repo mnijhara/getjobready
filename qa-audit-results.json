@@ -1,0 +1,62 @@
+{
+  "url": "https://getjobready.online/",
+  "steps": [
+    {
+      "step": "1. Homepage Load & Branding",
+      "status": "PASS",
+      "details": "Hero copy and branding loaded correctly"
+    },
+    {
+      "step": "2a. Impress Interviewer (AI Project Module)",
+      "status": "PASS",
+      "details": "Module interactive and functional"
+    },
+    {
+      "step": "2b. Corporate Ready Module",
+      "status": "PASS",
+      "details": "Module interactive and functional"
+    },
+    {
+      "step": "2c. AI at Work Module",
+      "status": "PASS",
+      "details": "Module interactive and functional"
+    },
+    {
+      "step": "3. Student Authentication & Workspace Access",
+      "status": "PASS",
+      "details": "Authenticated as alex.qa.student@test.com"
+    },
+    {
+      "step": "4. CV Input / Paste",
+      "status": "PASS",
+      "details": "Inputted 1,300+ character B.Tech CV"
+    },
+    {
+      "step": "5. Trigger CV Analysis",
+      "status": "INFO",
+      "details": "Waiting for CV Studio..."
+    },
+    {
+      "step": "5. CV Studio & AI Bullet Improvements",
+      "status": "PASS",
+      "details": "CV Studio loaded with executive preview and action choices"
+    },
+    {
+      "step": "6. Start AI Audio Interview",
+      "status": "PASS",
+      "details": "Audio interview initiated with Question 1"
+    },
+    {
+      "step": "7. Question Spelling & Truncation Audit",
+      "status": "PASS",
+      "details": "Clean wording: 'Tell me about yourself \u2014 your background in Technology, your...'"
+    },
+    {
+      "step": "8. Voice Card & Live Transcript UI",
+      "status": "PASS",
+      "details": "Continuous voice recognition card & live transcript ready"
+    }
+  ],
+  "errors": [],
+  "passed": true
+}
