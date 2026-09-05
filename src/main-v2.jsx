@@ -296,8 +296,8 @@ function evaluateInterviewTurnLocal(question,answer,history){
   turnScore=25;
   note=`25/100 — Lacks STAR Depth (${wordCount} words). Mentions high-level activities but lacks specific technical decisions, individual ownership ("I architected / I built"), and quantifiable results.`;
  }else if(wordCount<45){
-  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k|dealers|stores|outlets|clients))/i.test(cleanAns);
-  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role|i\s+analyzed|i\s+formulated|i\s+managed)\b/i.test(cleanAns);
+  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|latency|bottleneck|\b\d+[- ]*(?:day|days|week|weeks|month|months|year|years|ms|s|sec|min|mins|minute|minutes|hour|hours|hr|hrs|users|req|test|cr|lakh|rs|k|dealers|stores|outlets|clients|operations|candidates|recruiters|interviews|deliverables|tickets|phases)\b)/i.test(cleanAns);
+  const hasOwnership=/\b(i\s+(?:have\s+)?(?:built|designed|architected|implemented|led|developed|analyzed|formulated|conducted|managed|spearheaded|engineered|re-engineered|created|resolved|integrated|leverage|integrate|use|aim|take|took|will\s+(?:take|lead|build|immerse|pick|deliver|document|submit)))|(my\s+role|my\s+goal|my\s+priority|my\s+responsibility|my\s+30-day\s+plan|i\s+took\s+ownership)\b/i.test(cleanAns);
   if(!hasMetrics&&!hasOwnership){
    turnScore=40;
    note=`40/100 — Needs STAR Structure & Metrics. Missing personal ownership verbs ("I built / I led...") and measurable results (%, scale, time saved, revenue).`;
@@ -309,19 +309,19 @@ function evaluateInterviewTurnLocal(question,answer,history){
    note=`60/100 — Good attempt with metrics, but expand on the specific methods, decisions made, and obstacles overcome.`;
   }
  }else{
-  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|\d+\s*(ms|s|sec|users|req|test|days|weeks|months|cr|lakh|rs|k|dealers|stores|outlets|clients))/i.test(cleanAns);
-  const hasOwnership=/\b(i\s+built|i\s+designed|i\s+architected|i\s+implemented|i\s+led|i\s+developed|my\s+role|i\s+took\s+ownership|i\s+analyzed|i\s+formulated|i\s+conducted|i\s+managed|i\s+spearheaded)\b/i.test(cleanAns);
-  const hasDepth=/(api|database|sql|nosql|cache|redis|node|react|python|cloud|aws|docker|microservice|architecture|pipeline|roi|revenue|margin|ebitda|dealer|retail|distribution|sales|channel|turnover|cost|customer|client|attrition|sourcing|valuation|dcf|pricing|market\s*share|penetration|retention|conversion|growth|gtm|spss|tableau|power\s*bi)/i.test(cleanAns);
+  const hasMetrics=/(%|percent|reduced|increased|scaled|optimized|latency|bottleneck|\b\d+[- ]*(?:day|days|week|weeks|month|months|year|years|ms|s|sec|min|mins|minute|minutes|hour|hours|hr|hrs|users|req|test|cr|lakh|rs|k|dealers|stores|outlets|clients|operations|candidates|recruiters|interviews|deliverables|tickets|phases)\b)/i.test(cleanAns);
+  const hasOwnership=/\b(i\s+(?:have\s+)?(?:built|designed|architected|implemented|led|developed|analyzed|formulated|conducted|managed|spearheaded|engineered|re-engineered|created|resolved|integrated|leverage|integrate|use|aim|take|took|will\s+(?:take|lead|build|immerse|pick|deliver|document|submit)))|(my\s+role|my\s+goal|my\s+priority|my\s+responsibility|my\s+30-day\s+plan|i\s+took\s+ownership)\b/i.test(cleanAns);
+  const hasDepth=/(api|database|sql|nosql|cache|redis|node|react|python|cloud|aws|docker|microservice|architecture|pipeline|roi|revenue|margin|ebitda|dealer|retail|distribution|sales|channel|turnover|cost|customer|client|attrition|sourcing|valuation|dcf|pricing|market\s*share|penetration|retention|conversion|growth|gtm|spss|tableau|power\s*bi|websocket|cloudflare|r2|jest|copilot|claude|chatgpt|llm|prompt|dead-letter|queue|codebase|tickets|pull\s*request|deployments|integration\s*tests)/i.test(cleanAns);
 
   if(hasMetrics&&hasOwnership&&hasDepth){
    turnScore=Math.min(95,80+Math.min(15,Math.floor((wordCount-45)/5)));
    note=`Strong STAR Answer (${turnScore}/100). Demonstrates clear Situation, personal Action, deep domain context, and measurable outcomes.`;
   }else if(hasOwnership&&hasMetrics){
-   turnScore=75;
-   note=`75/100 — Good STAR structure with metrics and ownership. Mention specific domain methods, tools or business frameworks to reach 90+.`;
-  }else if(hasMetrics){
-   turnScore=65;
-   note=`65/100 — Includes numbers, but emphasize YOUR direct role ("I built", "I formulated", "I led") rather than general team accomplishments.`;
+   turnScore=78;
+   note=`78/100 — Good STAR structure with metrics and ownership. Mention specific domain methods, tools or business frameworks to reach 90+.`;
+  }else if(hasMetrics||hasOwnership){
+   turnScore=70;
+   note=`70/100 — Includes solid details, but ensure you emphasize BOTH your direct role ("I built", "I formulated", "I led") AND quantifiable impact (%, scale, time saved).`;
   }else{
    turnScore=55;
    note=`55/100 — Clear explanation, but missing quantifiable impact (percentages, revenue, time saved, or scale).`;
@@ -419,7 +419,7 @@ function localImprove(cv){
  return lines.map((line,i)=>{if(i<3)return line;const clean=line.replace(/^[•●▪-]\s*/,'');if(clean.length<45||/[.!?]$/.test(clean))return line;return `• ${clean.replace(/^I\s+/i,'').replace(/\s+/g,' ')}.`}).join('\n');
 }
 
-function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview,onViewInterview}){
+function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview,onViewInterview,onModule}){
  const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
  useEffect(()=>{
   const refresh=()=>{setApps(db.getApplications());setInterviews(db.getInterviews())};
@@ -531,7 +531,40 @@ function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInter
     </div>;
    })}
   </div>}
- </div>
+
+   <div className="dash-launchpad" style={{marginTop:'32px',padding:'22px 24px',background:'linear-gradient(135deg,#f8faff 0%,#f0f4ff 100%)',borderRadius:'20px',border:'1px solid #e0e7ff'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px',marginBottom:'14px'}}>
+     <div>
+      <span className="eyebrow" style={{color:'#6855e8',fontSize:'11px',fontWeight:800}}>STAGE 2 · DAY-1 CORPORATE LAUNCHPAD &amp; DEMOS</span>
+      <h3 style={{fontSize:'16px',fontWeight:800,margin:'2px 0 0',color:'#1e1b4b'}}>Stand Out in Interview &amp; Onboard on Day 1</h3>
+     </div>
+     <span style={{fontSize:'12px',color:'#64748b'}}>Practical workplace habits &amp; prototypes</span>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'12px'}}>
+     <button type="button" className="module-card" style={{padding:'16px',textAlign:'left',background:'#fff',borderRadius:'16px',border:'1px solid #e2e8f0',cursor:'pointer'}} onClick={()=>onModule&&onModule('demo')}>
+      <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+       <span style={{background:'#ede9fe',padding:'6px',borderRadius:'10px',display:'inline-flex',color:'#6855e8'}}><Target size={16}/></span>
+       <b style={{fontSize:'13px',color:'#1e293b'}}>Impress the Interviewer</b>
+      </div>
+      <p style={{fontSize:'11px',color:'#64748b',margin:0,lineHeight:'1.4'}}>Turn a company problem into a live product concept &amp; demo.</p>
+     </button>
+     <button type="button" className="module-card" style={{padding:'16px',textAlign:'left',background:'#fff',borderRadius:'16px',border:'1px solid #e2e8f0',cursor:'pointer'}} onClick={()=>onModule&&onModule('readiness')}>
+      <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+       <span style={{background:'#dcfce7',padding:'6px',borderRadius:'10px',display:'inline-flex',color:'#16a34a'}}><ShieldCheck size={16}/></span>
+       <b style={{fontSize:'13px',color:'#1e293b'}}>Corporate Ready</b>
+      </div>
+      <p style={{fontSize:'11px',color:'#64748b',margin:0,lineHeight:'1.4'}}>Build communication, feedback resilience and workplace habits.</p>
+     </button>
+     <button type="button" className="module-card" style={{padding:'16px',textAlign:'left',background:'#fff',borderRadius:'16px',border:'1px solid #e2e8f0',cursor:'pointer'}} onClick={()=>onModule&&onModule('ai')}>
+      <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+       <span style={{background:'#fef3c7',padding:'6px',borderRadius:'10px',display:'inline-flex',color:'#d97706'}}><Sparkles size={16}/></span>
+       <b style={{fontSize:'13px',color:'#1e293b'}}>AI at Work</b>
+      </div>
+      <p style={{fontSize:'11px',color:'#64748b',margin:0,lineHeight:'1.4'}}>Learn practical AI workflows that make you faster and sharper.</p>
+     </button>
+    </div>
+   </div>
+  </div>
 }
 
 
@@ -662,7 +695,7 @@ function App(){
   setScreen('feedback');
  };
  const goHome=()=>setScreen('home');
- if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
+  if(screen==='home'){if(profile)return <Workspace title="My Workspace" subtitle="Your preparation hub." icon={<Folder/>} onHome={goHome}><Dashboard profile={profile} onLogout={handleLogout} onNewApp={promptNewApp} onOpen={openApp} onMasterCV={openMasterCV} onEditCV={editCV} onInterview={directInterview} onViewInterview={viewInterviewReport} onModule={setScreen}/>{showRoleModal&&<div className="modal" onClick={e=>e.target===e.currentTarget&&setShowRoleModal(false)}><div className="modal-card login-card"><span className="eyebrow">NEW JOB APPLICATION</span><h2>Which role are you applying for?</h2><p>Give it a name — your Master CV will be pre-loaded and you can add the job description on the next screen.</p><input type="text" className="login-input" placeholder="e.g. Deloitte – Management Consulting Intern" value={roleName} onChange={e=>setRoleName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmNewApp(roleName)} autoFocus/><div style={{display:'flex',gap:'12px',justifyContent:'center'}}><button className="ghost-sm" onClick={()=>setShowRoleModal(false)}>Cancel</button><button className="primary" onClick={()=>confirmNewApp(roleName)}>Create <ArrowRight size={16}/></button></div></div></div>}</Workspace>;return <Home career={career}setCareer={changeCareer}choosePrep={choosePrep}openModule={setScreen}onLogin={handleLogin}/>}
  if(screen==='resume')return <Workspace title={prep==='general'?'General CV Preparation':'CV + Job Description'} subtitle={prep==='general'?'Review your CV without a target role. Save the final version before interviewing.':'Upload your CV and one specific JD. Improve the CV before you practise the role-specific interview.'} icon={<FileText/>} back={()=>setScreen('home')} onHome={goHome}><Prep prep={prep}setPrep={setPrep}cv={cv}setCv={setCv}jd={jd}setJd={setJd}cvFile={cvFile}jdFile={jdFile}parseFile={parseFile}clearFile={clearFile}analyze={analyze}loading={loading}/></Workspace>;
  if(screen==='cvstudio')return <Workspace title="Improve your CV first" subtitle={prep==='general'?'Review, edit and save your CV. Your interview will use the final version.':'Make your CV stronger for this role before you practise the interview.'} icon={<Sparkles/>} back={()=>setScreen('resume')} onHome={goHome}><CVStudio result={result||fallback(prep)}initial={cv}jd={jd}mode={prep}isMasterCV={appId==='master'}onSave={saveFinal}onContinue={startInterview}onGoHome={goHome}onCustomRoleInterview={(role,comp,text)=>{setRoleName(comp?`${comp} – ${role}`:role);if(text)setCv(text);setQIndex(0);setAnswers([]);setScreen('interview')}}/></Workspace>;
 

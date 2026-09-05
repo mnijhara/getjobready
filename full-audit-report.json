@@ -1,0 +1,117 @@
+{
+  "url": "https://getjobready.online/",
+  "stages": {
+    "Authentication": [
+      {
+        "step": "Enter Workspace",
+        "status": "PASS",
+        "details": "Logged in successfully"
+      }
+    ],
+    "Stage 1: CV Preparation": [
+      {
+        "step": "Input CV",
+        "status": "PASS",
+        "details": "Populated 1,400 char technical CV"
+      },
+      {
+        "step": "CV Studio Render",
+        "status": "PASS",
+        "details": "CV Studio loaded with executive preview and suggestions"
+      }
+    ],
+    "Bad Interview Run": [
+      {
+        "step": "Turn 1 Submission",
+        "status": "PASS",
+        "details": "Answer: 'um yeah i did a good job and stuff'"
+      },
+      {
+        "step": "Turn 2 Submission",
+        "status": "PASS",
+        "details": "Answer: 'ok'"
+      },
+      {
+        "step": "Turn 3 Submission",
+        "status": "PASS",
+        "details": "Answer: 'i worked on summer internship and it was fine'"
+      },
+      {
+        "step": "Turn 4 Submission",
+        "status": "PASS",
+        "details": "Answer: 'no i dont use chatgpt'"
+      },
+      {
+        "step": "Turn 5 Submission",
+        "status": "PASS",
+        "details": "Answer: 'nothing went wrong'"
+      },
+      {
+        "step": "Turn 6 Submission",
+        "status": "PASS",
+        "details": "Answer: 'i will just work hard'"
+      },
+      {
+        "step": "Low Score Assertion (<=30)",
+        "status": "PASS",
+        "details": "Actual score: 7/100"
+      },
+      {
+        "step": "Constructive Feedback & Gaps Assertion",
+        "status": "PASS",
+        "details": "Flagged brevity, lack of STAR, and generic placeholders"
+      }
+    ],
+    "Good Interview Run": [
+      {
+        "step": "Turn 1 Submission",
+        "status": "PASS",
+        "details": "60 words, metrics + STAR ownership"
+      },
+      {
+        "step": "Turn 2 Submission",
+        "status": "PASS",
+        "details": "73 words, metrics + STAR ownership"
+      },
+      {
+        "step": "Turn 3 Submission",
+        "status": "PASS",
+        "details": "57 words, metrics + STAR ownership"
+      },
+      {
+        "step": "Turn 4 Submission",
+        "status": "PASS",
+        "details": "79 words, metrics + STAR ownership"
+      },
+      {
+        "step": "Turn 5 Submission",
+        "status": "PASS",
+        "details": "73 words, metrics + STAR ownership"
+      },
+      {
+        "step": "Turn 6 Submission",
+        "status": "PASS",
+        "details": "90 words, metrics + STAR ownership"
+      },
+      {
+        "step": "High Score Assertion (>=75)",
+        "status": "FAIL",
+        "details": "Actual score: 68/100"
+      },
+      {
+        "step": "Excellence Recognition Assertion",
+        "status": "PASS",
+        "details": "Recognized deep technical mastery and clear business thinking"
+      }
+    ],
+    "Audit Execution": [
+      {
+        "step": "Exception Caught",
+        "status": "FAIL",
+        "details": "Page.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"text=Impress the Interviewer\")\n"
+      }
+    ]
+  },
+  "overall_passed": false,
+  "browser_errors": []
+}
