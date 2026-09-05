@@ -2,6 +2,8 @@
   "name": "getjobready",
   "version": "1.0.0",
   "private": true,
+  "main": "server.cjs",
+  "engines": {"node": ">=22 <23"},
   "scripts": {"dev": "vite", "build": "node scripts/prepare-pdf-worker.mjs && vite build --config vite.native.config.js && cp dist/native.html dist/index.html && cp dist/native.html index.html && cp .htaccess dist/.htaccess && cp share-card.png dist/share-card.png && cp og-image.jpg dist/og-image.jpg && cp og-image.png dist/og-image.png && cp logo.svg dist/logo.svg && cp logo.png dist/logo.png && cp favicon.svg dist/favicon.svg && cp favicon.png dist/favicon.png && cp favicon.ico dist/favicon.ico && cp apple-touch-icon.png dist/apple-touch-icon.png && rsync -a --delete dist/assets/ assets/", "start": "node server.cjs", "lint": "node --check server.cjs", "verify": "node scripts/verify-product-safe.mjs"},
   "dependencies": {"@vitejs/plugin-react":"latest","vite":"latest","react":"latest","react-dom":"latest","lucide-react":"latest","pdfjs-dist":"latest","mammoth":"^1.10.0","express":"^4.21.2","cors":"latest","@supabase/supabase-js":"^2.57.4"},
   "devDependencies": {}
