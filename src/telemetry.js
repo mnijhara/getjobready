@@ -1,4 +1,6 @@
 // Lightweight production observability. Never log CV text, interview answers, tokens, or form payloads.
+import { supabase } from './getjobready-cloud.js';
+
 const SESSION_KEY = 'gjr_telemetry_session';
 const MAX_MESSAGE = 500;
 const MAX_QUEUE = 25;
@@ -34,12 +36,9 @@ function safeMeta(meta) {
 
 async function send(entry) {
   try {
-    await fetch('/api/client-log', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(entry),
-      keepalive: true
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    const { error } = await supabase.from('client_logs').insert({ ...entry, user_id: session?.user?.id || null });
+    if (error) throw error;
   } catch {}
 }
 
