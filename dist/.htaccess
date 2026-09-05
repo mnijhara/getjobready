@@ -1,22 +1,21 @@
-# Hostinger Apache configuration for SPA, Cache Control, and Social Crawler Access
+# Hostinger Node.js deployment compatibility.
+# The Express server (server.cjs) owns SPA routing and /api/* routing.
+# Do not rewrite /api requests to index.html from Apache.
 
 <IfModule mod_headers.c>
   Header set Access-Control-Allow-Origin "*"
 
-  # HTML files MUST NEVER be cached to prevent stale JS bundle hash 404s
   <FilesMatch "\.(html|htm)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
 
-  # Static hashed assets can be cached safely
   <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|webmanifest|woff2)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 </IfModule>
 
-# Correct MIME Types for Favicons and Social Images
 <IfModule mod_mime.c>
   AddType image/svg+xml .svg
   AddType image/png .png
@@ -24,12 +23,6 @@
   AddType application/manifest+json .webmanifest
 </IfModule>
 
-# Single Page App Routing
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
+# IMPORTANT: no SPA RewriteRule here. Hostinger's Node.js web-app
+# integration routes the domain to server.cjs, whose Express catch-all
+# handles client-side routes after the /api/* routes.
