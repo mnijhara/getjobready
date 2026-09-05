@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 
+// Production grounding guard: keep generated interview content strictly source-backed.
 const path = 'src/main-v2.jsx';
 let source = fs.readFileSync(path, 'utf8');
 const questionsStart = source.indexOf('function generateTailoredCVQuestions(');
