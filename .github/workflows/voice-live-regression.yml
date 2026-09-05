@@ -1,0 +1,29 @@
+name: Live voice transcript regression
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/native-entry.jsx'
+      - 'src/voice-recognition-guard.js'
+      - 'scripts/voice-capture-regression.mjs'
+      - '.github/workflows/voice-live-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  voice-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run live voice transcript regression
+        run: node scripts/voice-capture-regression.mjs
