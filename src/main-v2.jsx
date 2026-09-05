@@ -2001,7 +2001,7 @@ function Module({id,career}){
     <p>{isAI?'Master practical AI frameworks that multiply your output by 3x in research, executive writing, data analysis, and workflow automation.':'Master the transition from campus to corporate: workplace communication, feedback loops, priority management, and executive presence.'}</p>
     
     <button className="primary" disabled={loading} onClick={runCoach} style={{marginTop:'8px',marginBottom:'20px'}}>
-     {loading?'Generating your tailored plan…':<>{isAI?'Build my 7-day AI sprint':'Build my corporate plan'} <ArrowRight size={18}/></>}
+     {loading?'Generating your tailored plan…':<>{isAI?'Build my 7-day plan (AI Workflows)':'Build my 7-day plan (Corporate Ready)'} <ArrowRight size={18}/></>}
     </button>
     {error&&<p role="alert" style={{color:'#e11d48',fontWeight:700}}>{error}</p>}
 
