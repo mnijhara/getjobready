@@ -229,7 +229,7 @@ async def run_audit():
             await page.wait_for_timeout(1200)
 
             print("\n>>> Stage 1D: Testing Impress the Interviewer Module")
-            impress_btn = page.locator("button:has-text('Impress the Interviewer'), text='Impress the Interviewer'").first
+            impress_btn = page.locator("text=Impress the Interviewer").first
             await impress_btn.click()
             await page.wait_for_timeout(1500)
 
@@ -255,7 +255,7 @@ async def run_audit():
             await page.wait_for_timeout(1000)
 
             print("\n>>> Stage 2A: Testing Corporate Ready Module")
-            corp_btn = page.locator("button:has-text('Corporate Ready'), text='Corporate Ready'").first
+            corp_btn = page.locator("text=Corporate Ready").first
             await corp_btn.click()
             await page.wait_for_timeout(1500)
 
@@ -272,7 +272,7 @@ async def run_audit():
             await page.wait_for_timeout(1000)
 
             print("\n>>> Stage 2B: Testing AI at Work Module")
-            ai_btn = page.locator("button:has-text('AI at Work'), text='AI at Work'").first
+            ai_btn = page.locator("text=AI at Work").first
             await ai_btn.click()
             await page.wait_for_timeout(1500)
 
