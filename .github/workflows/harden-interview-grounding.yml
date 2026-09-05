@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'scripts/harden-interview-grounding.mjs'
+      - 'src/main-v2.jsx'
   workflow_dispatch:
 
 permissions:
