@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/live-audit.mjs'
+      - 'scripts/student-api-audit.mjs'
       - '.github/workflows/chromium-live-audit.yml'
   workflow_dispatch:
 permissions:
@@ -42,7 +43,9 @@ jobs:
           open('/tmp/gjr-audit/dummy.txt','w').write('Alex Student\nComputer Science Student | alex@example.com\nEducation: B.Tech Computer Science, Example University\nProjects: Built a campus placement tracker using React and Supabase.\nSkills: React, JavaScript, SQL, Python')
           open('/tmp/gjr-audit/not-allowed.exe','wb').write(b'not a supported document')
           PY
-      - name: Run desktop + mobile Chromium audit
+      - name: Run Chromium API student journey
+        run: node scripts/student-api-audit.mjs
+      - name: Run desktop + mobile Chromium UI audit
         env:
           GJR_AUDIT_FILES: /tmp/gjr-audit
         run: node scripts/live-audit.mjs
