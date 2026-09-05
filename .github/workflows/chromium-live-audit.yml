@@ -6,6 +6,10 @@ on:
       - 'scripts/live-audit.mjs'
       - 'scripts/student-api-audit.mjs'
       - '.github/workflows/chromium-live-audit.yml'
+      - 'package.json'
+      - 'server.cjs'
+      - 'server.js'
+      - '.htaccess'
   workflow_dispatch:
 permissions:
   contents: read
