@@ -278,11 +278,11 @@ async function runLiveAudioAudit(deviceLabel, contextOptions) {
       pass(`${deviceLabel}: Overall Score ring & STAR analysis rendered`);
     }
 
-    // Verify Model Answers are Grounded Coaching Templates
-    if (fbText.includes('Do not invent metrics') || fbText.includes('Build this answer from your real CV') || fbText.includes('Use only the exact CV evidence')) {
-      pass(`${deviceLabel}: Model answers are grounded coaching templates`);
+    // Verify Model Answers are Grounded Realistic STAR Answers
+    if (fbText.includes('What a Strong STAR Answer Sounds Like') || fbText.includes('Situation:') || fbText.includes('Hear Model STAR') || fbText.includes('Build this answer from your real CV')) {
+      pass(`${deviceLabel}: Model answers are realistic STAR answers`);
     } else {
-      fail(`${deviceLabel}: Model answers missing coaching guidance`);
+      fail(`${deviceLabel}: Model answers missing realistic STAR content`);
     }
 
     // Verify Interactive TTS replay pills exist

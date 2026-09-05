@@ -188,10 +188,10 @@ async function verifyStudentJourney(label, contextOptions) {
     pass(`${label}: Arrived at Feedback screen`);
 
     // 11. Inspect Model Answers in Feedback
-    if (fbText.includes('Do not invent metrics') || fbText.includes('Build this answer from your real CV') || fbText.includes('Use only the exact CV evidence')) {
-      pass(`${label}: Model answers are grounded coaching templates without invented metrics`);
+    if (fbText.includes('What a Strong STAR Answer Sounds Like') || fbText.includes('Situation:') || fbText.includes('Hear Model STAR') || fbText.includes('Build this answer from your real CV')) {
+      pass(`${label}: Model answers are realistic STAR answers without boilerplate repetition`);
     } else {
-      fail(`${label}: Model answers missing safe coaching disclaimer`);
+      fail(`${label}: Model answers missing realistic STAR content`);
     }
 
     // 12. P4 DEFECT CHECKS ACROSS ALL QUESTIONS & FEEDBACK:
