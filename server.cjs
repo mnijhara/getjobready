@@ -86,6 +86,140 @@ app.post('/api/coach', async (req, res) => {
   try { return res.json(await generate(prompt)); } catch (error) { console.error('coach:', error.message); return res.status(503).json({ error: 'AI coaching is temporarily unavailable. Please retry in a moment.' }); }
 });
 
+app.post('/api/roleplay', async (req, res) => {
+  const body = req.body || {};
+  const message = String(body.message || body.candidateMessage || '').trim();
+  const scenario = String(body.scenario || body.scenarioId || 'criticism');
+  const history = body.history || body.messages || [];
+  const career = body.career || 'job';
+  const cv = body.cv || '';
+  if (!message) return res.status(400).json({ error: 'Message is required.' });
+  
+  const scenarios = {
+    criticism: {
+      persona: 'Vikram Mehta (Director of Operations / Practice Lead)',
+      context: 'Critical manager feedback dilemma. You gave sharp, urgent feedback on a deliverable that lacks depth and data citations. The student is answering you.'
+    },
+    'critical-feedback': {
+      persona: 'Vikram Mehta (Director of Operations / Practice Lead)',
+      context: 'Critical manager feedback dilemma. You gave sharp, urgent feedback on a deliverable that lacks depth and data citations. The student is answering you.'
+    },
+    bandwidth: {
+      persona: 'Sarah Chen (Senior Product Manager & Core Stakeholder)',
+      context: 'Overloaded bandwidth dilemma. You urgently asked the student to drop their priorities and compile an unvetted 10-page competitor benchmark deck by 4 PM.'
+    },
+    'overloaded-bandwidth': {
+      persona: 'Sarah Chen (Senior Product Manager & Core Stakeholder)',
+      context: 'Overloaded bandwidth dilemma. You urgently asked the student to drop their priorities and compile an unvetted 10-page competitor benchmark deck by 4 PM.'
+    },
+    pushback: {
+      persona: 'Rajesh Nair (VP of Commercial Operations)',
+      context: 'Public stakeholder pushback dilemma. You challenged their sales cycle recommendations claiming assumptions were theoretical and customer realities were ignored.'
+    },
+    'cross-functional-pushback': {
+      persona: 'Rajesh Nair (VP of Commercial Operations)',
+      context: 'Public stakeholder pushback dilemma. You challenged their sales cycle recommendations claiming assumptions were theoretical and customer realities were ignored.'
+    },
+    setback: {
+      persona: 'Elena Rostova (Head of Client Engagements / Partner)',
+      context: 'First milestone missed dilemma. The weekly synthesis report was not delivered to the client by 9 AM and the partner heard from the client first.'
+    },
+    'missed-deadline': {
+      persona: 'Elena Rostova (Head of Client Engagements / Partner)',
+      context: 'First milestone missed dilemma. The weekly synthesis report was not delivered to the client by 9 AM and the partner heard from the client first.'
+    }
+  };
+  
+  const activeScenario = scenarios[scenario] || scenarios.criticism;
+  const prompt = `You are running an interactive corporate resilience role-play training for a student in their ${career === 'internship' ? 'first internship' : 'first full-time corporate role'}.
+You are roleplaying as: ${activeScenario.persona}.
+Scenario Context: ${activeScenario.context}
+
+Recent conversation history:
+${JSON.stringify(Array.isArray(history) ? history.slice(-6) : [])}
+
+The student just replied:
+"${String(message).slice(0, 3000)}"
+
+Respond in character as ${activeScenario.persona}, while evaluating their emotional resilience, composure, ownership, and diplomacy.
+Return ONLY valid JSON with exactly these fields:
+- characterReply: (string) Your in-character response (2-3 sentences max). Stay realistic and firm but professional. If the student offered a clear, structured solution and took ownership without defensiveness, acknowledge it and guide toward next steps. If they were defensive, vague, or overly apologetic, press them constructively.
+- resilienceScore: (integer 0-100) How well they stayed calm, objective, and non-defensive under pressure.
+- diplomacyScore: (integer 0-100) Professionalism, tact, and constructive solution-focus.
+- whatWorked: (string) Specific strong element in their phrasing or attitude (1 sentence).
+- whatToImprove: (string) Constructive advice on what sounded defensive, weak, or unclear (1 sentence).
+- recommendedScript: (string) The exact executive word-for-word rephrase they could have used instead.
+- frameworkTip: (string) Practical resilience framework tip (e.g. ABCD model, Separating self from work, Trade-off matrix).
+- done: (boolean) true if the situation reached an agreed resolution, false if another turn is needed.`;
+
+  try {
+    const data = await generate(prompt, { maxOutputTokens: 1800 });
+    if (!data || typeof data !== 'object') throw new Error('Invalid roleplay response');
+    const reply = data.characterReply || data.reply || '';
+    const recScript = data.recommendedScript || data.executiveScript || '';
+    const frameTip = data.frameworkTip || data.reframingTip || '';
+    const rScore = Number(data.resilienceScore || data.score || 80);
+    const dScore = Number(data.diplomacyScore || Math.min(100, rScore + 4));
+    const coaching = {
+      score: rScore,
+      resilienceScore: rScore,
+      diplomacyScore: dScore,
+      whatWorked: data.whatWorked || 'Constructive communication.',
+      whatToImprove: data.whatToImprove || 'Ensure a clear timeline is provided.',
+      executiveScript: recScript,
+      reframingTip: frameTip
+    };
+    return res.json({
+      ...data,
+      characterReply: reply,
+      reply,
+      recommendedScript: recScript,
+      executiveScript: recScript,
+      frameworkTip: frameTip,
+      reframingTip: frameTip,
+      resilienceScore: rScore,
+      diplomacyScore: dScore,
+      score: rScore,
+      coaching
+    });
+  } catch (error) {
+    console.error('roleplay:', error.message);
+    const isDefensive = /not my fault|you didn't|wasn't me|confused by your|blame/i.test(message);
+    const acknowledges = /thank you|appreciate|ownership|fix|update|priority|by \d|pm|am/i.test(message);
+    const score = acknowledges && !isDefensive ? 85 : isDefensive ? 45 : 70;
+    const replyText = acknowledges
+      ? "I appreciate you addressing this head-on. Let's make sure the revised numbers are updated and verified. Please send me the updated draft before 3:45 PM so we can do a final review before leadership joins."
+      : "I hear your explanation, but right now the client partner is walking into that room in 45 minutes. What is the immediate contingency plan to get these deliverables client-ready?";
+    const script = '"Thank you for pointing that out clearly. I take full ownership. Here is what I will adjust immediately to prevent this, and I will share an updated draft by 4 PM for your quick review."';
+    const tip = "The ABCD Model: Separate your personal identity from the draft deliverable. Criticism of work is an invitation to refine the output.";
+    const coaching = {
+      score,
+      resilienceScore: score,
+      diplomacyScore: Math.min(95, score + 5),
+      whatWorked: acknowledges ? "You focused on the deliverable and offered a proactive timeline." : "You responded promptly to the critique.",
+      whatToImprove: isDefensive ? "Avoid defensive explanations that shift blame; focus immediately on what can be adjusted now." : "State an exact time commitment for when the revised version will be in their inbox.",
+      executiveScript: script,
+      reframingTip: tip
+    };
+
+    return res.json({
+      characterReply: replyText,
+      reply: replyText,
+      resilienceScore: score,
+      diplomacyScore: Math.min(95, score + 5),
+      score,
+      whatWorked: coaching.whatWorked,
+      whatToImprove: coaching.whatToImprove,
+      recommendedScript: script,
+      executiveScript: script,
+      frameworkTip: tip,
+      reframingTip: tip,
+      coaching,
+      done: acknowledges && !isDefensive
+    });
+  }
+});
+
 app.post('/api/demo', async (req, res) => {
   const { company = 'Target company', problem = '', idea = '' } = req.body || {};
   if (!problem.trim()) return res.status(400).json({ error: 'Describe the company problem first.' });

@@ -266,3 +266,80 @@ button.danger:hover { background: rgba(239,68,68,0.08) !important; }
   .journey-step-body strong { font-size: 13px; }
   .journey-step-body span { font-size: 11px; }
 }
+
+/* ─── Corporate Ready & Role-Play Chatbot ─── */
+.roleplay-tabs { display: flex; gap: 8px; background: #eceef6; padding: 5px; border-radius: 16px; margin-bottom: 22px; overflow-x: auto; scrollbar-width: none; border: 1px solid #e1e4ef; }
+.roleplay-tab-btn { flex: 1; border: 0; background: transparent; padding: 11px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #64748b; cursor: pointer; transition: all .18s ease; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 7px; }
+.roleplay-tab-btn.active { background: #ffffff; color: #12182a; font-weight: 800; box-shadow: 0 4px 14px rgba(23,30,49,.08); }
+.roleplay-tab-btn:hover:not(.active) { color: #1e293b; background: rgba(255,255,255,.4); }
+
+.scenario-picker { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.scenario-pill { border: 1.5px solid #e2e8f0; background: #ffffff; border-radius: 999px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: all .18s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.scenario-pill:hover { border-color: #cbd5e1; background: #f8fafc; }
+.scenario-pill.active { background: #6855e8; border-color: #6855e8; color: #ffffff; box-shadow: 0 4px 14px rgba(104,85,232,.25); }
+
+.roleplay-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 24px; box-shadow: 0 8px 30px rgba(17,24,43,.04); overflow: hidden; display: flex; flex-direction: column; }
+.roleplay-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: linear-gradient(135deg, #1e293b, #0f172a); color: #ffffff; }
+.roleplay-persona-info { display: flex; align-items: center; gap: 12px; }
+.roleplay-avatar { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,.12); display: grid; place-items: center; font-size: 22px; flex: none; }
+.roleplay-persona-text h4 { margin: 0; font: 800 15px Manrope; color: #ffffff; }
+.roleplay-persona-text p { margin: 2px 0 0; font-size: 11px; color: #94a3b8; }
+.roleplay-controls { display: flex; align-items: center; gap: 8px; }
+
+.chat-stream { padding: 20px; display: flex; flex-direction: column; gap: 16px; max-height: 480px; min-height: 280px; overflow-y: auto; background: #fbfcfe; }
+.chat-msg { display: flex; flex-direction: column; max-width: 88%; gap: 4px; }
+.chat-msg.character { align-self: flex-start; }
+.chat-msg.candidate { align-self: flex-end; }
+
+.chat-bubble { padding: 14px 18px; border-radius: 18px; font-size: 13.5px; line-height: 1.55; position: relative; }
+.chat-msg.character .chat-bubble { background: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-top-left-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.03); }
+.chat-msg.candidate .chat-bubble { background: linear-gradient(135deg, #6855e8, #5041c5); color: #ffffff; border-top-right-radius: 4px; box-shadow: 0 4px 16px rgba(104,85,232,.22); }
+.chat-meta { font-size: 10px; color: #94a3b8; padding: 0 4px; display: flex; align-items: center; gap: 6px; }
+
+.coaching-card { margin-top: 10px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 16px; padding: 16px; animation: screenFadeIn .25s ease; width: 100%; box-sizing: border-box; }
+.coaching-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f3e8ff; padding-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.coaching-title { font: 800 12px Manrope; text-transform: uppercase; letter-spacing: .08em; color: #7e22ce; display: flex; align-items: center; gap: 6px; }
+.coaching-scores { display: flex; gap: 8px; }
+.coach-score-badge { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: #ffffff; border: 1px solid #d8b4fe; color: #6b21a8; }
+.coaching-grid { display: grid; gap: 8px; font-size: 12.5px; color: #3b0764; }
+.coach-point { display: flex; align-items: flex-start; gap: 8px; line-height: 1.45; }
+.coach-script-box { background: #ffffff; border-left: 3px solid #9333ea; padding: 10px 12px; border-radius: 8px; margin-top: 6px; font-style: italic; color: #1e1b4b; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+.chat-input-area { padding: 14px 18px; border-top: 1px solid #e2e8f0; background: #ffffff; display: flex; flex-direction: column; gap: 10px; }
+.quick-chips-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.quick-chip { font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.quick-chip:hover { background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; }
+
+.chat-input-form { display: flex; gap: 8px; align-items: center; }
+.chat-input-box { flex: 1; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 12px 14px; font-size: 13.5px; outline: none; background: #f8fafc; transition: all .18s; color: #0f172a; }
+.chat-input-box:focus { border-color: #6855e8; background: #ffffff; box-shadow: 0 0 0 3px rgba(104,85,232,.12); }
+.chat-mic-btn { width: 44px; height: 44px; border-radius: 14px; border: 1px solid #e2e8f0; background: #ffffff; color: #64748b; display: grid; place-items: center; cursor: pointer; transition: all .18s; flex: none; }
+.chat-mic-btn.listening { background: #fee2e2; border-color: #fca5a5; color: #ef4444; animation: pulse 1.2s infinite; }
+.chat-mic-btn:hover:not(.listening) { background: #f1f5f9; color: #1e293b; }
+.chat-send-btn { border: 0; background: #171e31; color: #ffffff; border-radius: 14px; padding: 0 18px; height: 44px; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all .18s; flex: none; }
+.chat-send-btn:hover:not(:disabled) { background: #2d1d6a; transform: translateY(-1px); }
+.chat-send-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ─── Free Courses Hub ─── */
+.courses-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 16px; }
+.course-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,24,43,.04); transition: all .2s ease; }
+.course-card:hover { transform: translateY(-3px); border-color: #cbd5e1; box-shadow: 0 12px 28px rgba(17,24,43,.08); }
+.course-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.course-uni-badge { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #6855e8; background: rgba(104,85,232,.08); padding: 4px 10px; border-radius: 999px; }
+.course-free-pill { font-size: 10.5px; font-weight: 800; background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.course-card h3 { font: 800 17px/1.25 Manrope; color: #0f172a; margin: 0; }
+.course-meta { font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.course-desc { font-size: 12.5px; color: #475569; line-height: 1.55; margin: 0; }
+.course-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+.course-skill-tag { font-size: 10.5px; font-weight: 600; background: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 6px; }
+.course-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.course-instructor { font-size: 11px; color: #64748b; }
+.course-link-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #6855e8; text-decoration: none; padding: 6px 12px; border-radius: 10px; background: #f5f3ff; transition: all .15s; white-space: nowrap; }
+.course-link-btn:hover { background: #6855e8; color: #ffffff; }
+
+/* ─── Resilience Framework Cards ─── */
+.framework-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 16px; }
+.framework-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 18px; box-shadow: 0 4px 16px rgba(17,24,43,.03); }
+.framework-step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.framework-letter { width: 32px; height: 32px; border-radius: 10px; background: #ede9fe; color: #6855e8; font: 800 14px Manrope; display: grid; place-items: center; flex: none; }
+

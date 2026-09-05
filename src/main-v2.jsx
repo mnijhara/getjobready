@@ -1,6 +1,6 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
-import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,RefreshCw,Check,Folder,Plus,Trash2,Copy,ExternalLink,Download,Lightbulb,BookOpen}from'lucide-react';
+import{Upload,FileText,Target,Mic,ShieldCheck,Sparkles,ArrowRight,CheckCircle2,BriefcaseBusiness,ChevronRight,MessageSquareText,X,Headphones,Volume2,VolumeX,RefreshCw,Check,Folder,Plus,Trash2,Copy,ExternalLink,Download,Lightbulb,BookOpen,Send,AlertCircle,GraduationCap,Award}from'lucide-react';
 
 import'./styles.css';import'./voice.css';import'./mode-tabs.css';
 import { db } from './db.js';
@@ -1795,6 +1795,720 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImprov
 </div>
 }
 
+// ─── Corporate Ready & Feedback Resilience Data & Components ───
+const ROLEPLAY_SCENARIOS = [
+ {
+  id: 'critical-feedback',
+  name: 'Critical Manager Feedback',
+  persona: 'Vikram Mehta',
+  title: 'Director of Operations / Practice Lead',
+  avatar: '👔',
+  badge: 'Tough Director',
+  roleDesc: 'Demands rigorous data, direct answers, and immediate accountability without excuses.',
+  initialMessage: "I just reviewed the draft you submitted. Honestly, this isn't anywhere near executive-ready. The methodology lacks depth, the data citations are vague, and if I showed this to the VP tomorrow, we'd get torn apart. Walk me through why you thought this was ready to submit, and what you're going to do right now.",
+  chips: [
+   "Acknowledge gap & propose revised draft by 4 PM",
+   "Clarify missing criteria before touching the file",
+   "State assumptions used in this first iteration"
+  ]
+ },
+ {
+  id: 'overloaded-bandwidth',
+  name: 'Sarah Chen',
+  title: 'Senior Product Manager & Core Stakeholder',
+  avatar: '💼',
+  badge: 'Urgent Stakeholder',
+  roleDesc: 'Piles on urgent ad-hoc requests during peak delivery sprints without noticing your capacity.',
+  initialMessage: "Hey, I know you're tied up with the client deck due today, but leadership just asked for an urgent 10-page market competitor benchmark by 4 PM. I need you to drop whatever you're doing and take care of this immediately. Can I count on you?",
+  chips: [
+   "Present trade-off: Client deck vs Benchmark deck",
+   "Offer split delivery with tomorrow 9 AM completion",
+   "Ask manager to arbitrate sprint priority"
+  ]
+ },
+ {
+  id: 'cross-functional-pushback',
+  name: 'Rajesh Nair',
+  title: 'VP of Commercial Operations',
+  avatar: '📊',
+  badge: 'Skeptical Executive',
+  roleDesc: 'Questions junior recommendations and demands frontline, practical business grounding.',
+  initialMessage: "I looked at your latest recommendation slide claiming our sales cycle is inefficient. You haven't spent a single day shadowing customer calls. Why should we upend our sales rhythm based on an entry-level analyst's theoretical spreadsheet?",
+  chips: [
+   "Anchor to objective sales CRM cycle metrics",
+   "Propose co-shadowing 3 customer calls this week",
+   "Validate their frontline wisdom while sharing the bottleneck data"
+  ]
+ },
+ {
+  id: 'missed-deadline',
+  name: 'Elena Rostova',
+  title: 'Head of Client Engagements',
+  avatar: '🎯',
+  badge: 'Senior Partner',
+  roleDesc: 'Zero tolerance for surprises; expects instant proactive flags and decisive turnaround.',
+  initialMessage: "The client just emailed me asking where the weekly synthesis report is. It was supposed to be in their inbox at 9 AM sharp. Why am I hearing about this from the client instead of you, and what is our immediate recovery plan?",
+  chips: [
+   "Own mistake radically + provide 30-minute delivery ETA",
+   "Briefly state root cause without blaming tooling",
+   "Propose automated milestone alert to prevent recurrence"
+  ]
+ }
+];
+
+const FREE_COURSES = [
+ {
+  id: 'upenn-resilience',
+  title: 'Resilience in Times of High Uncertainty & Change',
+  university: 'Wharton / Univ. of Pennsylvania',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '12 Hours · Self-Paced',
+  instructor: 'Dr. Karen Reivich (Penn Resilience Academy)',
+  url: 'https://www.coursera.org/learn/resilience-uncertainty',
+  desc: 'Wharton’s premier evidence-based curriculum on emotional regulation, cognitive reframing, and maintaining composure during high-friction corporate restructuring and setbacks.',
+  skills: ['Cognitive Reframing', 'Stress Inoculation', 'Optimism Architecture', 'Burnout Immunity']
+ },
+ {
+  id: 'yale-wellbeing',
+  title: 'The Science of Well-Being & Executive Mindset',
+  university: 'Yale University',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '19 Hours · 100% Free',
+  instructor: 'Prof. Laurie Santos',
+  url: 'https://www.coursera.org/learn/the-science-of-well-being',
+  desc: 'Yale’s most legendary course. Demystifies psychological biases, overcomes imposter syndrome, and builds sustainable mental habits for demanding consulting and tech environments.',
+  skills: ['Psychological Agility', 'Imposter Syndrome Shield', 'Habit Engineering', 'Work-Life Anchors']
+ },
+ {
+  id: 'umich-negotiation',
+  title: 'Successful Negotiation: Essential Strategies & Skills',
+  university: 'University of Michigan',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '17 Hours · 100% Free',
+  instructor: 'Prof. George Siedel',
+  url: 'https://www.coursera.org/learn/negotiation-skills',
+  desc: 'Master the art of principled corporate negotiation, negotiating bandwidth and deadlines without creating animosity, and handling power imbalances with senior stakeholders.',
+  skills: ['BATNA Planning', 'Boundary Setting', 'Principled Influence', 'Conflict De-escalation']
+ },
+ {
+  id: 'leeds-communication',
+  title: 'Communication and Interpersonal Skills at Work',
+  university: 'University of Leeds',
+  platform: 'FutureLearn (Free Access)',
+  duration: '8 Hours · 100% Free',
+  instructor: 'Leeds Executive Leadership Faculty',
+  url: 'https://www.futurelearn.com/courses/communication-and-interpersonal-skills-at-work',
+  desc: 'Decode workplace subtext, deliver constructive upward feedback, master active listening, and calibrate tone for both remote Slack/Teams channels and executive boardrooms.',
+  skills: ['Active Listening', 'Tone Calibration', 'Cross-Cultural Presence', 'Upward Communication']
+ },
+ {
+  id: 'harvard-difficult-conversations',
+  title: 'How to Handle Difficult Conversations at Work',
+  university: 'Harvard Division of Continuing Education',
+  platform: 'Harvard DCE Executive Guide',
+  duration: 'Interactive Executive Playbook · Free',
+  instructor: 'Harvard Professional Development Faculty',
+  url: 'https://professional.dce.harvard.edu/blog/how-to-handle-difficult-conversations-at-work/',
+  desc: 'Harvard’s strategic playbook on approaching high-stakes friction, disarming defensiveness, separating emotional intent from business impact, and reaching mutual alignment.',
+  skills: ['Crucial Conversations', 'De-escalation', 'Empathetic Inversion', 'Executive Alignment']
+ },
+ {
+  id: 'google-project-execution',
+  title: 'Project Execution: Running the Project & Managing Risk',
+  university: 'Google Career Certificates',
+  platform: 'Coursera (Free Audit / Enrollment)',
+  duration: '22 Hours · 100% Free',
+  instructor: 'Google Senior Project Leadership',
+  url: 'https://www.coursera.org/learn/project-execution-google',
+  desc: 'Google’s internal playbook on status reporting, handling sudden roadblocks, communicating project delays before they escalate, and managing aggressive stakeholder scopes.',
+  skills: ['Escalation Protocols', 'RACI Accountability', 'Scope Creep Guardrails', 'Risk Communication']
+ }
+];
+
+function CorporateReadinessView({ career, cv }) {
+  const [activeTab, setActiveTab] = useState('roleplay');
+  const [selectedScenarioId, setSelectedScenarioId] = useState('critical-feedback');
+  const scenario = ROLEPLAY_SCENARIOS.find(s => s.id === selectedScenarioId) || ROLEPLAY_SCENARIOS[0];
+
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: scenario.initialMessage, time: 'Just now' }
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [latestCoaching, setLatestCoaching] = useState(null);
+  const [copiedKey, setCopiedKey] = useState('');
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+
+  const chatBottomRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  const selectScenario = (sc) => {
+    setSelectedScenarioId(sc.id);
+    setMessages([
+      { role: 'assistant', content: sc.initialMessage, time: 'Just now' }
+    ]);
+    setLatestCoaching(null);
+    setInputText('');
+    window.speechSynthesis?.cancel();
+    if (audioEnabled) {
+      speakMessage(sc.initialMessage);
+    }
+  };
+
+  const speakMessage = (text) => {
+    if (!audioEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      const v = getBestHumanVoice();
+      if (v) u.voice = v;
+      u.rate = 1.0;
+      u.pitch = 0.98;
+      window.speechSynthesis.speak(u);
+    } catch(e) {
+      console.warn('TTS error:', e);
+    }
+  };
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const toggleSpeechRecognition = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition is not supported in this browser. You can type your response!');
+      return;
+    }
+    try {
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+      rec.onstart = () => setIsListening(true);
+      rec.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        setInputText(prev => prev ? `${prev} ${transcript}` : transcript);
+      };
+      rec.onerror = (e) => {
+        console.warn('Speech rec error:', e);
+        setIsListening(false);
+      };
+      rec.onend = () => setIsListening(false);
+      recognitionRef.current = rec;
+      rec.start();
+    } catch(e) {
+      console.warn('Speech rec start failed:', e);
+      setIsListening(false);
+    }
+  };
+
+  const copyToClipboard = (text, key) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(''), 2500);
+    } catch(e) { console.warn('Clipboard copy failed:', e); }
+  };
+
+  const handleSendMessage = async (userText) => {
+    const text = (userText || inputText).trim();
+    if (!text || loading) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newMessages = [...messages, { role: 'user', content: text, time: timeStr }];
+    setMessages(newMessages);
+    setInputText('');
+    setLoading(true);
+
+    try {
+      let res;
+      try {
+        res = await post('/api/roleplay', {
+          scenarioId: scenario.id,
+          scenarioName: scenario.name,
+          persona: scenario.persona,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          candidateMessage: text,
+          career: career || 'Consultant'
+        });
+      } catch(err) {
+        console.warn('API call failed, using smart resilient fallback:', err);
+        const lower = text.toLowerCase();
+        let fallbackScore = 82;
+        let whatWorked = "Direct acknowledgment and maintaining professional composure.";
+        let whatToImprove = "Anchor on a concrete deliverable ETA and quantify the specific adjustments you are making.";
+        let script = `"Thank you for the direct feedback. Here is the concrete adjustment I will make immediately, and I will share an updated draft with you by 4 PM for a quick alignment check."`;
+        let reply = "That is a start. But walk me through the specific changes and how you will ensure this draft meets the bar before it reaches the client.";
+
+        if (lower.includes('apolog') || lower.includes('sorry')) {
+          fallbackScore = 68;
+          whatWorked = "Accountability and polite intent.";
+          whatToImprove = "Avoid over-apologizing in corporate environments. Senior leaders prefer proactive solutions, firm ETAs, and trade-off options rather than emotional apologies.";
+          script = `"Understood. I am recalibrating the model right away and will share the revised version with you at 3 PM."`;
+          reply = "I don't need apologies — I need a solid deliverable that won't get rejected by leadership. Give me your exact timeline.";
+        } else if (lower.includes('eta') || lower.includes('pm') || lower.includes('am') || lower.includes('priority') || lower.includes('trade')) {
+          fallbackScore = 92;
+          whatWorked = "Outstanding executive presence! You anchored on firm deadlines, clear prioritization, and actionable trade-offs.";
+          whatToImprove = "Include a brief milestone check-in 1 hour prior to final submission to confirm expectations.";
+          script = `"Understood. I will prioritize this immediately and share an intermediate draft with you at 2 PM before our 4 PM distribution deadline."`;
+          reply = "Good. Send me that draft as soon as it's ready, and make sure the core assumptions are clearly highlighted.";
+        }
+
+        res = {
+          reply,
+          coaching: {
+            score: fallbackScore,
+            diplomacyScore: Math.min(100, fallbackScore + 4),
+            resilienceScore: Math.min(100, fallbackScore - 2),
+            whatWorked,
+            whatToImprove,
+            executiveScript: script,
+            reframingTip: "Feedback is data about the deliverable, not a judgment on your worth. Respond with curiosity, clarity, and calm execution."
+          }
+        };
+      }
+
+      const botReply = res.reply || res.characterReply || "Thank you for the update.";
+      const coachingObj = res.coaching || {
+        score: res.score || res.resilienceScore || 80,
+        resilienceScore: res.resilienceScore || res.score || 80,
+        diplomacyScore: res.diplomacyScore || 85,
+        whatWorked: res.whatWorked,
+        whatToImprove: res.whatToImprove,
+        executiveScript: res.executiveScript || res.recommendedScript,
+        reframingTip: res.reframingTip || res.frameworkTip
+      };
+
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setMessages(prev => [...prev, { role: 'assistant', content: botReply, time: replyTime }]);
+      setLatestCoaching(coachingObj);
+      if (audioEnabled) {
+        speakMessage(botReply);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restartRoleplay = () => {
+    window.speechSynthesis?.cancel();
+    setMessages([
+      { role: 'assistant', content: scenario.initialMessage, time: 'Just now' }
+    ]);
+    setLatestCoaching(null);
+    setInputText('');
+    if (audioEnabled) {
+      speakMessage(scenario.initialMessage);
+    }
+  };
+
+  const abcdSteps = [
+    { letter: 'A', title: 'Adversity (Trigger)', desc: 'A senior partner or client sharply rejects your analysis or imposes an abrupt, high-stress deadline.' },
+    { letter: 'B', title: 'Automatic Belief', desc: 'The internal reflex: "They think I am incompetent / My career is slipping / I have to defend myself."' },
+    { letter: 'C', title: 'Consequence', desc: 'Defensive argument, frantic over-apologizing, or paralysis — all of which undermine executive credibility.' },
+    { letter: 'D', title: 'Disputation & Reframe', desc: '"This is feedback on the slide, not on my character. I will separate the emotional tone from the business facts and respond with a solution."' }
+  ];
+
+  const rules = [
+    { num: '01', title: 'Separate Tone from Substance', desc: 'Aggressive or curt feedback is often caused by executive stress or tight deadlines. Ignore the sharp tone, isolate the 2 core technical or business objections, and address those directly.' },
+    { num: '02', title: 'Never Say "No" Flat-Out — Present Trade-Offs', desc: 'When overloaded, saying "I can’t do that" sounds uncollaborative. Instead say: "I’m glad to tackle Project B. Currently Project A is due at 3 PM. Which should we prioritize, or can I deliver B tomorrow morning?"' },
+    { num: '03', title: 'Always Close with a Concrete ETA & Check-in', desc: 'Ambiguity creates anxiety for leaders. Always end with an exact hour and intermediate milestone: "I will incorporate this and share a revised draft by 3:30 PM for your quick nod."' }
+  ];
+
+  const dilemmaScripts = [
+    {
+      title: 'Critical Manager Feedback',
+      scenario: 'When a manager gives sharp, unexpected feedback on a deliverable.',
+      script: '"Thank you for pointing that out clearly. I appreciate the direct feedback on this deliverable. Here is what I will adjust immediately to prevent this next time, and I will share an updated draft by 4 PM today for your quick review."'
+    },
+    {
+      title: 'Managing Overloaded Bandwidth',
+      scenario: 'When asked to take on an urgent extra task while handling high-priority deadlines.',
+      script: '"I would be glad to help with Project B. Currently, my top priority is finishing Project A which is due at 3 PM. To ensure neither slips in quality, should we deprioritize Project A, or can I deliver Project B first thing tomorrow morning?"'
+    },
+    {
+      title: 'Weekly Executive Friday Update',
+      scenario: 'Proactive 3-bullet Friday status check-in to your manager.',
+      script: '"Hi [Manager], here is my quick Friday update:\n1. Delivered: Completed the Q3 analysis and shared findings with the core team.\n2. In Progress: Drafting the recommendation deck for stakeholder review (on track for Tuesday).\n3. Flag/Help needed: None currently — all systems clear for next week. Have a great weekend!"'
+    }
+  ];
+
+  return (
+    <div className="module-panel">
+      <span className="eyebrow">STAGE 2 · DAY-1 CORPORATE LAUNCHPAD</span>
+      <h2>Corporate Ready, Live Role-Play & Feedback Resilience</h2>
+      <p>Master high-pressure workplace conversations with live AI executive role-plays, real-time resilience coaching, and verified 100% free university courses from Wharton, Yale, and Michigan.</p>
+
+      {/* Navigation Tabs */}
+      <div className="roleplay-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'roleplay'}
+          className={`roleplay-tab-btn ${activeTab === 'roleplay' ? 'active' : ''}`}
+          onClick={() => setActiveTab('roleplay')}
+        >
+          <MessageSquareText size={16} /> Live Role-Play Simulator
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'frameworks'}
+          className={`roleplay-tab-btn ${activeTab === 'frameworks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('frameworks')}
+        >
+          <ShieldCheck size={16} /> Resilience Playbooks & Frameworks
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'courses'}
+          className={`roleplay-tab-btn ${activeTab === 'courses' ? 'active' : ''}`}
+          onClick={() => setActiveTab('courses')}
+        >
+          <GraduationCap size={16} /> Free University Courses (100% Free)
+        </button>
+      </div>
+
+      {/* TAB 1: LIVE ROLE-PLAY SIMULATOR */}
+      {activeTab === 'roleplay' && (
+        <div>
+          {/* Scenario Picker */}
+          <div className="scenario-picker">
+            {ROLEPLAY_SCENARIOS.map(sc => (
+              <button
+                key={sc.id}
+                type="button"
+                className={`scenario-pill ${selectedScenarioId === sc.id ? 'active' : ''}`}
+                onClick={() => selectScenario(sc)}
+              >
+                <span>{sc.avatar}</span>
+                <span>{sc.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Roleplay Chat Card */}
+          <div className="roleplay-card">
+            <div className="roleplay-header">
+              <div className="roleplay-persona-info">
+                <div className="roleplay-avatar">{scenario.avatar}</div>
+                <div className="roleplay-persona-text">
+                  <h4>{scenario.persona}</h4>
+                  <p>{scenario.title} · {scenario.roleDesc}</p>
+                </div>
+              </div>
+              <div className="roleplay-controls">
+                <button
+                  type="button"
+                  className="ghost-sm"
+                  title={audioEnabled ? 'Mute persona voice' : 'Enable persona voice'}
+                  onClick={() => {
+                    const next = !audioEnabled;
+                    setAudioEnabled(next);
+                    if (!next) window.speechSynthesis?.cancel();
+                  }}
+                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(255,255,255,0.08)' }}
+                >
+                  {audioEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                  <span style={{ fontSize: '11px' }}>{audioEnabled ? 'Audio On' : 'Audio Muted'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ghost-sm"
+                  title="Restart role-play"
+                  onClick={restartRoleplay}
+                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(255,255,255,0.08)' }}
+                >
+                  <RefreshCw size={14} />
+                  <span style={{ fontSize: '11px' }}>Restart</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Stream */}
+            <div className="chat-stream">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`chat-msg ${m.role === 'assistant' ? 'character' : 'candidate'}`}>
+                  <div className="chat-bubble">
+                    {m.content}
+                  </div>
+                  <div className="chat-meta">
+                    <span>{m.role === 'assistant' ? scenario.persona : 'You (Candidate)'}</span>
+                    <span>·</span>
+                    <span>{m.time}</span>
+                    {m.role === 'assistant' && (
+                      <button
+                        type="button"
+                        onClick={() => speakMessage(m.content)}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6855e8', padding: '0 4px', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}
+                        title="Replay message audio"
+                      >
+                        <Volume2 size={11} /> Replay
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {loading && (
+                <div className="chat-msg character">
+                  <div className="chat-bubble" style={{ color: '#64748b', fontStyle: 'italic' }}>
+                    {scenario.persona} is responding and analyzing your executive presence...
+                  </div>
+                </div>
+              )}
+
+              {/* Latest Coaching Evaluation Card */}
+              {latestCoaching && (
+                <div className="coaching-card">
+                  <div className="coaching-header">
+                    <div className="coaching-title">
+                      <Award size={16} /> Instant Resilience Coaching & Evaluation
+                    </div>
+                    <div className="coaching-scores">
+                      <div className="coach-score-badge">
+                        Resilience: <b>{latestCoaching.resilienceScore || latestCoaching.score || 85}</b>/100
+                      </div>
+                      <div className="coach-score-badge" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}>
+                        Diplomacy: <b>{latestCoaching.diplomacyScore || 88}</b>/100
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="coaching-grid">
+                    {latestCoaching.whatWorked && (
+                      <div className="coach-point">
+                        <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div><b>What Worked:</b> {latestCoaching.whatWorked}</div>
+                      </div>
+                    )}
+                    {latestCoaching.whatToImprove && (
+                      <div className="coach-point">
+                        <AlertCircle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div><b>Refine for Executive Impact:</b> {latestCoaching.whatToImprove}</div>
+                      </div>
+                    )}
+                    {latestCoaching.reframingTip && (
+                      <div className="coach-point">
+                        <Lightbulb size={16} color="#7c3aed" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div><b>Cognitive Reframe:</b> {latestCoaching.reframingTip}</div>
+                      </div>
+                    )}
+                    {latestCoaching.executiveScript && (
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#6b21a8', marginTop: '6px', textTransform: 'uppercase' }}>
+                          Ideal Executive Word-For-Word Rephrase:
+                        </div>
+                        <div className="coach-script-box">
+                          <span>{latestCoaching.executiveScript}</span>
+                          <button
+                            type="button"
+                            className="ghost-sm"
+                            onClick={() => copyToClipboard(latestCoaching.executiveScript, 'coach-script')}
+                            style={{ cursor: 'pointer', flexShrink: 0 }}
+                          >
+                            {copiedKey === 'coach-script' ? <><Check size={13} color="#10b981" /> Copied</> : <><Copy size={13} /> Copy</>}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Quick Starters & Input Area */}
+            <div className="chat-input-area">
+              <div className="quick-chips-bar">
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', alignSelf: 'center', whiteSpace: 'nowrap' }}>Suggested Starters:</span>
+                {scenario.chips.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="quick-chip"
+                    onClick={() => {
+                      setInputText(chip);
+                    }}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              <form
+                className="chat-input-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage();
+                }}
+              >
+                <button
+                  type="button"
+                  className={`chat-mic-btn ${isListening ? 'listening' : ''}`}
+                  onClick={toggleSpeechRecognition}
+                  title={isListening ? 'Stop listening' : 'Click to speak (Voice Recognition)'}
+                >
+                  <Mic size={18} />
+                </button>
+                <input
+                  type="text"
+                  className="chat-input-box"
+                  placeholder="Type your response or click the microphone to speak..."
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  className="chat-send-btn"
+                  disabled={!inputText.trim() || loading}
+                >
+                  <Send size={15} />
+                  <span>Send</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: RESILIENCE FRAMEWORKS & PLAYBOOKS */}
+      {activeTab === 'frameworks' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            <span className="eyebrow" style={{ color: '#6855e8' }}>PSYCHOLOGICAL ARCHITECTURE</span>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>The ABCD Model of Workplace Resilience</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Developed by cognitive psychologists to break the automatic panic cycle when facing abrupt managerial criticism or unexpected setbacks.</p>
+          </div>
+
+          <div className="framework-grid">
+            {abcdSteps.map((step, idx) => (
+              <div key={idx} className="framework-card">
+                <div className="framework-step">
+                  <div className="framework-letter">{step.letter}</div>
+                  <div>
+                    <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>{step.title}</strong>
+                    <p style={{ fontSize: '12.5px', color: '#475569', margin: '4px 0 0', lineHeight: '1.5' }}>{step.desc}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '28px', marginBottom: '14px' }}>
+            <span className="eyebrow" style={{ color: '#0ea5e9' }}>CORE PRINCIPLES</span>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>The 3 Golden Rules of Executive Composure</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>How elite analysts and consultants communicate under high stakes and aggressive pushback.</p>
+          </div>
+
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {rules.map((r, idx) => (
+              <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px 20px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '20px', fontWeight: 800, color: '#6855e8', lineHeight: 1 }}>{r.num}</span>
+                <div>
+                  <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>{r.title}</h4>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.55' }}>{r.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '28px', marginBottom: '14px' }}>
+            <span className="eyebrow" style={{ color: '#10b981' }}>BATTLE-TESTED SCRIPTS</span>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>Word-For-Word Crisis Scripts</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Keep these exact formulas handy for sudden difficult conversations.</p>
+          </div>
+
+          <div style={{ display: 'grid', gap: '14px' }}>
+            {dilemmaScripts.map((d, idx) => (
+              <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '18px', boxShadow: '0 2px 10px rgba(0,0,0,.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#6855e8', textTransform: 'uppercase' }}>{d.title}</span>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: '2px 0 10px' }}>{d.scenario}</p>
+                  </div>
+                  <button type="button" className="ghost-sm" onClick={() => copyToClipboard(d.script, `script-${idx}`)} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {copiedKey === `script-${idx}` ? <><Check size={14} color="#10b981" /> Copied!</> : <><Copy size={14} /> Copy script</>}
+                  </button>
+                </div>
+                <div style={{ background: '#f8fafc', borderLeft: '3px solid #6855e8', padding: '12px 14px', borderRadius: '6px', fontSize: '13px', fontStyle: 'italic', color: '#1e293b', lineHeight: '1.5' }}>
+                  {d.script}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: VERIFIED FREE ONLINE COURSES */}
+      {activeTab === 'courses' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            <span className="eyebrow" style={{ color: '#16a34a' }}>TOP UNIVERSITY CURATED AUDIT</span>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, margin: '4px 0' }}>Verified 100% Free Online Courses & Guides</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>All courses below offer full free audit/access so students can master resilience, negotiation, and high-impact workplace communication without paying tuition fees.</p>
+          </div>
+
+          <div className="courses-grid">
+            {FREE_COURSES.map(c => (
+              <div key={c.id} className="course-card">
+                <div className="course-head">
+                  <span className="course-uni-badge">{c.university}</span>
+                  <span className="course-free-pill">100% Free</span>
+                </div>
+                <h3>{c.title}</h3>
+                <div className="course-meta">
+                  <span>🏛️ {c.platform}</span>
+                  <span>⏱️ {c.duration}</span>
+                </div>
+                <p className="course-desc">{c.desc}</p>
+                <div className="course-skills">
+                  {c.skills.map((s, idx) => (
+                    <span key={idx} className="course-skill-tag">{s}</span>
+                  ))}
+                </div>
+                <div className="course-foot">
+                  <span className="course-instructor">{c.instructor}</span>
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="course-link-btn"
+                  >
+                    Start Free Course <ExternalLink size={13} />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Module({id,career}){
  useLayoutEffect(()=>{
   scrollToTop();
@@ -1807,6 +2521,10 @@ function Module({id,career}){
  const[copiedKey,setCopiedKey]=useState('');
 
  const cv=readSession('gjr_cv_text','');
+
+ if (id === 'readiness') {
+  return <CorporateReadinessView career={career} cv={cv} />;
+ }
 
  const copyToClipboard=(text,key)=>{
   try{
@@ -1858,39 +2576,22 @@ function Module({id,career}){
   try{
    let d;
    try{
-    d=await post('/api/coach',{module:id==='ai'?'ai':'corporate',context:cv,career});
+    d=await post('/api/coach',{module:'ai',context:cv,career});
    }catch(e){
-    if(id==='ai'){
-     d={
-      diagnosis:'Accelerate your daily workflow with practical, responsible AI prompting.',
-      score:82,
-      weeklyHabit:'Use structured prompt frameworks (Context + Task + Constraints + Format) for all non-confidential deliverables.',
-      sevenDayPlan:[
-       'Day 1: Audit repetitive daily writing and summarize 3 workflows with AI.',
-       'Day 2: Draft an executive memo using the Situation-Complication-Question-Answer framework.',
-       'Day 3: Transform raw meeting transcripts into a clean RACI decision table.',
-       'Day 4: Run exploratory data anomaly analysis and highlight outliers.',
-       'Day 5: Scaffold clean code functions and generate 5 unit test cases.',
-       'Day 6: Refine executive communication tone for diplomatic firmness.',
-       'Day 7: Establish personal verification guardrails to eliminate hallucination risks.'
-      ]
-     };
-    }else{
-     d={
-      diagnosis:'Bridge the campus-to-corporate gap with clear updates and high feedback resilience.',
-      score:78,
-      weeklyHabit:'Deliver one crisp, 3-point outcome update to your manager every Friday afternoon.',
-      sevenDayPlan:[
-       'Day 1: Replace ambiguous filler phrases with direct, bottom-line answers.',
-       'Day 2: Structure all check-ins using What happened / So what / What now.',
-       'Day 3: Solicit proactive feedback: "What is 1 thing I should stop, start, or continue?"',
-       'Day 4: Categorize high-pressure deadlines into Urgent vs High-Leverage priorities.',
-       'Day 5: Practice graceful boundary management without saying flat-out no.',
-       'Day 6: Circulate concise 3-bullet meeting recaps with clear RACI ownership.',
-       'Day 7: Maintain a private weekly brag sheet quantifying your business outputs.'
-      ]
-     };
-    }
+    d={
+     diagnosis:'Accelerate your daily workflow with practical, responsible AI prompting.',
+     score:82,
+     weeklyHabit:'Use structured prompt frameworks (Context + Task + Constraints + Format) for all non-confidential deliverables.',
+     sevenDayPlan:[
+      'Day 1: Audit repetitive daily writing and summarize 3 workflows with AI.',
+      'Day 2: Draft an executive memo using the Situation-Complication-Question-Answer framework.',
+      'Day 3: Transform raw meeting transcripts into a clean RACI decision table.',
+      'Day 4: Run exploratory data anomaly analysis and highlight outliers.',
+      'Day 5: Scaffold clean code functions and generate 5 unit test cases.',
+      'Day 6: Refine executive communication tone for diplomatic firmness.',
+      'Day 7: Establish personal verification guardrails to eliminate hallucination risks.'
+     ]
+    };
    }
    setData(d);
   }finally{setLoading(false)}
@@ -1942,7 +2643,7 @@ function Module({id,career}){
   }catch(err){console.warn('Could not download:',err)}
  };
 
- if(id==='readiness'||id==='ai'){
+ if(id==='ai'){
   const isAI=id==='ai';
   const dilemmas=[
    {
