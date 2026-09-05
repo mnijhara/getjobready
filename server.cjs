@@ -89,7 +89,7 @@ app.post('/api/coach', async (req, res) => {
 app.post('/api/demo', async (req, res) => {
   const { company = 'Target company', problem = '', idea = '' } = req.body || {};
   if (!problem.trim()) return res.status(400).json({ error: 'Describe the company problem first.' });
-  try { return res.json(await generate(`You are a product strategist helping a student impress a corporate interviewer. Analyse the company problem and create a credible product concept. Return ONLY valid JSON with: title, tagline, users, impact, pitch (array of 4 bullets), html. The html must be a complete self-contained polished HTML document, inline CSS only, responsive, no external assets. Company: ${String(company).slice(0,500)}. Problem: ${String(problem).slice(0,12000)}. Candidate idea: ${String(idea).slice(0,5000)}`)); }
+  try { return res.json(await generate(`You are a product strategist helping a student impress a corporate interviewer. Analyse the company problem and create a credible product concept. Return ONLY valid JSON with: title, tagline, users, impact, pitch (array of 4 bullets), html. The html must be a complete self-contained polished interactive HTML document, inline CSS only, responsive, no external assets. It must include an interactive "Simulate Workflow" button with an inline <script> that demonstrates an in-page animated workflow progression, updating DOM status, logs, or metrics visually when clicked (do NOT use alert()). Company: ${String(company).slice(0,500)}. Problem: ${String(problem).slice(0,12000)}. Candidate idea: ${String(idea).slice(0,5000)}`)); }
   catch (error) { console.error('demo:', error.message); return res.status(503).json({ error: 'AI prototype generation is temporarily unavailable. Please retry in a moment.' }); }
 });
 
