@@ -62,19 +62,17 @@ var require_ai_router = __commonJS({
     async function generate2(prompt, options = {}) {
       if (!configured()) throw Object.assign(new Error("AI_NOT_CONFIGURED"), { code: "AI_NOT_CONFIGURED" });
       if (Date.now() < workerCooldownUntil) throw new Error("AI_PROXY_COOLDOWN");
-      const suppliedParts = options.parts || [{ text: prompt }];
-      const parts = suppliedParts.filter((part, index) => !(index === 0 && part?.text === prompt));
+      const suppliedParts = options.parts || (prompt ? [{ text: prompt }] : []);
+      const allParts = suppliedParts.length ? suppliedParts : [{ text: prompt || "" }];
       const model = options.model || DEFAULT_MODEL;
       const generationConfig = {
         responseMimeType: options.responseMimeType || "application/json",
         maxOutputTokens: options.maxOutputTokens || 6e3
       };
       const body = {
-        prompt,
         model,
-        contents: parts.length ? [{ parts }] : [],
-        generationConfig,
-        json: options.json !== false
+        contents: [{ role: "user", parts: allParts }],
+        generationConfig
       };
       workerRequests += 1;
       lastWorkerUse = Date.now();
@@ -291,7 +289,7 @@ app.post("/api/demo", async (req, res) => {
   const { company = "Target company", problem = "", idea = "" } = req.body || {};
   if (!problem.trim()) return res.status(400).json({ error: "Describe the company problem first." });
   try {
-    return res.json(await generate(`You are a product strategist helping a student impress a corporate interviewer. Analyse the company problem and create a credible product concept. Return ONLY valid JSON with: title, tagline, users, impact, pitch (array of 4 bullets), html. The html must be a complete self-contained polished HTML document, inline CSS only, responsive, no external assets. Company: ${String(company).slice(0, 500)}. Problem: ${String(problem).slice(0, 12e3)}. Candidate idea: ${String(idea).slice(0, 5e3)}`));
+    return res.json(await generate(`You are a product strategist helping a student impress a corporate interviewer. Analyse the company problem and create a credible product concept. Return ONLY valid JSON with: title, tagline, users, impact, pitch (array of 4 bullets), html. The html must be a complete self-contained polished interactive HTML document, inline CSS only, responsive, no external assets. It must include an interactive "Simulate Workflow" button with an inline <script> that demonstrates an in-page animated workflow progression, updating DOM status, logs, or metrics visually when clicked (do NOT use alert()). Company: ${String(company).slice(0, 500)}. Problem: ${String(problem).slice(0, 12e3)}. Candidate idea: ${String(idea).slice(0, 5e3)}`));
   } catch (error) {
     console.error("demo:", error.message);
     return res.status(503).json({ error: "AI prototype generation is temporarily unavailable. Please retry in a moment." });
