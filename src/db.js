@@ -120,8 +120,10 @@ export const db = {
     return '';
   },
   saveMasterCV: (text) => {
+    const clean = String(text || '').trim();
+    if (!clean) return;
     const key = `gjr_master_cv_${getEmailKey()}`;
-    localStorage.setItem(key, text);
+    localStorage.setItem(key, clean);
 
     getCloudUserId().then(async uid => {
       if (uid) {
@@ -130,7 +132,7 @@ export const db = {
           await supabase.from('master_cvs').insert({
             user_id: uid,
             title: 'Master CV',
-            source_text: text,
+            source_text: clean,
             parsed_data: { source: 'workspace', email: getProfileEmail() },
             is_current: true
           });

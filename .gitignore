@@ -3,3 +3,5 @@ node_modules
 screenshots
 live_audit_report.md
 scripts/live_audit.mjs
+scratch/
+audit-*.json

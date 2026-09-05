@@ -638,14 +638,16 @@ function App(){
   }
  };
  const saveFinal=text=>{
-  setCv(text);
-  saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',text);saveSession('gjr_cv_text',text);
+  const finalText = String(text || '').trim() || String(cv || '').trim() || db.getMasterCV() || readSession('gjr_cv_text', '');
+  if (!finalText) return;
+  setCv(finalText);
+  saveSession('gjr_cv_ready','1');saveSession('gjr_cv_improved',finalText);saveSession('gjr_cv_text',finalText);
   const targetId=appId||Date.now().toString();
   setAppId(targetId);
   if(appId==='master'){
-   db.saveMasterCV(text);
+   db.saveMasterCV(finalText);
   }else if(profile){
-   db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':'Custom Application'),cv:text,score:result?.score,jd,result});
+   db.saveApplication({id:targetId,role:roleName||(prep==='general'?'General CV':'Custom Application'),cv:finalText,score:result?.score,jd,result});
   }
  };
 
@@ -1103,16 +1105,17 @@ function renderExecutivePDF(p){
 
 /* ─── CV STUDIO COMPONENT ───────────────────────────────────── */
 function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,onCustomRoleInterview}){
- const[parsed,setParsed]=useState(()=>parseCV(String(initial||'')));
- const[suggestions,setSuggestions]=useState(()=>generateSuggestions(parseCV(String(initial||'')),jd||''));
+ const sourceCV = String(initial || '').trim() || db.getMasterCV() || readSession('gjr_cv_text', '');
+ const[parsed,setParsed]=useState(()=>parseCV(sourceCV));
+ const[suggestions,setSuggestions]=useState(()=>generateSuggestions(parseCV(sourceCV),jd||''));
  const[checked,setChecked]=useState(()=>{
-  const s=generateSuggestions(parseCV(String(initial||'')),jd||'');
+  const s=generateSuggestions(parseCV(sourceCV),jd||'');
   return new Set(s.filter(x=>x.checked).map(x=>x.id));
  });
  const[applied,setApplied]=useState(false);
  const[builtCV,setBuiltCV]=useState(null);
  const[showEdit,setShowEdit]=useState(false);
- const[editText,setEditText]=useState(()=>cleanExtractedCVText(String(initial||'')));
+ const[editText,setEditText]=useState(()=>cleanExtractedCVText(sourceCV));
  const[previewKey,setPreviewKey]=useState(0);
  const[showTargetModal,setShowTargetModal]=useState(false);
  const[targetCompany,setTargetCompany]=useState('');
