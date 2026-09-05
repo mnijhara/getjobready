@@ -21,7 +21,6 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/harden-interview-grounding.mjs
-      - run: node --check src/main-v2.jsx
       - run: npm install
       - run: npm run build
       - name: Commit hardened product
