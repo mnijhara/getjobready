@@ -10,16 +10,21 @@ function cleanEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function localProfile(email) {
+function localProfile() {
   try { return JSON.parse(localStorage.getItem('gjr_profile') || 'null'); } catch { return null; }
 }
 
 function saveLocalProfile(email) {
-  const old = localProfile(email);
+  const old = localProfile();
   localStorage.setItem('gjr_profile', JSON.stringify({
     email,
     joined: old?.joined || new Date().toISOString()
   }));
+}
+
+function localKey(prefix) {
+  const email = cleanEmail(localProfile()?.email);
+  return `${prefix}_${email ? email.replace(/[^a-z0-9]/g, '_') : 'default'}`;
 }
 
 function toast(message, ok = true) {
@@ -75,10 +80,7 @@ async function sendMagicLink(email) {
   }
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: {
-      emailRedirectTo: window.location.origin,
-      shouldCreateUser: true
-    }
+    options: { emailRedirectTo: window.location.origin, shouldCreateUser: true }
   });
   if (error) {
     logEvent('auth_link_error', {}, 'error', error.message);
@@ -94,8 +96,7 @@ async function sendMagicLink(email) {
 
 function patchLoginCopy() {
   const replace = () => {
-    const nodes = [...document.querySelectorAll('p,span,small')];
-    for (const node of nodes) {
+    for (const node of document.querySelectorAll('p,span,small')) {
       if (node.textContent?.includes("We'll save your CVs and interview history securely on your device.")) {
         node.textContent = 'Your CV, applications and interview history will sync securely across your devices.';
       }
@@ -113,8 +114,8 @@ const originalSaveApplication = db.saveApplication.bind(db);
 const originalSaveInterview = db.saveInterview.bind(db);
 const originalSyncFromCloud = db.syncFromCloud?.bind(db);
 
-// Before real authentication exists, keep data local and never manufacture a fake UUID.
-db.saveProfile = (email) => {
+// Replace the legacy email-only profile with a real passwordless Supabase account flow.
+db.saveProfile = email => {
   const clean = cleanEmail(email);
   if (!clean || !clean.includes('@')) return;
   saveLocalProfile(clean);
@@ -132,11 +133,9 @@ db.saveProfile = (email) => {
   });
 };
 
+// Before authentication, persist only to this device. Once authenticated, upload through the original Supabase-backed methods.
 db.saveMasterCV = text => {
-  const key = (() => {
-    try { const p = JSON.parse(localStorage.getItem('gjr_profile') || 'null'); return `gjr_master_cv_${p?.email ? p.email.toLowerCase().trim().replace(/[^a-z0-9]/g,'_') : 'default'}`; } catch { return 'gjr_master_cv_default'; }
-  })();
-  if (String(text || '').trim()) localStorage.setItem(key, String(text).trim());
+  if (String(text || '').trim()) localStorage.setItem(localKey('gjr_master_cv'), String(text).trim());
   currentSession().then(session => {
     if (session?.user) return originalSaveMasterCV(text);
     logEvent('cloud_write_deferred', {entity:'master_cv'});
@@ -144,33 +143,44 @@ db.saveMasterCV = text => {
 };
 
 db.saveApplication = app => {
-  const id = originalSaveApplication(app);
+  const updated = { ...app, id: app?.id || Date.now().toString(), updated: new Date().toISOString() };
+  const key = localKey('gjr_apps');
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+  const i = list.findIndex(x => x.id === updated.id);
+  if (i >= 0) list[i] = { ...list[i], ...updated }; else list.push(updated);
+  localStorage.setItem(key, JSON.stringify(list));
   currentSession().then(session => {
     if (session?.user) return originalSaveApplication(app);
     logEvent('cloud_write_deferred', {entity:'application'});
   }).catch(error => logEvent('cloud_write_error', {entity:'application'}, 'error', error?.message || 'Application sync failed'));
-  return id;
+  return updated.id;
 };
 
 db.saveInterview = interview => {
-  originalSaveInterview(interview);
+  const updated = { ...interview, id: interview?.id || Date.now().toString(), date: new Date().toISOString() };
+  const key = localKey('gjr_interviews');
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+  list.unshift(updated);
+  localStorage.setItem(key, JSON.stringify(list));
   currentSession().then(session => {
     if (session?.user) return originalSaveInterview(interview);
     logEvent('cloud_write_deferred', {entity:'interview'});
   }).catch(error => logEvent('cloud_write_error', {entity:'interview'}, 'error', error?.message || 'Interview sync failed'));
 };
 
-// These endpoints no longer exist on the server. Supabase is the cloud source of truth.
+// The old REST endpoints are not deployed; Supabase is now the only cloud source of truth.
 db.syncServerData = async () => null;
 db.pushServerData = async () => null;
 
 if (originalSyncFromCloud) {
   db.syncFromCloud = async () => {
-    const result = await originalSyncFromCloud();
+    const first = await originalSyncFromCloud();
     await new Promise(resolve => setTimeout(resolve, 500));
     const settled = await originalSyncFromCloud();
     logEvent('cloud_sync_complete');
-    return settled || result;
+    return settled || first;
   };
 }
 
@@ -182,11 +192,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   if (pending) localStorage.removeItem(PENDING_EMAIL);
   logEvent('auth_state_change', {event});
   await ensureAuthenticatedProfile(session, email);
-  try {
-    await db.syncFromCloud();
-  } catch (error) {
-    logEvent('cloud_sync_error', {}, 'error', error?.message || 'Cloud sync failed');
-  }
+  try { await db.syncFromCloud(); }
+  catch (error) { logEvent('cloud_sync_error', {}, 'error', error?.message || 'Cloud sync failed'); }
 });
 
 setTimeout(patchLoginCopy, 300);
