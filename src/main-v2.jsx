@@ -36,6 +36,22 @@ function scrollToTop(){
  }
 }
 
+function scrollToElement(target,options={}){
+ if(typeof document==='undefined')return;
+ const el=typeof target==='string'?document.querySelector(target):target;
+ if(!el)return;
+ const{offset=80,behavior='smooth'}=options;
+ const scrollY=window.pageYOffset!==undefined?window.pageYOffset:(document.documentElement||document.body.parentNode||document.body).scrollTop;
+ const top=el.getBoundingClientRect().top+scrollY-offset;
+ try{
+  window.scrollTo({top:Math.max(0,top),behavior});
+ }catch{
+  try{
+   el.scrollIntoView({behavior,block:'start'});
+  }catch{}
+ }
+}
+
 async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const ct=r.headers.get('content-type')||'';if(!ct.includes('application/json')){throw new Error('API unavailable')}const text=await r.text();if(!text||text.startsWith('<!doctype')||text.startsWith('<html')){throw new Error('API unavailable')}let data;try{data=JSON.parse(text)}catch(e){throw new Error('API unavailable')}if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);return data}
 
 async function pdfText(file){
@@ -595,6 +611,11 @@ function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInter
  const delIv=id=>{if(!confirm('Delete this interview report?'))return;db.deleteInterview(id);setInterviews(db.getInterviews())};
  const hasMaster=!!masterCV;
 
+  const handleTab=t=>{
+   setTab(t);
+   setTimeout(()=>scrollToElement('.dash-tabs',{offset:80,behavior:'smooth'}),50);
+  };
+
  return <div className="dashboard">
   <div className="dash-head">
    <div><span className="eyebrow">YOUR WORKSPACE</span><h2>Welcome back, <em>{profile.email.split('@')[0]}</em> 👋</h2><p className="sub">Your preparation hub — CVs, interviews, feedback all in one place.</p></div>
@@ -620,8 +641,8 @@ function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInter
   </div>
 
   <div className="dash-tabs">
-   <button className={tab==='apps'?'selected':''} onClick={()=>setTab('apps')}>📁 My Applications <span className="tab-count">{apps.length}</span></button>
-   <button className={tab==='interviews'?'selected':''} onClick={()=>setTab('interviews')}>🎙️ Interview History <span className="tab-count">{interviews.length}</span></button>
+   <button className={tab==='apps'?'selected':''} onClick={()=>handleTab('apps')}>📁 My Applications <span className="tab-count">{apps.length}</span></button>
+   <button className={tab==='interviews'?'selected':''} onClick={()=>handleTab('interviews')}>🎙️ Interview History <span className="tab-count">{interviews.length}</span></button>
   </div>
 
   {tab==='apps'&&<div className="dash-grid">
@@ -912,8 +933,12 @@ function Prep({prep,setPrep,cv,setCv,jd,setJd,cvFile,jdFile,parseFile,clearFile,
   {label:'Asian Paints · Marketing',jd:'Brand Management Trainee: Market segmentation, consumer insights, digital campaign ROI, competitive positioning, channel strategy and product launches. Require strategic thinking, creative problem solving and data-driven marketing decisions.'},
   {label:'Amazon · Analytics',jd:'Business & Product Analyst: SQL/Data analysis, metric tracking, user funnel optimization, cross-functional collaboration and customer-centric problem solving. Require structured problem solving, quantitative storytelling and bias for action.'}
  ];
- const applyPreset=p=>{setJd(p.jd);saveSession('gjr_jd_text',p.jd)};
- return <><div className="mode-switch"role="tablist"><button className={prep==='general'?'selected':''}onClick={()=>setPrep('general')}><span>📄</span><b>General CV</b>{prep==='general'&&<Check size={16}/>}</button><button className={prep==='specific'?'selected':''}onClick={()=>setPrep('specific')}><span>🎯</span><b>CV + specific JD</b>{prep==='specific'&&<Check size={16}/>}</button></div><div className="form-grid"><div className="input-card"><div className="label"><FileText size={17}/> Your CV</div><label className="dropzone"><Upload size={27}/><b>{cvFile?.name||'Upload your CV'}</b><span>{cvFile?'CV loaded · ready for review':'PDF, DOCX or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"onChange={e=>{const f=e.target.files?.[0];e.target.value='';parseFile('cv',f)}}/></label>{cvFile&&<button className="clear-file"onClick={()=>clearFile('cv')}><X size={15}/> Remove file</button>}<div className="or"><span>or paste CV text</span></div><textarea id="cvText"value={cv}onChange={e=>{setCv(e.target.value);saveSession('gjr_cv_text',e.target.value)}}placeholder="Paste your CV here…"/></div>{prep==='specific'?<div className="input-card"><div className="label"><BriefcaseBusiness size={17}/> Target Job Description</div><div className="preset-container"><span className="preset-title">⚡ Campus Placement Presets:</span><div className="preset-bar">{presets.map(p=><button key={p.label}className="preset-pill"type="button"onClick={()=>applyPreset(p)}>+ {p.label}</button>)}</div></div><label className="dropzone"><Upload size={27}/><b>{jdFile?.name||'Upload the job description'}</b><span>{jdFile?'JD loaded · role matching ready':'PDF or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,application/pdf,text/plain"onChange={e=>{const f=e.target.files?.[0];e.target.value='';parseFile('jd',f)}}/></label>{jdFile&&<button className="clear-file"onClick={()=>clearFile('jd')}><X size={15}/> Remove JD</button>}<div className="or"><span>or paste JD text</span></div><textarea id="jdText"className="tall"value={jd}onChange={e=>{setJd(e.target.value);saveSession('gjr_jd_text',e.target.value)}}placeholder="Paste the target job description or choose a campus recruiter preset above…"/></div>:<div className="input-card mode-explainer"><div className="label"><Sparkles size={17}/> General CV mode</div><div className="module-hero"><span className="eyebrow">CV ONLY</span><h2>No JD needed.</h2><p>Your CV is analysed on its own. You will edit and save the version you want the AI interviewer to use.</p></div></div>}<div className="full action-row"><div><b>{prep==='general'?'Ready to improve your CV?':'Ready to improve and match your CV?'}</b><span>Nothing sends you straight to interview. CV review always comes first.</span></div><button className="primary"disabled={loading||!cv.trim()||prep==='specific'&&!jd.trim()}onClick={analyze}>{loading?'Reviewing your CV…':<>Review & improve my CV <ArrowRight size={18}/></>}</button></div></div></>
+  const applyPreset=p=>{
+   setJd(p.jd);
+   saveSession('gjr_jd_text',p.jd);
+   setTimeout(()=>scrollToElement('#jdText',{offset:80,behavior:'smooth'}),50);
+  };
+  return <><div className="mode-switch"role="tablist"><button className={prep==='general'?'selected':''}onClick={()=>setPrep('general')}><span>📄</span><b>General CV</b>{prep==='general'&&<Check size={16}/>}</button><button className={prep==='specific'?'selected':''}onClick={()=>{setPrep('specific');saveSession('gjr_cv_mode','specific');setTimeout(()=>scrollToElement('.preset-container, #jdText',{offset:80,behavior:'smooth'}),50);}}><span>🎯</span><b>CV + specific JD</b>{prep==='specific'&&<Check size={16}/>}</button></div><div className="form-grid"><div className="input-card"><div className="label"><FileText size={17}/> Your CV</div><label className="dropzone"><Upload size={27}/><b>{cvFile?.name||'Upload your CV'}</b><span>{cvFile?'CV loaded · ready for review':'PDF, DOCX or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"onChange={e=>{const f=e.target.files?.[0];e.target.value='';parseFile('cv',f)}}/></label>{cvFile&&<button className="clear-file"onClick={()=>clearFile('cv')}><X size={15}/> Remove file</button>}<div className="or"><span>or paste CV text</span></div><textarea id="cvText"value={cv}onChange={e=>{setCv(e.target.value);saveSession('gjr_cv_text',e.target.value)}}placeholder="Paste your CV here…"/></div>{prep==='specific'?<div className="input-card"><div className="label"><BriefcaseBusiness size={17}/> Target Job Description</div><div className="preset-container"><span className="preset-title">⚡ Campus Placement Presets:</span><div className="preset-bar">{presets.map(p=><button key={p.label}className="preset-pill"type="button"onClick={()=>applyPreset(p)}>+ {p.label}</button>)}</div></div><label className="dropzone"><Upload size={27}/><b>{jdFile?.name||'Upload the job description'}</b><span>{jdFile?'JD loaded · role matching ready':'PDF or TXT · or paste below'}</span><input type="file"accept=".pdf,.txt,application/pdf,text/plain"onChange={e=>{const f=e.target.files?.[0];e.target.value='';parseFile('jd',f)}}/></label>{jdFile&&<button className="clear-file"onClick={()=>clearFile('jd')}><X size={15}/> Remove JD</button>}<div className="or"><span>or paste JD text</span></div><textarea id="jdText"className="tall"value={jd}onChange={e=>{setJd(e.target.value);saveSession('gjr_jd_text',e.target.value)}}placeholder="Paste the target job description or choose a campus recruiter preset above…"/></div>:<div className="input-card mode-explainer"><div className="label"><Sparkles size={17}/> General CV mode</div><div className="module-hero"><span className="eyebrow">CV ONLY</span><h2>No JD needed.</h2><p>Your CV is analysed on its own. You will edit and save the version you want the AI interviewer to use.</p></div></div>}<div className="full action-row"><div><b>{prep==='general'?'Ready to improve your CV?':'Ready to improve and match your CV?'}</b><span>Nothing sends you straight to interview. CV review always comes first.</span></div><button className="primary"disabled={loading||!cv.trim()||prep==='specific'&&!jd.trim()}onClick={analyze}>{loading?'Reviewing your CV…':<>Review & improve my CV <ArrowRight size={18}/></>}</button></div></div></>
 }
 
 /* ─── CV ENGINE ─────────────────────────────────────────────── */
@@ -1306,6 +1331,76 @@ function renderExecutivePDF(p){
  </body></html>`;
 }
 
+function cvToPlainText(p){
+ if(!p)return '';
+ const out=[];
+ const top=[p.name,p.title].filter(Boolean).join(' | ');
+ if(top)out.push(top);
+ if(p.contact)out.push(p.contact);
+ if(out.length)out.push('');
+
+ const s=p.sections||{};
+ if(s.summary?.length){
+  out.push('EXECUTIVE SUMMARY');
+  out.push(s.summary.join('\n'));
+  out.push('');
+ }
+ if(s.competencies?.length){
+  out.push('CORE COMPETENCIES');
+  out.push(s.competencies.join(' · '));
+  out.push('');
+ }
+ if(s.experience?.length){
+  out.push('PROFESSIONAL EXPERIENCE');
+  s.experience.forEach(e=>{
+   const hdr=[e.role,e.company,e.dates].filter(Boolean).join(' · ');
+   if(hdr)out.push(hdr);
+   (e.bullets||[]).forEach(b=>out.push(`• ${b.replace(/^[•▪*-]\s*/,'')}`));
+  });
+  out.push('');
+ }
+ if(s.projects?.length){
+  out.push('KEY PROJECTS');
+  s.projects.forEach(pr=>{
+   const hdr=[pr.role,pr.company,pr.dates].filter(Boolean).join(' · ');
+   if(hdr)out.push(hdr);
+   (pr.bullets||[]).forEach(b=>out.push(`• ${b.replace(/^[•▪*-]\s*/,'')}`));
+  });
+  out.push('');
+ }
+ if(s.education?.length){
+  out.push('EDUCATION');
+  out.push(s.education.join('\n'));
+  out.push('');
+ }
+ if(s.certifications?.length){
+  out.push('CERTIFICATIONS');
+  out.push(s.certifications.join('\n'));
+  out.push('');
+ }
+ if(s.achievements?.length){
+  out.push('ACHIEVEMENTS');
+  s.achievements.forEach(a=>{
+   const hdr=[a.role,a.company,a.dates].filter(Boolean).join(' · ');
+   if(hdr)out.push(hdr);
+   (a.bullets||[]).forEach(b=>out.push(`• ${b.replace(/^[•▪*-]\s*/,'')}`));
+  });
+  out.push('');
+ }
+ if(s.leadership?.length){
+  out.push('LEADERSHIP & RESPONSIBILITY');
+  s.leadership.forEach(l=>{
+   const hdr=[l.role,l.company,l.dates].filter(Boolean).join(' · ');
+   if(hdr)out.push(hdr);
+   (l.bullets||[]).forEach(b=>out.push(`• ${b.replace(/^[•▪*-]\s*/,'')}`));
+  });
+  out.push('');
+ }
+ if(s.others?.length){
+  out.push(s.others.join('\n'));
+ }
+ return out.join('\n').trim();
+}
 
 /* ─── CV STUDIO COMPONENT ───────────────────────────────────── */
 function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,onCustomRoleInterview}){
@@ -1362,9 +1457,13 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
   setBuiltCV(updated);
   setApplied(true);
   setPreviewKey(k=>k+1);
-  const plainText=renderExecutivePDF(updated);
-  onSave(editText);
-  saveSession('gjr_cv_text',editText);
+  const plainText=cvToPlainText(updated);
+  setEditText(plainText);
+  onSave(plainText);
+  saveSession('gjr_cv_text',plainText);
+  setTimeout(()=>{
+   scrollToElement('.preview-panel',{offset:80,behavior:'smooth'});
+  },50);
  };
 
  const downloadPDF=()=>{
@@ -1387,6 +1486,9 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
   setParsed(reParsed);setSuggestions(generateSuggestions(reParsed,jd||''));
   setChecked(new Set(generateSuggestions(reParsed,jd||'').filter(x=>x.checked).map(x=>x.id)));
   setBuiltCV(null);setApplied(false);setShowEdit(false);
+  setTimeout(()=>{
+   scrollToElement('.score-card',{offset:80,behavior:'smooth'});
+  },50);
  };
 
  const previewHTML=renderExecutivePDF(builtCV||parsed);
@@ -1438,7 +1540,13 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
      <button className="primary wide" onClick={applySelected}>
       <CheckCircle2 size={16}/> Apply {checked.size} improvement{checked.size!==1?'s':''} & preview
      </button>
-     <button className="ghost-sm" onClick={()=>setShowEdit(!showEdit)}>
+     <button className="ghost-sm" onClick={()=>{
+      const next=!showEdit;
+      setShowEdit(next);
+      if(next){
+       setTimeout(()=>scrollToElement('.edit-panel',{offset:80,behavior:'smooth'}),50);
+      }
+     }}>
       {showEdit?'Close editor':'✏️ Edit raw CV text'}
      </button>
     </div>
@@ -1464,12 +1572,15 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
    <div className="preview-panel">
     <div className="preview-header">
      <b>👑 World-Class Executive CV Preview</b>
-     <div style={{display:'flex',gap:'8px'}}>
+     <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
+      <button className="ghost-sm" type="button" onClick={()=>scrollToElement('.suggestion-panel',{offset:80,behavior:'smooth'})} style={{background:'#ede9fe',color:'#5b21b6',borderColor:'#c4b5fd'}}>
+       ↑ Suggestions
+      </button>
       <button className="ghost-sm" onClick={downloadPDF}>⬇ PDF</button>
       <button className="ghost-sm" onClick={downloadWord}>⬇ Word</button>
      </div>
     </div>
-    {applied&&<div className="applied-badge"><CheckCircle2 size={14}/> {checked.size} improvements applied</div>}
+    {applied&&<div className="applied-badge"><CheckCircle2 size={14}/> {checked.size} improvement{checked.size!==1?'s':''} applied</div>}
     <div className="cv-preview-frame">
      <iframe key={previewKey} srcDoc={previewHTML} title="CV Preview" sandbox="allow-same-origin" style={{width:'100%',height:'780px',border:'none',borderRadius:'0 0 10px 10px'}}/>
     </div>
@@ -1753,7 +1864,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
       <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px'}} onClick={startJourney}>
        <RefreshCw size={13}/> Restart Answer
       </button>
-      <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px',color:'#6855e8',borderColor:'#c4b5fd'}} onClick={()=>{setTypedAnswer(transcript);setShowTypeMode(true);clearSilenceTimers();}}>
+      <button className="ghost-sm" style={{fontSize:'12px',padding:'6px 12px',color:'#6855e8',borderColor:'#c4b5fd'}} onClick={()=>{setTypedAnswer(transcript);setShowTypeMode(true);clearSilenceTimers();setTimeout(()=>{scrollToElement('#interviewTypedInput',{offset:90,behavior:'smooth'});document.getElementById('interviewTypedInput')?.focus();},60);}}>
        ✏️ Edit Answer
       </button>
       <button className="primary-sm" style={{fontSize:'12px',padding:'7px 16px',borderRadius:'999px',display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={finalizeAndSubmit}>
@@ -1764,7 +1875,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
    </div>
    <div style={{marginTop:'12px',textAlign:'center'}}>
     {!showTypeMode ? (
-     <button type="button" className="ghost-sm" style={{fontSize:'12px',color:'#6855e8',background:'rgba(104,85,232,0.06)'}} onClick={()=>setShowTypeMode(true)}>
+     <button type="button" className="ghost-sm" style={{fontSize:'12px',color:'#6855e8',background:'rgba(104,85,232,0.06)'}} onClick={()=>{setShowTypeMode(true);setTimeout(()=>{scrollToElement('#interviewTypedInput',{offset:90,behavior:'smooth'});document.getElementById('interviewTypedInput')?.focus();},60);}}>
       ⌨️ Or type / paste answer (library / quiet mode)
      </button>
     ) : (
@@ -2140,6 +2251,9 @@ function CorporateReadinessView({ career, cv }) {
     if (audioEnabled) {
       speakMessage(sc.initialMessage);
     }
+    setTimeout(() => {
+      scrollToElement('.roleplay-card', { offset: 80, behavior: 'smooth' });
+    }, 50);
   };
 
   const speakMessage = (text) => {
@@ -2351,7 +2465,7 @@ function CorporateReadinessView({ career, cv }) {
           role="tab"
           aria-selected={activeTab === 'roleplay'}
           className={`roleplay-tab-btn ${activeTab === 'roleplay' ? 'active' : ''}`}
-          onClick={() => setActiveTab('roleplay')}
+          onClick={() => { setActiveTab('roleplay'); setTimeout(() => scrollToElement('.roleplay-tabs', { offset: 80, behavior: 'smooth' }), 50); }}
         >
           <MessageSquareText size={16} /> Live Role-Play Simulator
         </button>
@@ -2360,7 +2474,7 @@ function CorporateReadinessView({ career, cv }) {
           role="tab"
           aria-selected={activeTab === 'frameworks'}
           className={`roleplay-tab-btn ${activeTab === 'frameworks' ? 'active' : ''}`}
-          onClick={() => setActiveTab('frameworks')}
+          onClick={() => { setActiveTab('frameworks'); setTimeout(() => scrollToElement('.roleplay-tabs', { offset: 80, behavior: 'smooth' }), 50); }}
         >
           <ShieldCheck size={16} /> Resilience Playbooks & Frameworks
         </button>
@@ -2369,7 +2483,7 @@ function CorporateReadinessView({ career, cv }) {
           role="tab"
           aria-selected={activeTab === 'courses'}
           className={`roleplay-tab-btn ${activeTab === 'courses' ? 'active' : ''}`}
-          onClick={() => setActiveTab('courses')}
+          onClick={() => { setActiveTab('courses'); setTimeout(() => scrollToElement('.roleplay-tabs', { offset: 80, behavior: 'smooth' }), 50); }}
         >
           <GraduationCap size={16} /> Free University Courses (100% Free)
         </button>
@@ -2981,12 +3095,18 @@ function AIAtWorkView({ career, cv }) {
         };
       }
       setPlanData(d);
+      setTimeout(() => {
+        scrollToElement('#aiPlanResult', { offset: 80, behavior: 'smooth' });
+      }, 60);
     } finally { setPlanLoading(false); }
   };
 
   const testPromptInChat = (promptText) => {
     setActiveTab('chat');
     setInputText(`Alex, how do I best adapt this prompt for my work and what results should I look for?\n\n"${promptText}"`);
+    setTimeout(() => {
+      scrollToElement('.roleplay-card', { offset: 80, behavior: 'smooth' });
+    }, 50);
   };
 
   const quickStarters = [
@@ -3038,7 +3158,7 @@ function AIAtWorkView({ career, cv }) {
           role="tab"
           aria-selected={activeTab === 'chat'}
           className={`roleplay-tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('chat')}
+          onClick={() => { setActiveTab('chat'); setTimeout(() => scrollToElement('.roleplay-tabs', { offset: 80, behavior: 'smooth' }), 50); }}
         >
           <Sparkles size={16} /> AI Workplace Mentor & Live Chat
         </button>
@@ -3047,7 +3167,7 @@ function AIAtWorkView({ career, cv }) {
           role="tab"
           aria-selected={activeTab === 'prompts'}
           className={`roleplay-tab-btn ${activeTab === 'prompts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('prompts')}
+          onClick={() => { setActiveTab('prompts'); setTimeout(() => scrollToElement('.roleplay-tabs', { offset: 80, behavior: 'smooth' }), 50); }}
         >
           <BookOpen size={16} /> Battle-Tested Prompts & 7-Day Sprint
         </button>
@@ -3056,7 +3176,7 @@ function AIAtWorkView({ career, cv }) {
           role="tab"
           aria-selected={activeTab === 'courses'}
           className={`roleplay-tab-btn ${activeTab === 'courses' ? 'active' : ''}`}
-          onClick={() => setActiveTab('courses')}
+          onClick={() => { setActiveTab('courses'); setTimeout(() => scrollToElement('.roleplay-tabs', { offset: 80, behavior: 'smooth' }), 50); }}
         >
           <GraduationCap size={16} /> Free AI Courses & Certifications (100% Free)
         </button>
@@ -3316,7 +3436,7 @@ function AIAtWorkView({ career, cv }) {
             {planError && <p role="alert" style={{ color: '#e11d48', fontWeight: 700 }}>{planError}</p>}
 
             {planData && (
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginTop: '16px' }}>
+              <div id="aiPlanResult" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '20px', marginTop: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', marginBottom: '14px' }}>
                   <div>
                     <h4 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>{planData.diagnosis}</h4>
@@ -3457,6 +3577,9 @@ function Module({id,career}){
   setCompany(p.name);
   setProblem(p.problem);
   setIdea(p.idea);
+  setTimeout(()=>{
+   scrollToElement('.input-card',{offset:80,behavior:'smooth'});
+  },50);
  };
 
  const runCoach=async()=>{
@@ -3509,6 +3632,9 @@ function Module({id,career}){
     };
    }
    setData(d);
+   setTimeout(()=>{
+    scrollToElement('.module-result',{offset:80,behavior:'smooth'});
+   },60);
   }finally{setLoading(false)}
  };
 
