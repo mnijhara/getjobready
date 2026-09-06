@@ -58,7 +58,7 @@ const evalStart=source.indexOf('function evaluateInterviewTurnLocal(');
 const localReviewStart=source.indexOf('function localReview(',evalStart);
 if(evalStart<0||localReviewStart<0)throw new Error('Interview evaluator boundaries not found');
 const safeEvaluator = `function evaluateInterviewTurnLocal(question,answer,history,cvText=''){
- const cleanAns=cleanRepeatedPhrases(String(answer||'')).trim(); const words=cleanAns.split(/\\s+/).filter(Boolean); const wordCount=words.length;
+ const cleanAns=cleanRepeatedPhrases(normalizeTechSpeech(String(answer||''))).trim(); const words=cleanAns.split(/\\s+/).filter(Boolean); const wordCount=words.length;
  const isGibberish=/(^good\\s*job$|^did\\s*a?\\s*good\\s*job$|^i\\s*did\\s*a?\\s*good\\s*job$|^i\\s*did\\s*well$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(cleanAns);
  const isRepetitive=wordCount>4&&new Set(words.map(w=>w.toLowerCase())).size<wordCount*0.35;
  let turnScore=0; let note='';
@@ -66,7 +66,13 @@ const safeEvaluator = `function evaluateInterviewTurnLocal(question,answer,histo
  else if(wordCount<10||isRepetitive){turnScore=10;note='10/100 — Severely incomplete. Use a real CV example and explain Situation, Task, Action and Result.';}
  else if(wordCount<25){turnScore=25;note='25/100 — Needs STAR depth. Add context, your individual ownership, the decisions you made and the actual outcome.';}
  else{const hasOwnership=/\\b(i|my)\\b.*\\b(built|designed|implemented|led|developed|analysed|analyzed|created|resolved|integrated|managed|conducted|worked|owned|handled|improved|used|delivered|tested)\\b/i.test(cleanAns)||/\\bmy\\s+(role|responsibility|contribution|work)\\b/i.test(cleanAns);const hasResult=/\\b(result|outcome|impact|improved|reduced|increased|achieved|delivered|learned|success)\\b|%|\\b\\d+\\b/i.test(cleanAns);turnScore=hasOwnership&&hasResult?85:(hasOwnership||hasResult?70:55);note=turnScore>=85?'Strong STAR answer. You explained your contribution and outcome clearly.':turnScore>=70?'Good detail. Make your personal contribution and actual outcome even clearer.':'Add a real CV example and structure it as Situation → Task → Action → Result.';}
- const fillerMatches=cleanAns.match(/\\b(um|uh|er|ah|like|you know|basically|actually|literally)\\b/gi)||[];const fillers=fillerMatches.length;const fillerList=[...new Set(fillerMatches.map(f=>f.toLowerCase()))];if(fillers)note+=' ('+fillers+' verbal crutch'+(fillers>1?'es':'')+' detected.)';
+ const strippedForFillers=cleanAns
+   .replace(/\\b(?:would|will|could|should|i|we|they|you|to)\\s+like\\s+to\\b/gi, '')
+   .replace(/\\b(?:tools|frameworks|models|technologies|libraries|companies|languages|services|databases|things|anything|something|look|looks|feel|feels|sound|sounds)\\s+like\\b/gi, '')
+   .replace(/\\bjust\\s+like\\b/gi, '')
+   .replace(/\\blike\\s+to\\b/gi, '');
+ const fillerMatches=strippedForFillers.match(/\\b(um|uh|er|ah|you know|basically|literally)\\b|\\b(?:was\\s+like|is\\s+like|it's\\s+like|like\\s+um|like\\s+uh|like\\s+you\\s+know)\\b/gi)||[];
+ const fillers=fillerMatches.length;const fillerList=[...new Set(fillerMatches.map(f=>f.toLowerCase()))];if(fillers)note+=' ('+fillers+' verbal crutch'+(fillers>1?'es':'')+' detected.)';
  const q=String(question||'').trim();
  const quotedMatch=q.match(/"([^"]+)"/);
  const quoted=quotedMatch?cleanBullet(quotedMatch[1]):'';

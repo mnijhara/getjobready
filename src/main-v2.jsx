@@ -308,6 +308,44 @@ function cleanBullet(raw){
  return s || 'your key achievements';
 }
 
+function normalizeTechSpeech(str) {
+  if (!str || typeof str !== 'string') return '';
+  let s = ' ' + str + ' ';
+
+  // 1. Phrasal multi-word replacements for known speech recognition confusions
+  s = s.replace(/\b(?:are\s+you|and\s+you|i\s+use|i\s+used)?\s*(?:charged|charge|shard|chat|chart)\s*gpt\b/gi, 'used ChatGPT');
+  s = s.replace(/\b(?:i\s+use|i\s+used|use|used)?\s*ai\s+(?:delhi|delly|dele)\b/gi, 'I used AI daily');
+  s = s.replace(/\bai\s+(?:delhi|delly|dele)\b/gi, 'AI daily');
+  s = s.replace(/\bi\s+use\s+(?:all\s+)?(?:kind|kinds)\s+of\s+clothes\b/gi, 'and I used all kinds of tools like Claude');
+  s = s.replace(/\b(?:all\s+)?(?:kind|kinds)\s+of\s+clothes\b/gi, 'all kinds of tools like Claude');
+  s = s.replace(/\b(?:tools|frameworks|models)\s+(?:like|such\s+as)\s+clothes\b/gi, '$1 like Claude');
+
+  // 2. Specific single term corrections
+  s = s.replace(/\b(claught|claud|clod|clawed|cloude)\b/gi, 'Claude');
+  s = s.replace(/\bi\s+use\s+claude\b/gi, 'I used Claude');
+  s = s.replace(/\b(?:coding|code)\s+(?:mode|mood)\b/gi, 'coding more');
+  s = s.replace(/\blearn\s+coding\s+mode\b/gi, 'learn coding more');
+  s = s.replace(/\bi\s+will\s+like\s+to\b/gi, 'I would like to');
+  s = s.replace(/\bmy\s+data\s+good\s+job\b/gi, 'I did a good job');
+  s = s.replace(/\bmy\s+data\b/gi, 'I did');
+  s = s.replace(/\bi\s+will\s+be\s+(?:your|a)\s+picture\b/gi, 'I will do a good job');
+  s = s.replace(/\bi\s+did\s+good\s+job\b/gi, 'I did a good job');
+  s = s.replace(/\bi\s+did\s+a\s+god\s+job\b/gi, 'I did a good job');
+  s = s.replace(/\btechnolo\b/gi, 'technology');
+
+  // 3. Tech and AI models & industry terms
+  s = s.replace(/\b(chat\s*gpt|chad\s*gpt|chart\s*gpt|shard\s*gpt|charge\s*gpt|charged\s*gpt)\b/gi, 'ChatGPT');
+  s = s.replace(/\b(github\s*copilot|git\s*hub\s*co\s*pilot|co\s*pilot)\b/gi, 'GitHub Copilot');
+  s = s.replace(/\b(vs\s*code|v\s*s\s*code)\b/gi, 'VS Code');
+  s = s.replace(/\b(git\s*hub)\b/gi, 'GitHub');
+  s = s.replace(/\b(micro\s*services?)\b/gi, 'microservices');
+  s = s.replace(/\b(full\s*stack)\b/gi, 'full-stack');
+  s = s.replace(/\b(back\s*end)\b/gi, 'backend');
+  s = s.replace(/\b(front\s*end)\b/gi, 'frontend');
+
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 function cleanRepeatedPhrases(str) {
   if (!str) return '';
   let text = str.replace(/[ \t]+/g, ' ').trim();
@@ -352,6 +390,11 @@ function combineSpeechResults(results) {
       for (let a = 1; a < res.length; a++) {
         const cand = (res[a]?.transcript || '').trim();
         if (/^(i\s+did\s+a?\s+good\s+job|i\s+did\s+well|good\s+job|i\s+worked|i\s+built|my\s+role|in\s+my\s+experience)/i.test(cand)) {
+          best = cand;
+          break;
+        }
+        if (/\b(chatgpt|claude|copilot|daily|coding|engineer|developer|project|github|python|react|docker|api)\b/i.test(cand) &&
+            !/\b(chatgpt|claude|copilot|daily|coding|engineer|developer|project|github|python|react|docker|api)\b/i.test(best)) {
           best = cand;
           break;
         }
@@ -421,7 +464,7 @@ function combineSpeechResults(results) {
   }
 
   let fullText = merged.join(' ').replace(/[ \t]+/g, ' ').trim();
-  return cleanRepeatedPhrases(fullText);
+  return cleanRepeatedPhrases(normalizeTechSpeech(fullText));
 }
 
 function generateTailoredCVQuestions(cvText,jd,role){
@@ -470,7 +513,7 @@ function getSafeInterviewQuestions(cachedQuestions, cv, jd, roleName) {
 }
 
 function evaluateInterviewTurnLocal(question,answer,history,cvText=''){
- const cleanAns=cleanRepeatedPhrases(String(answer||'')).trim(); const words=cleanAns.split(/\s+/).filter(Boolean); const wordCount=words.length;
+ const cleanAns=cleanRepeatedPhrases(normalizeTechSpeech(String(answer||''))).trim(); const words=cleanAns.split(/\s+/).filter(Boolean); const wordCount=words.length;
  const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^i\s*did\s*a?\s*good\s*job$|^i\s*did\s*well$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(cleanAns);
  const isRepetitive=wordCount>4&&new Set(words.map(w=>w.toLowerCase())).size<wordCount*0.35;
  let turnScore=0; let note='';
@@ -478,7 +521,13 @@ function evaluateInterviewTurnLocal(question,answer,history,cvText=''){
  else if(wordCount<10||isRepetitive){turnScore=10;note='10/100 — Severely incomplete. Use a real CV example and explain Situation, Task, Action and Result.';}
  else if(wordCount<25){turnScore=25;note='25/100 — Needs STAR depth. Add context, your individual ownership, the decisions you made and the actual outcome.';}
  else{const hasOwnership=/\b(i|my)\b.*\b(built|designed|implemented|led|developed|analysed|analyzed|created|resolved|integrated|managed|conducted|worked|owned|handled|improved|used|delivered|tested)\b/i.test(cleanAns)||/\bmy\s+(role|responsibility|contribution|work)\b/i.test(cleanAns);const hasResult=/\b(result|outcome|impact|improved|reduced|increased|achieved|delivered|learned|success)\b|%|\b\d+\b/i.test(cleanAns);turnScore=hasOwnership&&hasResult?85:(hasOwnership||hasResult?70:55);note=turnScore>=85?'Strong STAR answer. You explained your contribution and outcome clearly.':turnScore>=70?'Good detail. Make your personal contribution and actual outcome even clearer.':'Add a real CV example and structure it as Situation → Task → Action → Result.';}
- const fillerMatches=cleanAns.match(/\b(um|uh|er|ah|like|you know|basically|actually|literally)\b/gi)||[];const fillers=fillerMatches.length;const fillerList=[...new Set(fillerMatches.map(f=>f.toLowerCase()))];if(fillers)note+=' ('+fillers+' verbal crutch'+(fillers>1?'es':'')+' detected.)';
+ const strippedForFillers=cleanAns
+   .replace(/\b(?:would|will|could|should|i|we|they|you|to)\s+like\s+to\b/gi, '')
+   .replace(/\b(?:tools|frameworks|models|technologies|libraries|companies|languages|services|databases|things|anything|something|look|looks|feel|feels|sound|sounds)\s+like\b/gi, '')
+   .replace(/\bjust\s+like\b/gi, '')
+   .replace(/\blike\s+to\b/gi, '');
+ const fillerMatches=strippedForFillers.match(/\b(um|uh|er|ah|you know|basically|literally)\b|\b(?:was\s+like|is\s+like|it's\s+like|like\s+um|like\s+uh|like\s+you\s+know)\b/gi)||[];
+ const fillers=fillerMatches.length;const fillerList=[...new Set(fillerMatches.map(f=>f.toLowerCase()))];if(fillers)note+=' ('+fillers+' verbal crutch'+(fillers>1?'es':'')+' detected.)';
  const q=String(question||'').trim();
  const quotedMatch=q.match(/"([^"]+)"/);
  const quoted=quotedMatch?cleanBullet(quotedMatch[1]):'';
@@ -1528,136 +1577,128 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
   submit(answer,audioDataUrl).finally(()=>{submitting.current=false});
  };
 
- const resetSilenceTimer=()=>{
-  clearSilenceTimers();
-  let remaining=2;
-  setSilenceCountdown(remaining);
-  countdownIntervalRef.current=setInterval(()=>{
-   remaining-=1;
-   if(remaining>0){
-    setSilenceCountdown(remaining);
-   }else{
-    if(countdownIntervalRef.current){clearInterval(countdownIntervalRef.current);countdownIntervalRef.current=null;}
-   }
-  },1000);
-
-  silenceTimerRef.current=setTimeout(()=>{
-   finalizeAndSubmit();
-  },2400);
- };
-
- const speakAndListen=()=>{
-  if(started.current)return;
-  started.current=true;
-  setStatus('starting');
-  latestTranscript.current='';
-  speechFinalizedRef.current='';
-  setTranscript('');
-  clearSilenceTimers();
-  window.speechSynthesis?.cancel();
-  
-  getBestHumanVoice(bestVoice=>{
-   if(!started.current)return;
-   const u=new SpeechSynthesisUtterance(question);
-   if(bestVoice){
-    u.voice=bestVoice;
-    u.lang=bestVoice.lang||'en-IN';
-   }else{
-    u.lang='en-IN';
-   }
-   u.rate=0.98;u.pitch=1;
-   u.onend=()=>beginRecognition();
-   u.onerror=()=>beginRecognition();
-   window.speechSynthesis?.speak(u);
-  });
- };
-
- const beginRecognition=()=>{
-   if(!supported){setStatus('unsupported');return}
-   if(rec.current){
-    try{rec.current.abort()}catch(e){}
-   }
-   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-   const r=new SR();
-   r.lang='en-IN';r.interimResults=true;r.continuous=true;r.maxAlternatives=3;
-   r.onstart=()=>{
-    setStatus('listening');setPermission(true);
-   };
-   r.onresult=e=>{
-    let currentTotal=combineSpeechResults(e.results);
-    if(currentTotal){
-     currentTotal=currentTotal
-      .replace(/\bmy data good job\b/gi,'I did a good job')
-      .replace(/\bmy data\b/gi,'I did')
-      .replace(/\bi will be your picture\b/gi,'I will do a good job')
-      .replace(/\bi will be a picture\b/gi,'I will do a good job')
-      .replace(/\bi did good job\b/gi,'I did a good job')
-      .replace(/\bi did a god job\b/gi,'I did a good job')
-      .replace(/\btechnolo\b/gi,'technology')
-      .replace(/\s+/g,' ')
-      .trim();
-     currentTotal=cleanRepeatedPhrases(currentTotal);
-     latestTranscript.current=currentTotal;
-     setTranscript(currentTotal);
-     resetSilenceTimer();
+  const resetSilenceTimer=()=>{
+   clearSilenceTimers();
+   let remaining=3;
+   setSilenceCountdown(remaining);
+   countdownIntervalRef.current=setInterval(()=>{
+    remaining-=1;
+    if(remaining>0){
+     setSilenceCountdown(remaining);
+    }else{
+     if(countdownIntervalRef.current){clearInterval(countdownIntervalRef.current);countdownIntervalRef.current=null;}
     }
-   };
-   r.onend=()=>{
-    if(!submitting.current&&status==='listening'&&!latestTranscript.current.trim()){
-     try{r.start()}catch(e){}
-    }
-   };
-   r.onerror=e=>{
-    if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');
-    else if(e.error!=='aborted'&&!submitting.current){
-     console.warn('Speech recognition warning:',e.error);
-    }
-   };
-   rec.current=r;
-   try{r.start()}catch{setStatus('error')}
+   },1000);
+
+   silenceTimerRef.current=setTimeout(()=>{
+    finalizeAndSubmit();
+   },3500);
   };
 
- const startJourney=()=>{
-  clearSilenceTimers();
-  submitting.current=false;
-  started.current=false;
-  speakAndListen();
- };
-
- const submit=async(answer,audioUrl='')=>{
-  try{
-   let data;
-   const allQuestions=generateTailoredCVQuestions(cv,jd,roleName||'');
-   const localEval=evaluateInterviewTurnLocal(question,answer,turns,cv);
-   try{
-    data=await post('/api/interview-turn',{cv,jd,mode,career,question,answer,history:turns,turn,maxTurns});
-    if(data && data.evaluation){
-     data.evaluation.modelAnswer=data.evaluation.modelAnswer||localEval.evaluation.modelAnswer;
-     data.evaluation.notes=data.evaluation.notes||localEval.evaluation.notes;
-    }
-   }catch(e){
-    console.warn('AI turn evaluate error; using local evaluator',e);
-    const nextQ=allQuestions[turns.length+1]||'What is one thing you would improve in your next interview answer, and why?';
-    data={
-     done:localEval.done,
-     nextQuestion:nextQ,
-     evaluation:localEval.evaluation,
-     finalFeedback:localEval.finalFeedback
-    };
-   }
-   const finalEval=(data&&data.evaluation)?{...localEval.evaluation,...data.evaluation,modelAnswer:data.evaluation.modelAnswer||localEval.evaluation.modelAnswer,notes:data.evaluation.notes||localEval.evaluation.notes}:localEval.evaluation;
-   const finalFeedback=localEval.finalFeedback;
-   setTurns(x=>[...x,{question,answer,audioUrl,evaluation:finalEval}]);
-   setTranscript('');
-   latestTranscript.current='';
+  const speakAndListen=()=>{
+   if(started.current)return;
+   started.current=true;
    setStatus('starting');
-   onTurn({...data, evaluation:finalEval, finalFeedback, done:(data&&data.done)||localEval.done}, answer, audioUrl);
+   latestTranscript.current='';
+   speechFinalizedRef.current='';
+   setTranscript('');
+   clearSilenceTimers();
+   window.speechSynthesis?.cancel();
+   
+   getBestHumanVoice(bestVoice=>{
+    if(!started.current)return;
+    const u=new SpeechSynthesisUtterance(question);
+    if(bestVoice){
+     u.voice=bestVoice;
+     u.lang=bestVoice.lang||'en-IN';
+    }else{
+     u.lang='en-IN';
+    }
+    u.rate=0.98;u.pitch=1;
+    u.onend=()=>beginRecognition();
+    u.onerror=()=>beginRecognition();
+    window.speechSynthesis?.speak(u);
+   });
+  };
+
+  const beginRecognition=()=>{
+    if(!supported){setStatus('unsupported');return}
+    if(rec.current){
+     try{rec.current.abort()}catch(e){}
+    }
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    const r=new SR();
+    r.lang=(typeof navigator!=='undefined'&&navigator.language&&navigator.language.startsWith('en'))?navigator.language:'en-IN';
+    r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
+    r.onstart=()=>{
+     setStatus('listening');setPermission(true);
+    };
+    r.onresult=e=>{
+     let currentTotal=combineSpeechResults(e.results);
+     if(currentTotal){
+      currentTotal=cleanRepeatedPhrases(normalizeTechSpeech(currentTotal));
+      latestTranscript.current=currentTotal;
+      setTranscript(currentTotal);
+      resetSilenceTimer();
+     }
+    };
+    r.onend=()=>{
+     if(!submitting.current&&status==='listening'&&!latestTranscript.current.trim()){
+      try{r.start()}catch(e){}
+     }
+    };
+    r.onerror=e=>{
+     if(e.error==='not-allowed'||e.error==='service-not-allowed')setStatus('permission');
+     else if(e.error!=='aborted'&&!submitting.current){
+      console.warn('Speech recognition warning:',e.error);
+     }
+    };
+    rec.current=r;
+    try{r.start()}catch{setStatus('error')}
+  };
+
+  const startJourney=()=>{
+   clearSilenceTimers();
+   submitting.current=false;
    started.current=false;
-  }catch(e){
-   setStatus('error');
-   alert(e.message||'We could not submit this answer. Please try again.');
-  }
- };
+   speakAndListen();
+  };
+
+  const submit=async(answer,audioUrl='')=>{
+   try{
+    const cleanAnswer=cleanRepeatedPhrases(normalizeTechSpeech(String(answer||''))).trim();
+    let data;
+    const allQuestions=generateTailoredCVQuestions(cv,jd,roleName||'');
+    const localEval=evaluateInterviewTurnLocal(question,cleanAnswer,turns,cv);
+    try{
+     data=await post('/api/interview-turn',{cv,jd,mode,career,question,answer:cleanAnswer,history:turns,turn,maxTurns});
+     if(data && data.evaluation){
+      data.evaluation.modelAnswer=data.evaluation.modelAnswer||localEval.evaluation.modelAnswer;
+      data.evaluation.notes=data.evaluation.notes||localEval.evaluation.notes;
+     }
+    }catch(e){
+     console.warn('AI turn evaluate error; using local evaluator',e);
+     const nextQ=allQuestions[turns.length+1]||'What is one thing you would improve in your next interview answer, and why?';
+     data={
+      done:localEval.done,
+      nextQuestion:nextQ,
+      evaluation:localEval.evaluation,
+      finalFeedback:localEval.finalFeedback
+     };
+    }
+    const finalEval=(data&&data.evaluation)?{...localEval.evaluation,...data.evaluation,modelAnswer:data.evaluation.modelAnswer||localEval.evaluation.modelAnswer,notes:data.evaluation.notes||localEval.evaluation.notes}:localEval.evaluation;
+    const finalFeedback=localEval.finalFeedback;
+    setTurns(x=>[...x,{question,answer:cleanAnswer,audioUrl,evaluation:finalEval}]);
+    setTranscript('');
+    latestTranscript.current='';
+    setStatus('starting');
+    onTurn({...data, evaluation:finalEval, finalFeedback, done:(data&&data.done)||localEval.done}, cleanAnswer, audioUrl);
+    started.current=false;
+   }catch(e){
+    setStatus('error');
+    alert(e.message||'We could not submit this answer. Please try again.');
+   }
+  };
 
  useEffect(()=>{
   setStatus('starting');

@@ -19,21 +19,22 @@ const twCode = source.slice(twStart, twEnd);
 
 // 4. Extract cleanBullet
 const tbStart = source.indexOf('function cleanBullet(');
-const tbEnd = source.indexOf('function cleanRepeatedPhrases(', tbStart);
-const cbCode = source.slice(tbStart, tbEnd);
+const ntsStart = source.indexOf('function normalizeTechSpeech(', tbStart);
+const cbCode = source.slice(tbStart, ntsStart);
+
+// 4b. Extract normalizeTechSpeech
+const crpStart = source.indexOf('function cleanRepeatedPhrases(', ntsStart);
+const ntsCode = source.slice(ntsStart, crpStart);
 
 // 5. Extract cleanRepeatedPhrases
-const crpStart = source.indexOf('function cleanRepeatedPhrases(');
-const crpEnd = source.indexOf('function combineSpeechResults(', crpStart);
-const crpCode = source.slice(crpStart, crpEnd);
+const csrStart = source.indexOf('function combineSpeechResults(', crpStart);
+const crpCode = source.slice(crpStart, csrStart);
 
 // 6. Extract combineSpeechResults
-const csrStart = source.indexOf('function combineSpeechResults(');
-const csrEnd = source.indexOf('function generateTailoredCVQuestions(', csrStart);
-const csrCode = source.slice(csrStart, csrEnd);
+const gtqStart = source.indexOf('function generateTailoredCVQuestions(', csrStart);
+const csrCode = source.slice(csrStart, gtqStart);
 
 // 7. Extract generateTailoredCVQuestions & getSafeInterviewQuestions
-const gtqStart = source.indexOf('function generateTailoredCVQuestions(');
 const evalStart = source.indexOf('function evaluateInterviewTurnLocal(', gtqStart);
 const gtqCode = source.slice(gtqStart, evalStart);
 
@@ -46,12 +47,14 @@ ${cleanCvCode}
 ${ddCode}
 ${twCode}
 ${cbCode}
+${ntsCode}
 ${crpCode}
 ${csrCode}
 ${gtqCode}
 ${evalCode}
 
 return {
+  normalizeTechSpeech,
   cleanRepeatedPhrases,
   combineSpeechResults,
   detectDomain,
@@ -63,6 +66,7 @@ return {
 
 const fn = new Function(harness)();
 const {
+  normalizeTechSpeech,
   cleanRepeatedPhrases,
   combineSpeechResults,
   detectDomain,
@@ -76,7 +80,7 @@ const failures = [];
 const pass = (m) => { passes.push(m); console.log('  [PASS]', m); };
 const fail = (m) => { failures.push(m); console.error('  [FAIL]', m); };
 
-console.log('\n=== TEST SUITE 1: Mobile Speech Deduplication ===');
+console.log('\n=== TEST SUITE 1: Mobile Speech Deduplication & Tech Phonetic Normalization ===');
 // Test 1: Android Chrome cumulative prefix expansion
 const mobileResults1 = [
   { transcript: 'I', isFinal: true },
@@ -110,6 +114,46 @@ const rawStutter5 = 'I I did I did a I did a good I did a good job';
 const cleanedStutter5 = cleanRepeatedPhrases(rawStutter5);
 if (cleanedStutter5 === 'I did a good job') pass(`cleanRepeatedPhrases("${rawStutter5}") -> "${cleanedStutter5}"`);
 else fail(`Expected "I did a good job", got "${cleanedStutter5}"`);
+
+// Test 4: Mobile Indian English Speech Misrecognitions (Reported by student)
+const q4Raw = 'AI Delhi are you charged GPT I use all kind of clothes';
+const q4Normalized = normalizeTechSpeech(q4Raw);
+if (q4Normalized.includes('AI daily') && q4Normalized.includes('ChatGPT') && q4Normalized.includes('Claude')) {
+  pass(`normalizeTechSpeech("${q4Raw}") -> "${q4Normalized}"`);
+} else {
+  fail(`Expected AI daily + ChatGPT + Claude, got "${q4Normalized}"`);
+}
+
+const q5Raw = 'I use claught to resolve all the problems that I have';
+const q5Normalized = normalizeTechSpeech(q5Raw);
+if (q5Normalized === 'I used Claude to resolve all the problems that I have') {
+  pass(`normalizeTechSpeech("${q5Raw}") -> "${q5Normalized}"`);
+} else {
+  fail(`Expected "I used Claude to resolve all the problems that I have", got "${q5Normalized}"`);
+}
+
+const q6Raw = 'I will like to learn coding mode';
+const q6Normalized = normalizeTechSpeech(q6Raw);
+if (q6Normalized === 'I would like to learn coding more') {
+  pass(`normalizeTechSpeech("${q6Raw}") -> "${q6Normalized}"`);
+} else {
+  fail(`Expected "I would like to learn coding more", got "${q6Normalized}"`);
+}
+
+// Test 5: Filler word detection does not flag "tools like Claude" or "would like to"
+const evalFillers1 = evaluateInterviewTurnLocal('Q', 'I used AI daily used ChatGPT and I used all kinds of tools like Claude', []);
+if (evalFillers1.evaluation?.fillers === 0) {
+  pass('Preposition "tools like Claude" is NOT falsely flagged as a verbal crutch');
+} else {
+  fail(`Expected 0 fillers, got ${evalFillers1.evaluation?.fillers}`);
+}
+
+const evalFillers2 = evaluateInterviewTurnLocal('Q', 'I would like to learn coding more', []);
+if (evalFillers2.evaluation?.fillers === 0) {
+  pass('Verb phrase "would like to learn" is NOT falsely flagged as a verbal crutch');
+} else {
+  fail(`Expected 0 fillers, got ${evalFillers2.evaluation?.fillers}`);
+}
 
 console.log('\n=== TEST SUITE 2: Domain Detection for Software Engineers ===');
 const VIJIT_CV = `Vijit Vishnoi
