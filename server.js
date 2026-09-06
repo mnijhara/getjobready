@@ -1,4 +1,9 @@
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   try {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -6,6 +11,22 @@ var __commonJS = (cb, mod) => function __require() {
     throw mod = 0, e;
   }
 };
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
 // ai-router.cjs
 var require_ai_router = __commonJS({
@@ -217,6 +238,54 @@ ${String(jd).slice(0, 3e4)}`;
     console.error("analyze-upload:", error.message);
     return res.status(503).json({ error: "AI analysis is temporarily unavailable. Please retry in a moment." });
   }
+});
+app.post("/api/extract-cv", async (req, res) => {
+  const { data = "", mime = "application/pdf" } = req.body || {};
+  if (!data) return res.status(400).json({ error: "CV file data is required." });
+  if (data.length > 7e6) return res.status(413).json({ error: "CV file is too large. Please keep it under 5 MB." });
+  if (mime === "application/pdf") {
+    try {
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const buffer = Buffer.from(data, "base64");
+      const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true }).promise;
+      let out = "";
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const textContent = await page.getTextContent();
+        out += textContent.items.map((x) => x.str).join(" ") + "\n";
+      }
+      const clean = out.replace(/(\b[A-Za-z]{2,})-\s+([a-z]{2,}\b)/g, "$1$2").replace(/\bTechnolo(?:\.|\b)(?!\w)/gi, "Technology").replace(/\bEngin(?:\.|\b)(?!\w)/gi, "Engineering").replace(/\s+([,;.])/g, "$1").trim();
+      if (clean.length > 30 && !/^\s*%PDF-/i.test(clean) && !/\/FlateDecode|\/Linearized/i.test(clean)) {
+        return res.json({ text: clean });
+      }
+    } catch (e) {
+      console.warn("Server-side pdfjs extraction error:", e.message);
+    }
+  }
+  if (mime.includes("wordprocessingml") || mime.includes("docx")) {
+    try {
+      const mammoth = require("mammoth");
+      const buffer = Buffer.from(data, "base64");
+      const result = await mammoth.extractRawText({ buffer });
+      const text = String(result.value || "").trim();
+      if (text.length > 20) {
+        return res.json({ text });
+      }
+    } catch (e) {
+      console.warn("Server-side mammoth extraction error:", e.message);
+    }
+  }
+  try {
+    const prompt = "Extract all readable text from this uploaded CV document faithfully and completely. Keep sections and bullet points. Return ONLY the plain extracted text without commentary.";
+    const aiResult = await generate("", { parts: [{ text: prompt }, { inlineData: { mimeType: mime, data } }] });
+    const text = typeof aiResult === "string" ? aiResult : aiResult?.text || aiResult?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (text && text.trim().length > 30) {
+      return res.json({ text: text.trim() });
+    }
+  } catch (e) {
+    console.warn("Server-side AI extraction error:", e.message);
+  }
+  return res.status(422).json({ error: "Could not extract text from this document." });
 });
 app.post("/api/interview-feedback", async (req, res) => {
   const { jd = "", answers = [], mode = "specific", cv = "" } = req.body || {};
@@ -552,9 +621,15 @@ app.post("/api/demo", async (req, res) => {
     return res.status(503).json({ error: "AI prototype generation is temporarily unavailable. Please retry in a moment." });
   }
 });
-app.get(/^\/pdf\.worker(?:-[^/]+)?\.mjs$/, (req, res) => {
-  const worker = path.join(root, "dist", "pdf.worker.mjs");
-  if (!fs.existsSync(worker)) return res.status(503).type("text/plain").send("PDF worker is not available in this deployment.");
+app.get(/^\/pdf\.worker(?:-[^/]+)?\.(?:mjs|js)$/, (req, res) => {
+  const candidates = [
+    path.join(root, "dist", "pdf.worker.mjs"),
+    path.join(root, "pdf.worker.mjs"),
+    path.join(root, "dist", "pdf.worker.js"),
+    path.join(root, "pdf.worker.js")
+  ];
+  const worker = candidates.find((p) => fs.existsSync(p));
+  if (!worker) return res.status(503).type("text/plain").send("PDF worker is not available in this deployment.");
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   res.setHeader("Content-Type", "text/javascript; charset=utf-8");
   return res.sendFile(worker);
