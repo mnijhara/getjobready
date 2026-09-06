@@ -13,4 +13,7 @@ if (!source) throw new Error('pdfjs-dist worker module was not found after npm i
 const publicDir = path.join(project, 'public');
 fs.mkdirSync(publicDir, { recursive: true });
 fs.copyFileSync(source, path.join(publicDir, 'pdf.worker.mjs'));
+fs.copyFileSync(source, path.join(publicDir, 'pdf.worker.js'));
+fs.copyFileSync(source, path.join(project, 'pdf.worker.mjs'));
+fs.copyFileSync(source, path.join(project, 'pdf.worker.js'));
 console.log(`Prepared stable PDF worker from ${source}`);

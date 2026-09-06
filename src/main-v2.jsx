@@ -47,7 +47,13 @@ async function pdfText(file){
    throw e;
   });
   const pdfjs=lib.default&&lib.default.getDocument?lib.default:lib;
-  pdfjs.GlobalWorkerOptions.workerSrc='/pdf.worker.mjs';
+  try {
+   const worker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+   if (worker && typeof window !== 'undefined') {
+    window.pdfjsWorker = worker;
+   }
+  } catch {}
+  pdfjs.GlobalWorkerOptions.workerSrc='/pdf.worker.js';
   const pdf=await pdfjs.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise;
   let out='';
   for(let i=1;i<=pdf.numPages;i++){
