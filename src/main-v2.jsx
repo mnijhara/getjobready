@@ -578,16 +578,15 @@ function localImprove(cv){
 }
 
 function Dashboard({profile,onLogout,onNewApp,onOpen,onMasterCV,onEditCV,onInterview,onViewInterview,onModule}){
- const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[tab,setTab]=useState('apps');
+ const[apps,setApps]=useState([]);const[interviews,setInterviews]=useState([]);const[masterCV,setMasterCV]=useState(()=>db.getMasterCV());const[tab,setTab]=useState('apps');
  useEffect(()=>{
-  const refresh=()=>{setApps(db.getApplications());setInterviews(db.getInterviews())};
+  const refresh=()=>{setApps(db.getApplications());setInterviews(db.getInterviews());setMasterCV(db.getMasterCV())};
   refresh();
   window.addEventListener('gjr_cloud_synced',refresh);
   return ()=>window.removeEventListener('gjr_cloud_synced',refresh);
  },[profile]);
  const del=id=>{if(!confirm('Delete this application?'))return;db.deleteApplication(id);setApps(db.getApplications())};
  const delIv=id=>{if(!confirm('Delete this interview report?'))return;db.deleteInterview(id);setInterviews(db.getInterviews())};
- const masterCV=db.getMasterCV();
  const hasMaster=!!masterCV;
 
  return <div className="dashboard">

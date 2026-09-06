@@ -5,7 +5,7 @@ const SUPABASE_KEY = 'sb_publishable_mKG4Ylo2tyeMQMT0CopVXQ_a_icNi20';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 
 const cloud = { user: null, cv: null, latestApplication: null, hydrated: false };
-window.getJobReadyCloud = cloud;
+if (typeof window !== 'undefined') window.getJobReadyCloud = cloud;
 
 const esc = (s) => String(s ?? '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
 
@@ -141,8 +141,12 @@ function observeApp() {
   updateAccountButton();
 }
 
-injectStyles();
-supabase.auth.getSession().then(async ({data}) => { cloud.user=data.session?.user||null; await hydrate(); });
-supabase.auth.onAuthStateChange(async (_event, session) => { cloud.user=session?.user||null; cloud.hydrated=false; if(cloud.user) await hydrate(); updateAccountButton(); });
-new MutationObserver(observeApp).observe(document.documentElement,{subtree:true,childList:true});
-setTimeout(observeApp,300);
+if (typeof document !== 'undefined') {
+  injectStyles();
+  supabase.auth.getSession().then(async ({data}) => { cloud.user=data.session?.user||null; await hydrate(); });
+  supabase.auth.onAuthStateChange(async (_event, session) => { cloud.user=session?.user||null; cloud.hydrated=false; if(cloud.user) await hydrate(); updateAccountButton(); });
+  if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+    new MutationObserver(observeApp).observe(document.documentElement,{subtree:true,childList:true});
+  }
+  setTimeout(observeApp,300);
+}
