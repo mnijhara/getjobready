@@ -241,9 +241,40 @@ ${JSON.stringify(safeAnswers)}`));
     return res.status(503).json({ error: "Interview feedback is temporarily unavailable. Please retry in a moment." });
   }
 });
+function normalizeTechSpeech(str) {
+  if (!str || typeof str !== "string") return "";
+  let s = " " + str + " ";
+  s = s.replace(/\b(?:are\s+you|and\s+you|i\s+use|i\s+used)?\s*(?:charged|charge|shard|chat|chart)\s*gpt\b/gi, "used ChatGPT");
+  s = s.replace(/\b(?:i\s+use|i\s+used|use|used)?\s*ai\s+(?:delhi|delly|dele)\b/gi, "I used AI daily");
+  s = s.replace(/\bai\s+(?:delhi|delly|dele)\b/gi, "AI daily");
+  s = s.replace(/\bi\s+use\s+(?:all\s+)?(?:kind|kinds)\s+of\s+clothes\b/gi, "and I used all kinds of tools like Claude");
+  s = s.replace(/\b(?:all\s+)?(?:kind|kinds)\s+of\s+clothes\b/gi, "all kinds of tools like Claude");
+  s = s.replace(/\b(?:tools|frameworks|models)\s+(?:like|such\s+as)\s+clothes\b/gi, "$1 like Claude");
+  s = s.replace(/\b(claught|claud|clod|clawed|cloude)\b/gi, "Claude");
+  s = s.replace(/\bi\s+use\s+claude\b/gi, "I used Claude");
+  s = s.replace(/\b(?:coding|code)\s+(?:mode|mood)\b/gi, "coding more");
+  s = s.replace(/\blearn\s+coding\s+mode\b/gi, "learn coding more");
+  s = s.replace(/\bi\s+will\s+like\s+to\b/gi, "I would like to");
+  s = s.replace(/\bmy\s+data\s+good\s+job\b/gi, "I did a good job");
+  s = s.replace(/\bmy\s+data\b/gi, "I did");
+  s = s.replace(/\bi\s+will\s+be\s+(?:your|a)\s+picture\b/gi, "I will do a good job");
+  s = s.replace(/\bi\s+did\s+good\s+job\b/gi, "I did a good job");
+  s = s.replace(/\bi\s+did\s+a\s+god\s+job\b/gi, "I did a good job");
+  s = s.replace(/\btechnolo\b/gi, "technology");
+  s = s.replace(/\b(chat\s*gpt|chad\s*gpt|chart\s*gpt|shard\s*gpt|charge\s*gpt|charged\s*gpt)\b/gi, "ChatGPT");
+  s = s.replace(/\b(github\s*copilot|git\s*hub\s*co\s*pilot|co\s*pilot)\b/gi, "GitHub Copilot");
+  s = s.replace(/\b(vs\s*code|v\s*s\s*code)\b/gi, "VS Code");
+  s = s.replace(/\b(git\s*hub)\b/gi, "GitHub");
+  s = s.replace(/\b(micro\s*services?)\b/gi, "microservices");
+  s = s.replace(/\b(full\s*stack)\b/gi, "full-stack");
+  s = s.replace(/\b(back\s*end)\b/gi, "backend");
+  s = s.replace(/\b(front\s*end)\b/gi, "frontend");
+  return s.replace(/\s+/g, " ").trim();
+}
 app.post("/api/interview-turn", async (req, res) => {
   const { jd = "", cv = "", cvData = "", cvMime = "", mode = "specific", career = "job", question = "", answer = "", history = [], turn = 1, maxTurns = 7 } = req.body || {};
   if (!question.trim() || !answer.trim()) return res.status(400).json({ error: "Question and answer are required." });
+  const cleanAnswer = normalizeTechSpeech(answer);
   const safeTurn = Math.min(7, Math.max(1, Number(turn) || 1));
   const safeMax = Math.min(7, Math.max(3, Number(maxTurns) || 7));
   const context = mode === "general" ? `GENERAL CV INTERVIEW. The questions must be grounded in the candidate CV and general interview competencies. Candidate CV text (when available):
@@ -260,7 +291,7 @@ CURRENT QUESTION:
 ${String(question).slice(0, 1500)}
 
 CANDIDATE ANSWER:
-${String(answer).slice(0, 7e3)}
+${String(cleanAnswer).slice(0, 7e3)}
 
 PREVIOUS TURNS:
 ${JSON.stringify(Array.isArray(history) ? history.slice(-8) : []).slice(0, 12e3)}`;
