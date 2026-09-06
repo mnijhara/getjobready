@@ -156,28 +156,33 @@ function detectDomain(cvText, jdText, roleName){
  const isMBA = /\b(mba|pgdm|post\s*graduate\s*diploma|iim|imt|xlri|nmims|sibm|fms|mdi|spjimr|isb|b-school|business school|management trainee)\b/i.test(context);
 
  // Target JD / Role takes top precedence if present
+ if (/\b(software|developer|engineer|backend|frontend|full\s*stack|devops|data science|machine learning|ai engineer|cloud engineer|sde)\b/i.test(targetContext)) return 'Technology';
  if (/\b(marketing|brand|sales|trade|fmcg|gtm|consumer|retail|distribution|dealer|merchandising|territory)\b/i.test(targetContext)) return 'Marketing';
  if (/\b(finance|banking|valuation|equity|portfolio|cfa|financial|investment|credit|treasury|wealth)\b/i.test(targetContext)) return 'Finance';
- if (/\b(consulting|strategy|operations|supply chain|scm|logistics|procurement|lean six sigma|management consulting)\b/i.test(targetContext)) return 'Consulting';
+ if (/\b(consulting|strategy consulting|management consulting|operations consulting|supply chain|scm|logistics|procurement|lean six sigma)\b/i.test(targetContext)) return 'Consulting';
  if (/\b(human resources|talent acquisition|recruitment|people ops|hrbp|employee engagement)\b/i.test(targetContext)) return 'HR';
 
  // When candidate has MBA / PGDM background, check management domains before undergrad engineering keywords
  if (isMBA) {
   if (/\b(marketing|brand|sales|trade|fmcg|gtm|consumer|retail|distribution|dealer|campaign)\b/i.test(context)) return 'Marketing';
   if (/\b(finance|banking|valuation|equity|portfolio|cfa|financial|investment|credit|treasury|wealth)\b/i.test(context)) return 'Finance';
-  if (/\b(consulting|strategy|operations|supply chain|scm|logistics|procurement|process)\b/i.test(context)) return 'Consulting';
+  if (/\b(consulting|management consulting|strategy consulting|operations consulting|supply chain|scm|logistics|procurement)\b/i.test(context)) return 'Consulting';
   if (/\b(human resources|talent acquisition|recruitment|people ops|hrbp)\b/i.test(context)) return 'HR';
   return 'General Management';
+ }
+
+ // For non-MBA candidates, check Technology BEFORE generic business keywords to prevent
+ // "Operating Systems", "system operations", "database operations", or "test strategy"
+ // from misclassifying developers into Consulting!
+ if (/\b(software\s*engineer|software\s*developer|developer|coding|backend|frontend|full\s*stack|algorithms|data structures|web\s*development|distributed systems|devops|react|node|golang|c\+\+|java\b|python|typescript|computer science|b\.?tech|b\.?e\b|microservices|rest apis|sql|database|cloud|leetcode|codeforces|codechef)\b/i.test(context)) {
+  return 'Technology';
  }
 
  // Non-MBA business domains
  if (/\b(marketing|brand|campaign|consumer insights|trade marketing|growth marketing)\b/i.test(context)) return 'Marketing';
  if (/\b(finance|valuation|equity|portfolio|cfa|financial analyst|investment banking)\b/i.test(context)) return 'Finance';
  if (/\b(human resources|talent acquisition|recruitment|people ops|hrbp)\b/i.test(context)) return 'HR';
- if (/\b(consulting|strategy|supply chain|operations)\b/i.test(context)) return 'Consulting';
-
- // Technology only when candidate has software/coding roles or technical skills without business pivot
- if (/\b(software\s*engineer|software\s*developer|coding|backend|frontend|fullstack|algorithms|data structures|web\s*development|distributed systems|devops|react|node|golang|c\+\+|java\b)/i.test(context)) return 'Technology';
+ if (/\b(management consulting|strategy consulting|consulting analyst|supply chain consulting)\b/i.test(context)) return 'Consulting';
 
  return 'General';
 }
@@ -303,26 +308,170 @@ function cleanBullet(raw){
  return s || 'your key achievements';
 }
 
+function cleanRepeatedPhrases(str) {
+  if (!str) return '';
+  let text = str.replace(/[ \t]+/g, ' ').trim();
+  let words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return text;
+
+  let changed = true;
+  let passes = 0;
+  while (changed && passes < 10) {
+    changed = false;
+    passes++;
+    for (let len = Math.floor(words.length / 2); len >= 1; len--) {
+      for (let start = 0; start <= words.length - 2 * len; start++) {
+        let match = true;
+        for (let i = 0; i < len; i++) {
+          if (words[start + i].toLowerCase() !== words[start + len + i].toLowerCase()) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          words.splice(start, len);
+          changed = true;
+          break;
+        }
+      }
+      if (changed) break;
+    }
+  }
+
+  return words.join(' ');
+}
+
+function combineSpeechResults(results) {
+  if (!results || !results.length) return '';
+
+  const cleanSegments = [];
+  for (let i = 0; i < results.length; i++) {
+    const res = results[i];
+    let best = (res[0]?.transcript || res.transcript || '').trim();
+    if (res.length > 1 && res[0]) {
+      for (let a = 1; a < res.length; a++) {
+        const cand = (res[a]?.transcript || '').trim();
+        if (/^(i\s+did\s+a?\s+good\s+job|i\s+did\s+well|good\s+job|i\s+worked|i\s+built|my\s+role|in\s+my\s+experience)/i.test(cand)) {
+          best = cand;
+          break;
+        }
+      }
+    }
+    if (!best) continue;
+    cleanSegments.push({
+      text: best,
+      isFinal: !!(res.isFinal !== undefined ? res.isFinal : res[0]?.isFinal)
+    });
+  }
+
+  if (!cleanSegments.length) return '';
+
+  let merged = [];
+  for (const seg of cleanSegments) {
+    const text = seg.text.trim();
+    if (!text) continue;
+    if (merged.length === 0) {
+      merged.push(text);
+      continue;
+    }
+
+    const last = merged[merged.length - 1];
+    const lastLower = last.toLowerCase();
+    const currLower = text.toLowerCase();
+
+    // 1. Exact duplicate
+    if (lastLower === currLower) {
+      continue;
+    }
+
+    // 2. Current segment is an extension of last segment (Mobile Chrome prefix accumulation!)
+    if (currLower.startsWith(lastLower)) {
+      merged[merged.length - 1] = text;
+      continue;
+    }
+
+    // 3. Last segment is already a superset of current segment
+    if (lastLower.startsWith(currLower)) {
+      continue;
+    }
+
+    // 4. Overlapping words between end of last and start of curr
+    const lastWords = last.split(/\s+/);
+    const currWords = text.split(/\s+/);
+    let overlapLen = 0;
+    const maxOverlap = Math.min(lastWords.length, currWords.length);
+
+    for (let k = maxOverlap; k >= 1; k--) {
+      const lastSlice = lastWords.slice(-k).map(w => w.toLowerCase()).join(' ');
+      const currSlice = currWords.slice(0, k).map(w => w.toLowerCase()).join(' ');
+      if (lastSlice === currSlice) {
+        overlapLen = k;
+        break;
+      }
+    }
+
+    if (overlapLen > 0) {
+      const nonOverlapping = currWords.slice(overlapLen).join(' ');
+      if (nonOverlapping) {
+        merged[merged.length - 1] = last + ' ' + nonOverlapping;
+      }
+    } else {
+      merged.push(text);
+    }
+  }
+
+  let fullText = merged.join(' ').replace(/[ \t]+/g, ' ').trim();
+  return cleanRepeatedPhrases(fullText);
+}
+
 function generateTailoredCVQuestions(cvText,jd,role){
  const rawCv=cleanExtractedCVText(cvText||'');
  const lines=rawCv.split(/\n/).map(l=>l.replace(/^[•\-▪*◆]\s*/,'').trim()).filter(Boolean);
- const useful=lines.filter(l=>l.length>=35&&!/^(EDUCATION|PROFESSIONAL EXPERIENCE|KEY PROJECTS|TECHNICAL SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS)$/i.test(l));
- const projectLine=useful.find(l=>/project|developed|built|implemented|designed|created|intern|experience|worked/i.test(l))||useful[0]||'';
- const cleanProject=projectLine?truncateAtWord(cleanBullet(projectLine),110):'';
+ const candName=(lines[0]||'').replace(/[^a-zA-Z\s]/g,'').trim();
+ 
+ const isHeader = l => /^(EDUCATION|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|KEY PROJECTS|PROJECTS|TECHNICAL SKILLS|SKILLS|ACHIEVEMENTS|LEADERSHIP|CERTIFICATIONS|SUMMARY|CONTACT|CURRICULUM VITAE|RESUME)$/i.test(l) || /^(Education|Experience|Projects|Skills|Achievements|Leadership):/i.test(l);
+ const useful=lines.filter(l=>l.length>=40 && !isHeader(l) && (!candName || !l.toLowerCase().includes(candName.toLowerCase())));
+ 
+ const projectLines=useful.filter(l=>/project|developed|built|implemented|designed|created|intern|experience|worked|streamlined|engineered|architected|authored|scaled/i.test(l));
+ const p1=projectLines[0] || useful[0] || '';
+ const p2=projectLines.find(l => l !== p1) || useful.find(l => l !== p1) || '';
+ 
+ const cleanBulletForPrompt = s => truncateAtWord(cleanBullet(s.replace(/^(project|experience|internship|coding panda|sync engine|travelgen ai|edusphere)\s*[:—\-]\s*/gi, '')), 105);
+ const cleanProject1 = p1 ? cleanBulletForPrompt(p1) : '';
+ const cleanProject2 = p2 ? cleanBulletForPrompt(p2) : '';
+ 
  const target=String(role||jd||'').trim();
+ const domain=detectDomain(cvText, jd, role);
+ 
  const q1='Walk me through your background and the experience or project on your CV that you are most proud of. What did you personally contribute?';
- const q2=cleanProject?'Your CV mentions "'+cleanProject+'". What was the situation, what was your responsibility, what did you personally do, and what was the outcome?':'Tell me about one project or experience on your CV. What problem were you solving, what did you personally do, and what was the outcome?';
- const q3='Tell me about one project or experience from your CV in more depth. What was the biggest challenge and how did you handle it?';
- // Mandatory AI question: ask this in every interview, regardless of whether AI appears on the CV.
+ const q2=cleanProject1 ? `Your CV mentions "${cleanProject1}". What was the situation, what was your responsibility, what did you personally do, and what was the outcome?` : 'Tell me about one project or experience on your CV. What problem were you solving, what did you personally do, and what was the outcome?';
+ const q3=cleanProject2 ? `Your CV also highlights "${cleanProject2}". In that work, what was the biggest technical or operational challenge you encountered, and how did you resolve it?` : 'Tell me about one project or experience from your CV in more depth. What was the biggest challenge and how did you handle it?';
  const q4='How have you used AI in your job, internship, or SIP? Please share a specific example of how you used AI to improve your work, solve a problem, or become more effective.';
- const q5='Tell me about a difficult problem, setback, disagreement, or unexpected challenge you actually experienced in the work or projects listed on your CV. How did you respond?';
- const q6=target?'If you joined the '+truncateAtWord(target,80)+' team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?':'If you joined this team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?';
- return[q1,q2,q3,q4,q5,q6];
+ const q5=domain==='Technology'
+  ? 'Tell me about a difficult problem, bug, architectural setback, or unexpected roadblock you actually experienced in your technical projects. How did you debug or resolve it?'
+  : 'Tell me about a difficult problem, setback, disagreement, or unexpected challenge you actually experienced in the work or projects listed on your CV. How did you respond?';
+ const q6=target ? `If you joined the ${truncateAtWord(target,70)} team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?` : 'If you joined this team tomorrow, what would you want to learn first, and how would you use the experience already shown on your CV to contribute?';
+ return [q1,q2,q3,q4,q5,q6];
+}
+
+function getSafeInterviewQuestions(cachedQuestions, cv, jd, roleName) {
+ const fresh = generateTailoredCVQuestions(cv, jd, roleName);
+ if (!Array.isArray(cachedQuestions) || cachedQuestions.length < 5) return fresh;
+ const candName = (cv || '').split('\n').map(l => l.trim()).filter(Boolean)[0] || '';
+ const domain = detectDomain(cv, jd, roleName);
+ const isCorrupted = cachedQuestions.some(q => {
+  if (typeof q !== 'string' || !q.trim()) return true;
+  if (candName && candName.length > 3 && new RegExp(`\\bat\\s+${candName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i').test(q)) return true;
+  if (/\bat\s+[^.]*\b(Backend Engineer|Software Engineer|Full Stack|Developer|Student|Candidate)\b/i.test(q)) return true;
+  if (domain === 'Technology' && (/\bdealer\b/i.test(q) || /background in Consulting/i.test(q))) return true;
+  return false;
+ });
+ return isCorrupted ? fresh : cachedQuestions;
 }
 
 function evaluateInterviewTurnLocal(question,answer,history,cvText=''){
- const cleanAns=String(answer||'').trim(); const words=cleanAns.split(/\s+/).filter(Boolean); const wordCount=words.length;
- const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(cleanAns);
+ const cleanAns=cleanRepeatedPhrases(String(answer||'')).trim(); const words=cleanAns.split(/\s+/).filter(Boolean); const wordCount=words.length;
+ const isGibberish=/(^good\s*job$|^did\s*a?\s*good\s*job$|^i\s*did\s*a?\s*good\s*job$|^i\s*did\s*well$|^okay$|^ok$|^fine$|^yes$|^no$|^hello$|^test$)/i.test(cleanAns);
  const isRepetitive=wordCount>4&&new Set(words.map(w=>w.toLowerCase())).size<wordCount*0.35;
  let turnScore=0; let note='';
  if(wordCount<=3||isGibberish||cleanAns.length<12){turnScore=0;note='0/100 — The answer is too short or generic. Give a specific example from your CV and explain what you personally did and what happened.';}
@@ -339,12 +488,12 @@ function evaluateInterviewTurnLocal(question,answer,history,cvText=''){
   modelAnswer='I have a background in software engineering with a focus on building reliable, scalable systems. The project I am most proud of is developing a real-time collaborative workspace. Situation: Our application had concurrent state conflicts when multiple users edited simultaneously. Task: My responsibility was ensuring state consistency without slowing down real-time sync. Action: I designed an operational transformation pipeline using WebSockets and Redis pub/sub to order client operations and resolve race conditions in memory. Result: We achieved sub-50ms synchronization latency across concurrent sessions with zero data loss, handling peak loads smoothly.';
  }else if(quoted||/\b(your cv mentions|mentions|project on your cv|one project or experience on your cv)\b/i.test(q)){
   const topic=quoted?`In my work on "${quoted}": `:'In my core project: ';
-  modelAnswer=topic+'Situation: Our system faced high latency and escalating storage overhead during peak test execution. Task: I took full ownership of overhauling the batch storage pipeline to keep ingestion fast and cost-effective. Action: I architected the storage tier with Cloudflare R2 object storage, configured asynchronous batch multipart uploads, and implemented automated retry policies with circuit breakers. Result: This reduced storage costs by over 30%, lowered batch processing time significantly, and eliminated ingestion timeouts in production.';
- }else if(/\b(challenge|depth|more depth|difficult problem|technical problem|handled it)\b/i.test(q)&&!/\b(setback|disagreement|unexpected|conflict)\b/i.test(q)){
+  modelAnswer=topic+'Situation: Our system faced high latency and escalating storage overhead during peak test execution. Task: I took full ownership of overhauling the batch storage pipeline to keep ingestion fast and cost-effective. Action: I architected the storage tier with Cloudflare R2 object storage, configured asynchronous batch multipart uploads, and implemented automated retry policies with circuit breakers. Result: This increased throughput across concurrent test runs, reduced ingestion latency significantly, and eliminated timeouts in production.';
+ }else if(/\b(challenge|depth|more depth|difficult problem|technical problem|handled it|operational challenge)\b/i.test(q)&&!/\b(setback|disagreement|unexpected|conflict)\b/i.test(q)){
   modelAnswer='Situation: In one of our core services, we encountered severe write contention and intermittent latency spikes during high-concurrency database updates. Task: My responsibility was to eliminate the write bottleneck without altering existing API contracts or risking data consistency. Action: I profiled query execution plans, removed unindexed table scans, and implemented an in-memory write-behind cache with optimistic concurrency control and debounced batching. Result: This reduced write contention by over 40%, brought 99th-percentile response times under 50ms, and prevented database deadlocks under high load.';
  }else if(/\b(ai|copilot|chatgpt|claude|llm|artificial intelligence)\b/i.test(q)){
   modelAnswer='I treat modern AI tools as an engineering velocity multiplier while strictly verifying every output: Situation: Writing boundary unit test suites and edge-case mocks for microservice endpoints was manual and time-consuming. Task: I wanted to accelerate test coverage for complex edge conditions without sacrificing code correctness. Action: I used GitHub Copilot and structured LLM prompts to scaffold parameterized unit tests and simulate edge-case payloads, then rigorously verified every assertion against our API specifications. Result: This cut our test scaffolding time by 40% and uncovered two critical boundary bugs during development before code reached staging.';
- }else if(/\b(setback|disagreement|unexpected|conflict|failure)\b/i.test(q)){
+ }else if(/\b(setback|disagreement|unexpected|conflict|failure|roadblock|bug)\b/i.test(q)){
   modelAnswer='Situation: Two days before a major release, our integration test suite unexpectedly failed due to environment-specific path delimiter discrepancies across operating system runtimes. Task: As the developer owning that component, I had to resolve the failure quickly without causing release delays or panic. Action: I held a brief technical sync to communicate transparently, isolated the bug to unescaped session path delimiters in our storage module, wrote regression test cases, and deployed platform-agnostic normalization within 8 hours. Result: All integration tests passed green, the release shipped on schedule, and we added cross-platform containerized testing to our CI pipeline.';
  }else if(/\b(tomorrow|joined|first 30 days|learn first|contribute)\b/i.test(q)){
   modelAnswer='If I joined the team tomorrow, I would follow a structured 30-day onboarding plan: First, in my initial two weeks, I would immerse myself in your codebase, architecture documentation, and CI/CD pipelines, while scheduling 1-on-1s with senior teammates to understand coding standards and team priorities. Second, by week three, I would take ownership of two small backlog bugs or test improvements to ship my first PR and validate my local-to-production workflow. Third, by day thirty, I would be ready to take independent ownership of a feature deliverable, using my experience in scalable systems to deliver clean, tested code and contribute actively in sprint reviews.';
@@ -353,7 +502,8 @@ function evaluateInterviewTurnLocal(question,answer,history,cvText=''){
  }
 
  const prior=Array.isArray(history)?history:[];const allTurns=[...prior,{question:q,answer:cleanAns,evaluation:{score:turnScore}}];const avgScore=Math.round(allTurns.reduce((sum,t)=>sum+(t.evaluation?.score??0),0)/allTurns.length);const improvements=[];if(turnScore<70)improvements.push('Use a real CV example and answer with Situation → Task → Action → Result.');improvements.push('Only state facts, technologies and outcomes supported by the CV or question context.');
- return{done:allTurns.length>=6,evaluation:{score:turnScore,notes:note,modelAnswer,fillers,fillerList},finalFeedback:allTurns.length>=6?{score:avgScore,strengths:turnScore>=70?['Used specific detail and personal ownership where present']:[],improvements,nextAction:'Practise again using real STAR stories from your CV.'}:null};
+ const strengths=avgScore>=70?['Clear STAR delivery with personal ownership and quantified impact']:avgScore>=50?['Attempted structured responses across key competencies']:['No strengths identified yet — speak with structured STAR depth and ownership to earn strengths.'];
+ return{done:allTurns.length>=6,evaluation:{score:turnScore,notes:note,modelAnswer,fillers,fillerList},finalFeedback:allTurns.length>=6?{score:avgScore,strengths,improvements,nextAction:avgScore>=75?'Ready for recruiter rounds! Practise with 1 more role-specific JD.':avgScore>=50?'Practise again with 45-second STAR answers using examples from your CV.':'Practise again using real STAR stories from your CV.'}:null};
 }
 
 function localReview(cv,jd,mode){
@@ -533,7 +683,7 @@ function App(){
  const[loading,setLoading]=useState(false),[result,setResult]=useState(null),[qIndex,setQIndex]=useState(0),[answers,setAnswers]=useState([]);
  const[profile,setProfile]=useState(()=>db.getProfile()),[appId,setAppId]=useState(null),[roleName,setRoleName]=useState(''),[showRoleModal,setShowRoleModal]=useState(false);
  const[masterSaved,setMasterSaved]=useState(false);
- const questions=useMemo(()=>result?.interviewQuestions?.length?result.interviewQuestions:generateTailoredCVQuestions(cv,jd,roleName),[result,cv,jd,roleName]);
+ const questions=useMemo(()=>getSafeInterviewQuestions(result?.interviewQuestions,cv,jd,roleName),[result,cv,jd,roleName]);
 
  useLayoutEffect(()=>{
   scrollToTop();
@@ -551,11 +701,11 @@ function App(){
  // New Application: ALWAYS go to resume screen with specific/JD mode when master exists
  const confirmNewApp=name=>{scrollToTop();const id=Date.now().toString();setAppId(id);setRoleName(name||'General');const masterCV=db.getMasterCV();setCv(masterCV);setJd('');setCvFile(null);setJdFile(null);const mode=masterCV?'specific':'general';setPrep(mode);saveSession('gjr_cv_mode',mode);setShowRoleModal(false);setScreen('resume')};
  // Open app → go straight to cvstudio
- const openApp=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
+ const openApp=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');const safeRes=a.result?{...a.result,interviewQuestions:getSafeInterviewQuestions(a.result.interviewQuestions,a.cv||'',a.jd||'',a.role||'')}:null;setResult(safeRes);setScreen('cvstudio')};
  // Edit CV for a specific app
- const editCV=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');setResult(a.result||null);setScreen('cvstudio')};
+ const editCV=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setPrep(a.jd?'specific':'general');const safeRes=a.result?{...a.result,interviewQuestions:getSafeInterviewQuestions(a.result.interviewQuestions,a.cv||'',a.jd||'',a.role||'')}:null;setResult(safeRes);setScreen('cvstudio')};
  // Start interview directly for a specific app (skip CV studio)
- const directInterview=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');setResult(a.result||null);setQIndex(0);setAnswers([]);setScreen('interview')};
+ const directInterview=a=>{scrollToTop();setAppId(a.id);setRoleName(a.role||'');setCv(a.cv||'');setJd(a.jd||'');const safeRes=a.result?{...a.result,interviewQuestions:getSafeInterviewQuestions(a.result.interviewQuestions,a.cv||'',a.jd||'',a.role||'')}:null;setResult(safeRes);setQIndex(0);setAnswers([]);setScreen('interview')};
  const openMasterCV=()=>{scrollToTop();const masterCV=db.getMasterCV();setAppId('master');setCv(masterCV);setJd('');setPrep('general');setResult(null);setMasterSaved(false);setScreen('resume')};
  const choosePrep=m=>{scrollToTop();setPrep(m);saveSession('gjr_cv_mode',m);setScreen('resume')};
  const changeCareer=v=>{setCareer(v);saveSession('gjr_career',v)};
@@ -1434,25 +1584,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
     setStatus('listening');setPermission(true);
    };
    r.onresult=e=>{
-    let interim='';let final='';
-    for(let i=0;i<e.results.length;i++){
-     const res=e.results[i];
-     let best=res[0]?.transcript||'';
-     if(res.length>1){
-      for(let a=1;a<res.length;a++){
-       const cand=(res[a]?.transcript||'').trim();
-       if(/^(i\s+did\s+a?\s+good\s+job|i\s+did\s+well|good\s+job|i\s+worked|i\s+built|my\s+role|in\s+my\s+experience)/i.test(cand)){
-        best=cand;break;
-       }
-      }
-     }
-     if(res.isFinal){
-      final+=best+' ';
-     }else{
-      interim+=best+' ';
-     }
-    }
-    let currentTotal=(final+interim).trim();
+    let currentTotal=combineSpeechResults(e.results);
     if(currentTotal){
      currentTotal=currentTotal
       .replace(/\bmy data good job\b/gi,'I did a good job')
@@ -1464,6 +1596,7 @@ function VoiceInterview({cv,jd,mode,career,roleName,question,turn,maxTurns,histo
       .replace(/\btechnolo\b/gi,'technology')
       .replace(/\s+/g,' ')
       .trim();
+     currentTotal=cleanRepeatedPhrases(currentTotal);
      latestTranscript.current=currentTotal;
      setTranscript(currentTotal);
      resetSilenceTimer();
@@ -1662,33 +1795,37 @@ function Feedback({data,answers,onSyncSpokenWins,onHome,onPractiseAgain,onImprov
   });
  };
 
- const copyReport=()=>{
-  const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nTRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${a.evaluation?.score||'N/A'}/100\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer: ${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
-  navigator.clipboard?.writeText(text);
-  setCopied(true);setTimeout(()=>setCopied(false),2000);
- };
- const downloadReport=()=>{
-  const text=`GETJOBREADY CAMPUS PLACEMENT READINESS REPORT\nScore: ${d.score}/100\nNext Action: ${d.nextAction}\n\nStrengths:\n${(d.strengths||[]).map(s=>'- '+s).join('\n')}\n\nImprovements:\n${(d.improvements||[]).map(i=>'- '+i).join('\n')}\n\nDETAILED TRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${a.evaluation?.score||'N/A'}/100\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer (STAR format):\n${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
-  const blob=new Blob([text],{type:'text/plain'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download='GetJobReady_Interview_Report.txt';a.click();
-  URL.revokeObjectURL(url);
- };
- const goodAnswers=(answers||[]).filter(a=>a.answer&&a.answer.split(/\s+/).filter(Boolean).length>15);
- const handleSync=()=>{
-  if(!goodAnswers.length){alert('Your answers were too brief to sync. Practise again with full STAR answers first.');return;}
-  const spokenBullets=goodAnswers.map((a,i)=>{
-   const clean=a.answer.replace(/[\r\n]+/g,' ').trim();
-   return `• [Interview STAR] ${clean.charAt(0).toUpperCase()+clean.slice(1)}${clean.endsWith('.')?'':'.'}`;
-  });
-  if(onSyncSpokenWins){onSyncSpokenWins(spokenBullets.join('\n'));setSynced(true);}
- };
- const sc=(d.score!==undefined&&d.score!==null&&d.score>0)?d.score:(answers&&answers.length)?Math.round(answers.reduce((acc,a)=>acc+(a.evaluation?.score||0),0)/answers.length):0;
- const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
- const scoreLabel=sc>=75?'Interview-ready 🚀':sc>=50?'Keep improving 💪':'Needs more practice 🔥';
- return <div className="feedback"><div className="score-card" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'20px'}}><div><span className="eyebrow" style={{color:'#c4b5fd'}}>CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p style={{color:'#cbd5e1',margin:'4px 0 0'}}>Overall Score: <b style={{color:'#ffffff',fontSize:'18px'}}>{sc}/100</b> · Full interview transcript, coaching, and model STAR answers below.</p></div><div className="score-ring" style={{width:'96px',height:'96px',borderRadius:'50%',background:'rgba(255,255,255,0.15)',border:'3px solid #ffffff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}><strong style={{fontSize:'34px',fontWeight:800,color:'#ffffff',lineHeight:1}}>{sc}</strong><small style={{fontSize:'11px',fontWeight:700,color:'#e2e8f0',marginTop:'3px'}}>/ 100</small></div></div>
- <div className="insights"><div><h3>Strengths</h3>{(d.strengths||[]).map(x=><p key={x} style={{color:x.startsWith('None')?'#dc2626':'#16a34a',fontWeight:x.startsWith('None')?700:500}}>{x.startsWith('None')?'✕ ':'✓ '}{x}</p>)}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
+  const formatScore = (s) => (s !== undefined && s !== null) ? `${s}/100` : 'N/A/100';
+  const formatStrengths = (list) => (list && list.length && !list.every(s => s.startsWith('None') || s.startsWith('No strengths'))) ? list.map(s => '- ' + s).join('\n') : '- None identified yet — speak with structured STAR depth and ownership to earn strengths.';
+  const formatImprovements = (list) => (list && list.length) ? list.map(i => '- ' + i).join('\n') : '- Use a real CV example and answer with Situation → Task → Action → Result.';
+
+  const copyReport=()=>{
+   const text=`GETJOBREADY INTERVIEW REPORT\nOverall Score: ${formatScore(d.score)}\nNext Action: ${d.nextAction||'Practise again using real STAR stories from your CV.'}\n\nStrengths:\n${formatStrengths(d.strengths)}\n\nImprovements:\n${formatImprovements(d.improvements)}\n\nTRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${formatScore(a.evaluation?.score)}\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer: ${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
+   navigator.clipboard?.writeText(text);
+   setCopied(true);setTimeout(()=>setCopied(false),2000);
+  };
+  const downloadReport=()=>{
+   const text=`GETJOBREADY CAMPUS PLACEMENT READINESS REPORT\nScore: ${formatScore(d.score)}\nNext Action: ${d.nextAction||'Practise again using real STAR stories from your CV.'}\n\nStrengths:\n${formatStrengths(d.strengths)}\n\nImprovements:\n${formatImprovements(d.improvements)}\n\nDETAILED TRANSCRIPT & MODEL ANSWERS:\n${(answers||[]).map((a,i)=>`Q${i+1}: ${a.question}\nScore: ${formatScore(a.evaluation?.score)}\nYour Answer: "${a.answer}"\nCoach Feedback: ${a.evaluation?.notes||'N/A'}\nModel Answer (STAR format):\n${a.evaluation?.modelAnswer||'N/A'}`).join('\n\n')}`;
+   const blob=new Blob([text],{type:'text/plain'});
+   const url=URL.createObjectURL(blob);
+   const a=document.createElement('a');
+   a.href=url;a.download='GetJobReady_Interview_Report.txt';a.click();
+   URL.revokeObjectURL(url);
+  };
+  const goodAnswers=(answers||[]).filter(a=>a.answer&&a.answer.split(/\s+/).filter(Boolean).length>15);
+  const handleSync=()=>{
+   if(!goodAnswers.length){alert('Your answers were too brief to sync. Practise again with full STAR answers first.');return;}
+   const spokenBullets=goodAnswers.map((a,i)=>{
+    const clean=a.answer.replace(/[\r\n]+/g,' ').trim();
+    return `• [Interview STAR] ${clean.charAt(0).toUpperCase()+clean.slice(1)}${clean.endsWith('.')?'':'.'}`;
+   });
+   if(onSyncSpokenWins){onSyncSpokenWins(spokenBullets.join('\n'));setSynced(true);}
+  };
+  const sc=(d.score!==undefined&&d.score!==null)?d.score:(answers&&answers.length)?Math.round(answers.reduce((acc,a)=>acc+(a.evaluation?.score||0),0)/answers.length):0;
+  const scoreColor=sc>=75?'#22c55e':sc>=50?'#f59e0b':'#ef4444';
+  const scoreLabel=sc>=75?'Interview-ready 🚀':sc>=50?'Keep improving 💪':'Needs more practice 🔥';
+  return <div className="feedback"><div className="score-card" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'20px'}}><div><span className="eyebrow" style={{color:'#c4b5fd'}}>CAMPUS PLACEMENT SCORECARD</span><h2>{scoreLabel}</h2><p style={{color:'#cbd5e1',margin:'4px 0 0'}}>Overall Score: <b style={{color:'#ffffff',fontSize:'18px'}}>{sc}/100</b> · Full interview transcript, coaching, and model STAR answers below.</p></div><div className="score-ring" style={{width:'96px',height:'96px',borderRadius:'50%',background:'rgba(255,255,255,0.15)',border:'3px solid #ffffff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}><strong style={{fontSize:'34px',fontWeight:800,color:'#ffffff',lineHeight:1}}>{sc}</strong><small style={{fontSize:'11px',fontWeight:700,color:'#e2e8f0',marginTop:'3px'}}>/ 100</small></div></div>
+  <div className="insights"><div><h3>Strengths</h3>{(d.strengths&&d.strengths.length)?d.strengths.map(x=><p key={x} style={{color:(x.startsWith('None')||x.startsWith('No strengths'))?'#dc2626':'#16a34a',fontWeight:(x.startsWith('None')||x.startsWith('No strengths'))?700:500}}>{(x.startsWith('None')||x.startsWith('No strengths'))?'✕ ':'✓ '}{x}</p>):<p style={{color:'#64748b',fontStyle:'italic'}}>No strengths identified yet — speak with structured STAR depth to earn points.</p>}</div><div><h3>What to improve</h3>{(d.improvements||[]).map(x=><p key={x}>• {x}</p>)}</div></div>
 
  <div className="transcript-review"><div className="label-bar"><div className="label"><MessageSquareText size={17}/> Interview transcript, audio &amp; model answers</div><div className="report-actions">{goodAnswers.length>0&&<button className={`sync-wins-btn ${synced?'synced':''}`} type="button" onClick={handleSync}>{synced?<><Check size={14}/> STAR Wins Synced to Master CV</>:<><Sparkles size={14}/> Sync Spoken STAR Wins to CV</>}</button>}<button className="ghost-sm" type="button" onClick={copyReport}>{copied?<><Check size={14}/> Copied!</>:<><FileText size={14}/> Copy report</>}</button><button className="ghost-sm" type="button" onClick={downloadReport}><Upload size={14} style={{transform:'rotate(180deg)'}}/> Download TXT</button></div></div>
   {(answers||[]).length===0&&<div className="empty-state" style={{padding:'30px 20px',textAlign:'center',background:'#f8f9fc',borderRadius:'14px',margin:'15px 0'}}><p style={{color:'#64748b',fontSize:'14px'}}>Detailed turn transcript was not recorded for this earlier session. Start a new voice interview to record real-time audio and STAR evaluation!</p></div>}
