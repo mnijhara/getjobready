@@ -1412,6 +1412,7 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
   return new Set(s.filter(x=>x.checked).map(x=>x.id));
  });
  const[applied,setApplied]=useState(false);
+ const[appliedList,setAppliedList]=useState([]);
  const[builtCV,setBuiltCV]=useState(null);
  const[showEdit,setShowEdit]=useState(false);
  const[editText,setEditText]=useState(()=>cleanExtractedCVText(sourceCV));
@@ -1452,6 +1453,7 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
 
  const applySelected=()=>{
   const selectedSuggs=suggestions.filter(s=>checked.has(s.id));
+  setAppliedList(selectedSuggs);
   const updated=buildCV(parsed,selectedSuggs);
   setParsed(updated);
   setBuiltCV(updated);
@@ -1462,7 +1464,7 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
   onSave(plainText);
   saveSession('gjr_cv_text',plainText);
   setTimeout(()=>{
-   scrollToElement('.preview-panel',{offset:80,behavior:'smooth'});
+   scrollToElement('#appliedResultsSection',{offset:80,behavior:'smooth'});
   },50);
  };
 
@@ -1485,11 +1487,42 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
   const reParsed=parseCV(editText);
   setParsed(reParsed);setSuggestions(generateSuggestions(reParsed,jd||''));
   setChecked(new Set(generateSuggestions(reParsed,jd||'').filter(x=>x.checked).map(x=>x.id)));
-  setBuiltCV(null);setApplied(false);setShowEdit(false);
+  setBuiltCV(null);setApplied(false);setAppliedList([]);setShowEdit(false);
   setTimeout(()=>{
    scrollToElement('.score-card',{offset:80,behavior:'smooth'});
   },50);
  };
+
+ const renderContinueCard=(isTop=false)=>(
+  <div className={`continue-card ${isTop?'continue-card-top':''}`} style={{flexDirection:'column',alignItems:'stretch',gap:'14px',...(isTop?{background:'#f8fafc',border:'1.5px solid #cbd5e1',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}:{})}}>
+   {isMasterCV ? (
+    <>
+     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+      <div>
+       <b style={{fontSize:'15px'}}>✅ Master CV saved & ready!</b>
+       <span style={{display:'block',fontSize:'12px',color:'#64748b',marginTop:'2px'}}>What would you like to do next? Have a direct voice interview, practice for a specific company/role, or save to applications.</span>
+      </div>
+     </div>
+     <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
+      <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>
+       <Mic size={16}/> Direct Audio Interview (General CV)
+      </button>
+      <button className="secondary" style={{background:'#f3e8ff',color:'#6b21a8'}} onClick={()=>{onSave(editText);setShowTargetModal(true)}}>
+       💼 Practise for Target Company / Role
+      </button>
+      <button className="ghost-sm" onClick={()=>{onSave(editText);onGoHome&&onGoHome()}}>
+       📁 Save & Go to Workspace
+      </button>
+     </div>
+    </>
+   ) : (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px'}}>
+     <div><b>Next step: live interview</b><span>Your improved CV is loaded and ready for your AI interview.</span></div>
+     <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>Save & start interview <ArrowRight size={18}/></button>
+    </div>
+   )}
+  </div>
+ );
 
  const previewHTML=renderExecutivePDF(builtCV||parsed);
 
@@ -1569,7 +1602,33 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
    </div>
 
    {/* RIGHT: Live CV Preview */}
-   <div className="preview-panel">
+   <div className="preview-panel" id="appliedResultsSection">
+    {applied && appliedList.length > 0 && (
+     <div className="applied-summary-card">
+      <div className="applied-summary-header">
+       <b><Sparkles size={16} color="#16a34a"/> {appliedList.length} Improvement{appliedList.length!==1?'s':''} Successfully Added to Your CV</b>
+       <span className="applied-pill">✓ Saved &amp; Integrated</span>
+      </div>
+      <div className="applied-points-list">
+       {appliedList.map(s => (
+        <div key={s.id} className="applied-point-item">
+         <span className="applied-point-icon">{s.icon || '✓'}</span>
+         <div className="applied-point-body">
+          <div className="applied-point-top">
+           <span className="applied-point-section">{s.section}</span>
+           <b className="applied-point-label">{s.label}</b>
+          </div>
+          <p className="applied-point-preview">"{s.preview}"</p>
+         </div>
+         <span className="applied-item-badge">Added</span>
+        </div>
+       ))}
+      </div>
+     </div>
+    )}
+
+    {applied && renderContinueCard(true)}
+
     <div className="preview-header">
      <b>👑 World-Class Executive CV Preview</b>
      <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
@@ -1580,38 +1639,11 @@ function CVStudio({result,initial,mode,jd,isMasterCV,onSave,onContinue,onGoHome,
       <button className="ghost-sm" onClick={downloadWord}>⬇ Word</button>
      </div>
     </div>
-    {applied&&<div className="applied-badge"><CheckCircle2 size={14}/> {checked.size} improvement{checked.size!==1?'s':''} applied</div>}
+    {applied&&<div className="applied-badge"><CheckCircle2 size={14}/> {checked.size} improvement{checked.size!==1?'s':''} applied in preview below</div>}
     <div className="cv-preview-frame">
-     <iframe key={previewKey} srcDoc={previewHTML} title="CV Preview" sandbox="allow-same-origin" style={{width:'100%',height:'780px',border:'none',borderRadius:'0 0 10px 10px'}}/>
+     <iframe key={previewKey} srcDoc={previewHTML} title="CV Preview" sandbox="allow-same-origin" style={{border:'none',borderRadius:'0 0 10px 10px'}}/>
     </div>
-    <div className="continue-card" style={{flexDirection:'column',alignItems:'stretch',gap:'14px'}}>
-     {isMasterCV ? (
-      <>
-       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
-        <div>
-         <b style={{fontSize:'15px'}}>✅ Master CV saved & ready!</b>
-         <span style={{display:'block',fontSize:'12px',color:'#64748b',marginTop:'2px'}}>What would you like to do next? Have a direct voice interview, practice for a specific company/role, or save to applications.</span>
-        </div>
-       </div>
-       <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
-        <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>
-         <Mic size={16}/> Direct Audio Interview (General CV)
-        </button>
-        <button className="secondary" style={{background:'#f3e8ff',color:'#6b21a8'}} onClick={()=>{onSave(editText);setShowTargetModal(true)}}>
-         💼 Practise for Target Company / Role
-        </button>
-        <button className="ghost-sm" onClick={()=>{onSave(editText);onGoHome&&onGoHome()}}>
-         📁 Save & Go to Workspace
-        </button>
-       </div>
-      </>
-     ) : (
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px'}}>
-       <div><b>Next: live interview</b><span>Your improved CV will be used by the AI interviewer for this role.</span></div>
-       <button className="primary" onClick={()=>{onSave(editText);onContinue(editText)}}>Save & start interview <ArrowRight size={18}/></button>
-      </div>
-     )}
-    </div>
+    {renderContinueCard(false)}
    </div>
   </div>
 

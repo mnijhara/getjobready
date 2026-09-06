@@ -118,24 +118,39 @@ B.Tech Computer Science · IIT Bangalore · 2022`;
     }
     console.log('✓ Page auto-scrolled down successfully!');
 
-    const previewPanelInView = await page.evaluate(() => {
-      const el = document.querySelector('.preview-panel');
-      if (!el) return false;
-      const rect = el.getBoundingClientRect();
-      return rect.top < window.innerHeight && rect.bottom > 0;
-    });
-    console.log('Preview panel in viewport:', previewPanelInView);
-    if (!previewPanelInView) {
-      throw new Error('Preview panel is not in viewport after clicking Apply!');
+    // 1. Verify Applied Summary Card is visible and lists the applied points
+    const summaryCardVisible = await page.locator('.applied-summary-card').isVisible();
+    console.log('Applied summary card visible:', summaryCardVisible);
+    if (!summaryCardVisible) {
+      throw new Error('Applied summary card is not visible after clicking Apply!');
     }
-    console.log('✓ Preview panel is clearly visible in viewport!');
 
-    const badgeVisible = await page.locator('.applied-badge').isVisible();
-    console.log('Applied badge visible:', badgeVisible);
-    if (!badgeVisible) {
-      throw new Error('Applied badge not visible!');
+    const appliedItemsCount = await page.locator('.applied-point-item').count();
+    console.log('Applied points items count:', appliedItemsCount);
+    if (appliedItemsCount === 0) {
+      throw new Error('Expected applied points to be listed in summary card!');
     }
-    console.log('✓ Applied badge is visible!');
+    console.log(`✓ Applied points summary card is visible with ${appliedItemsCount} points!`);
+
+    // 2. Verify Next Step CTA card is visible directly with the applied points
+    const continueCardTopVisible = await page.locator('.continue-card-top').isVisible();
+    console.log('Top Next Step continue-card visible:', continueCardTopVisible);
+    if (!continueCardTopVisible) {
+      throw new Error('Top Next Step continue card is not visible!');
+    }
+    console.log('✓ Next Step action card is visible directly alongside applied points!');
+
+    // 3. Verify Revised CV iframe is loaded
+    const iframeVisible = await page.locator('.cv-preview-frame iframe').isVisible();
+    console.log('Revised CV preview iframe visible:', iframeVisible);
+    if (!iframeVisible) {
+      throw new Error('Revised CV preview iframe is not visible!');
+    }
+    console.log('✓ Revised CV preview iframe is visible!');
+
+    // Screenshot for mobile artifact/proof
+    await page.screenshot({ path: '/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/mobile_cvstudio_applied_points.png' });
+    console.log('Mobile screenshot saved to mobile_cvstudio_applied_points.png');
 
     console.log('7. Testing ↑ Suggestions jump button...');
     const suggBtn = page.locator('button:has-text("↑ Suggestions")');
@@ -176,12 +191,61 @@ B.Tech Computer Science · IIT Bangalore · 2022`;
     }
     console.log('✓ Raw CV text synchronized with applied suggestions!');
 
-    // Screenshot for artifact/proof
-    await page.screenshot({ path: '/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/mobile_cvstudio_scrolled.png' });
-    console.log('Screenshot saved to mobile_cvstudio_scrolled.png');
+    // Now test laptop viewport!
+    console.log('\n9. Testing Laptop Viewport (1280x800)...');
+    const laptopContext = await browser.newContext({
+      viewport: { width: 1280, height: 800 }
+    });
+    const laptopPage = await laptopContext.newPage();
+    await laptopPage.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'networkidle' });
 
+    const laptopDash = await laptopPage.locator('.dashboard').isVisible().catch(() => false);
+    if (!laptopDash) {
+      await laptopPage.click('button:has-text("Enter Workspace")');
+      await laptopPage.fill('input[type="email"]', 'laptop-user@test.edu');
+      await laptopPage.click('button:has-text("Continue")');
+    }
+    await laptopPage.waitForSelector('.dashboard');
+
+    await laptopPage.locator('.master-cv-card, .pipe-step:has-text("Master CV")').first().click();
+    await laptopPage.waitForSelector('#cvText');
+    await laptopPage.fill('#cvText', sampleCV);
+    await laptopPage.evaluate((val) => {
+      const el = document.getElementById('cvText');
+      if (el) {
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, sampleCV);
+    await laptopPage.waitForTimeout(200);
+
+    await laptopPage.click('button:has-text("Review & improve my CV")');
+    await laptopPage.waitForSelector('.studio');
+    await laptopPage.waitForTimeout(300);
+
+    await laptopPage.locator('button.primary.wide:has-text("Apply")').click();
+    await laptopPage.waitForTimeout(800);
+
+    const laptopSummaryVisible = await laptopPage.locator('.applied-summary-card').isVisible();
+    const laptopContinueTopVisible = await laptopPage.locator('.continue-card-top').isVisible();
+    const laptopIframeVisible = await laptopPage.locator('.cv-preview-frame iframe').isVisible();
+
+    console.log('Laptop summary card visible:', laptopSummaryVisible);
+    console.log('Laptop next step card visible:', laptopContinueTopVisible);
+    console.log('Laptop iframe visible:', laptopIframeVisible);
+
+    if (!laptopSummaryVisible || !laptopContinueTopVisible || !laptopIframeVisible) {
+      throw new Error('Laptop view failed to show applied points summary, next step CTA, or revised CV!');
+    }
+    console.log('✓ Laptop view verified: points added, next step, and revised CV are all visible!');
+
+    await laptopPage.screenshot({ path: '/Users/miteshnijhara/.gemini/antigravity/brain/f4d493be-bd40-4f55-90e0-bdfa6e7a8246/laptop_cvstudio_applied_points.png' });
+    console.log('Laptop screenshot saved to laptop_cvstudio_applied_points.png');
+
+    await laptopContext.close();
     await browser.close();
-    console.log('\nALL MOBILE AUTO-SCROLL TESTS PASSED! 🎉');
+    console.log('\nALL MOBILE AND LAPTOP AUTO-SCROLL & APPLIED POINTS TESTS PASSED! 🎉');
   } finally {
     server.kill();
   }
